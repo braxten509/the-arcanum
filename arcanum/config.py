@@ -115,6 +115,14 @@ OPENROUTER_IDS = [
     "openrouter/thinkingmachines/inkling",
 ]
 
+
+def tome_opencode_model(model):
+    """Whether an OpenCode model belongs to a Tome-supported hosted gateway."""
+    value = str(model or "").strip()
+    return (value in OPENROUTER_IDS
+            or value.startswith("opencode-go/") and len(value) > len("opencode-go/"))
+
+
 # Settings that follow the READER, not the tome — audio, pen (handwritten ink), and the
 # ai grader/oracle config are the same across every tome; the palette (theme) and all
 # progress stay per-tome. Stored beside the runtimes in global-configs/, split out of

@@ -20,8 +20,10 @@ from arcanum.forge.tool_trace import (_claude_session_from_processes,
                                 antigravity_tool_events, claude_tool_events,
                                 codex_tool_events, format_tool_event,
                                 opencode_tool_events, OpenCodeFollower,
-                                SessionFollower, trace_model, trace_session_id, trace_usage,
-                                TraceSource)
+                                SessionFollower, saved_session_source, trace_model,
+                                trace_session_id, trace_usage, TraceSource)
+import arcanum.forge.trace_sources.discovery as _discovery
+import arcanum.platform.agent_scratch as _agent_scratch
 
 
 assert _trace_path_matches_session(
@@ -178,5 +180,32 @@ with tempfile.TemporaryDirectory() as tmp:
     # This trace is a binary database. Reading it as text killed the mirror thread, which
     # left the tool-history pane empty for the whole build with nothing to say why.
     assert trace_usage(found[1]) == {}
+
+# A sandboxed Claude author holds no fd on its JSONL; the saved-session fallback must still
+# find it under the unit's private provider-state overlay (a dotdir os.walk descends, glob skips).
+with tempfile.TemporaryDirectory() as tmp:
+    build_dir = os.path.join(tmp, "build")
+    os.makedirs(build_dir)
+    with open(os.path.join(build_dir, "u7.session.json"), "w", encoding="utf-8") as handle:
+        json.dump({"kind": "claude-cli", "phase": 3, "section": "s01",
+                   "sessionId": "sid-xyz"}, handle)
+    sess_dir = os.path.join(tmp, "scratch", "u7", "author", "phase-3", "section-s01",
+                            "provider-state", "claude", ".claude", "projects", "-repo")
+    os.makedirs(sess_dir)
+    sess_file = os.path.join(sess_dir, "sid-xyz.jsonl")
+    with open(sess_file, "w", encoding="utf-8") as handle:
+        handle.write(json.dumps({"type": "assistant", "timestamp": "2026-07-23T00:00:00Z",
+                                 "message": {"content": [{"type": "tool_use", "name": "Bash",
+                                                          "input": {"command": "ls"}}]}}) + "\n")
+    old_bd, old_root = _discovery.BUILD_DIR, _agent_scratch.ROOT
+    _discovery.BUILD_DIR, _agent_scratch.ROOT = build_dir, os.path.join(tmp, "scratch")
+    try:
+        found = saved_session_source("u7")
+        assert found == TraceSource("claude", sess_file, "sid-xyz"), found
+        assert saved_session_source("missing") is None
+    finally:
+        _discovery.BUILD_DIR, _agent_scratch.ROOT = old_bd, old_root
+    assert [event["detail"] for event in SessionFollower(found).poll()] == ["ls"]
+
 
 print("forge tool trace: OK")

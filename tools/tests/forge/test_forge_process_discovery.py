@@ -10,6 +10,7 @@ import os
 import sys
 import tempfile
 from types import SimpleNamespace
+from unittest.mock import patch
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -64,6 +65,25 @@ assert not _resume_session_id(
      "phase": 3, "section": "s05", "sessionId": "orphan"},
     {"kind": "opencode-cli", "model": "openrouter/deepseek"}, 3, "s05",
     build_id="missing-build")
+with patch("arcanum.platform.agent_scratch.provider_session_exists",
+           return_value=True):
+    cross_route = {
+        "role": "author", "kind": "opencode-cli",
+        "model": "openrouter/deepseek/deepseek-v4-pro",
+        "actualModel": "openrouter/deepseek/deepseek-v4-pro",
+        "effort": "medium", "phase": 3, "section": "s05",
+        "sessionId": "same-model-session",
+    }
+    assert _resume_session_id(
+        cross_route,
+        {"kind": "opencode-cli", "model": "opencode-go/deepseek-v4-pro",
+         "effort": "max"},
+        3, "s05", build_id="build") == "same-model-session"
+    assert not _resume_session_id(
+        cross_route,
+        {"kind": "opencode-cli", "model": "opencode-go/glm-5.2",
+         "effort": "medium"},
+        3, "s05", build_id="build")
 assert _section_cost_limit({}) == 2.0
 assert _section_cost_limit({}, 4.0) == 4.0
 assert _section_cost_limit({"sectionCostLimitUsd": "3.5"}) == 3.5
@@ -138,7 +158,10 @@ with tempfile.TemporaryDirectory() as temp:
                                 "model": "ollama/llama3.2:3b"}})
             raise AssertionError("OpenCode must be rejected for tome authoring")
         except ValueError as exc:
-            assert "approved OpenRouter model" in str(exc)
+            assert "OpenCode Go or an approved OpenRouter model" in str(exc)
+        go_author = _author({"author": {"kind": "opencode-cli",
+                                        "model": "opencode-go/deepseek-v4-pro"}})
+        assert go_author["model"] == "opencode-go/deepseek-v4-pro"
         routed = _authors({"authors": {
             "phase12": {"kind": "codex-cli", "model": "arc"},
             "phase37": {"kind": "claude-cli", "model": "build", "effort": "high"},

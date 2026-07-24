@@ -1,138 +1,27 @@
 /* Tome shelf plus the persistent author's interactive workbench. */
-import { $, closeModal, dropOverlay, esc, modal, sfx } from "../core/dom.js";
-import { enhanceSelect } from "../ui/menu.js";
-import { forgeEntry, matchProvider } from "./forge.js";
+import { $, dropOverlay, esc, sfx } from "../core/dom.js";
+import { enhanceSelect, shedPixels } from "../ui/menu.js";
+import { matchProvider } from "./forge.js";
 import { fallbackForgeRunningCost, forgeHarnessValidationState, formatForgeRunningCost,
   formatForgeWeeklyUsage, mergeForgeConversationCosts, mergeForgeTraceLines } from "./trace-lines.js";
-import { fallbackCourseControl, formatCourseBlockers } from "./course-control.js";
-import { activeTome, tomeList } from "../core/bootstrap.js";
+import { fallbackCourseControl } from "./course-control.js";
 import { apiFetch } from "../core/api-client.js";
 import { FORGE_PHASES } from "./phases.js";
+import {
+  fetchActiveBuilds,
+  showTomePicker as renderTomePicker,
+} from "./bindery/shelf.js";
+import {
+  messageStamp, paintCourseControl, phaseLine,
+} from "./bindery/presentation.js";
+
+export { fetchActiveBuilds };
 
 let forgeOverlay = null;
 let forgePoll = 0;
 
-export async function fetchActiveBuilds({ failClosed = false } = {}) {
-  try {
-    const builds = (await (await apiFetch("/api/buildtome/active")).json()).jobs || [];
-    return await Promise.all(builds.map(async (build) => {
-      try {
-        const status = await (await apiFetch(`/api/buildtome/status?id=${encodeURIComponent(build.id)}`)).json();
-        return { ...build, ...status, id: build.id };
-      } catch { return build; }
-    }));
-  }
-  catch (error) {
-    if (failClosed) throw error;
-    return [];
-  }
-}
-
 export function showTomePicker() {
-  const list = tomeList(), active = activeTome();
-  const rows = list.filter((tome) => !tome.draft).map((tome) => `
-    <button class="tome-row${tome.id === active ? " active" : ""}" data-tome="${esc(tome.id)}"${tome.id === active ? " disabled" : ""}>
-      <div class="jr-top"><span class="jr-name">${esc(tome.name || tome.id)}</span><span class="jr-tag num">${esc(tome.runtime || "")}${tome.sectionCount != null ? ` · ${tome.sectionCount} chapters` : ""}</span></div>
-      <div class="jr-desc dim">${esc(tome.description || "")}</div><div class="jr-foot faint">${esc(tome.author || "")}</div>
-    </button>`).join("");
-  modal(`<h2>THE SHELF OF TOMES</h2><p class="dim shelf-intro">Choose a tome, or open a live author session.</p>
-    <div class="tome-list"><button class="tome-row forge checking" id="tome-forge" disabled aria-busy="true">
-      <div class="jr-top"><span class="jr-name">＋ FORGE A NEW TOME</span><span class="jr-tag num" id="tome-forge-state">checking bindery</span></div>
-      <div class="jr-desc dim" id="tome-forge-note">Checking whether another tome is currently being forged.</div>
-    </button><div id="forge-active" style="display:contents"></div>${rows || '<p class="dim">The shelf is bare.</p>'}</div>`,
-    [["LEAVE THE SHELF", "quiet", null]]);
-  const forgeButton = $("#tome-forge"), forgeState = $("#tome-forge-state"),
-        forgeNote = $("#tome-forge-note"), activeSlot = $("#forge-active");
-  forgeButton.onclick = () => { if (!forgeButton.disabled) closeModal(forgeEntry); };
-  document.querySelectorAll("#modal-root .tome-row[data-tome]").forEach((button) => {
-    button.onclick = () => { localStorage.setItem("activeTome", button.dataset.tome); location.reload(); };
-  });
-  const refreshActiveBuilds = async () => {
-    if (!forgeButton.isConnected) return;
-    try {
-      const builds = await fetchActiveBuilds({ failClosed: true });
-      if (!forgeButton.isConnected) return;
-      const busy = builds.length > 0;
-      forgeButton.disabled = busy;
-      forgeButton.classList.toggle("busy", busy);
-      forgeButton.classList.remove("checking");
-      forgeButton.setAttribute("aria-busy", "false");
-      forgeState.textContent = busy ? "author busy" : "single author";
-      forgeNote.textContent = busy
-        ? "Finish or abandon the current working before forging another tome."
-        : "Route the key phase ranges to chosen AIs, watch their tools, and guide the working.";
-      activeSlot.innerHTML = builds.map((build) => `<button class="tome-row forging" data-job="${esc(build.id)}" data-trace="${esc(build.traceId || build.id)}" data-state="${esc(build.interactionState || "running")}">
-      <div class="jr-top"><span class="jr-name">${esc(build.name || "Untitled")}</span><span class="jr-tag num">${esc(build.interactionState || "authoring")}</span></div>
-      <div class="jr-desc">Phase ${build.phase || 1} / 8 — ${esc(build.phaseTitle || "starting")}</div></button>`).join("");
-      activeSlot.querySelectorAll("[data-job]").forEach((button) => {
-      button.onclick = () => closeModal(() => openBuildOverlay(button.dataset.job, button.dataset.trace));
-      });
-    } catch {
-      if (!forgeButton.isConnected) return;
-      forgeButton.disabled = true;
-      forgeButton.classList.add("checking");
-      forgeButton.setAttribute("aria-busy", "true");
-      forgeState.textContent = "status unavailable";
-      forgeNote.textContent = "The bindery must confirm no tome is active before starting another.";
-    }
-    if (forgeButton.isConnected) setTimeout(refreshActiveBuilds, 3000);
-  };
-  refreshActiveBuilds();
-}
-
-function phaseLine(status, interactionState) {
-  let line = `Phase ${status.phase || 1} / 8 — ${status.phaseTitle || "starting"}`;
-  const section = status.sectionProgress;
-  if (Number(status.phase) === 3 && section?.section)
-    line += ` — ${section.section} · ${section.index}/${section.total} · ${section.state}`;
-  const active = ["running", "starting", "resuming"].includes(interactionState);
-  if (active && status.phaseState) line += ` — ${status.phaseState}`;
-  else if (interactionState) line += ` — ${interactionState}`;
-  if (active && status.activityStartedAt) {
-    const seconds = Math.max(0, Math.floor(Date.now() / 1000 - status.activityStartedAt));
-    line += ` — ${Math.floor(seconds / 60)}m ${String(seconds % 60).padStart(2, "0")}s`;
-  }
-  return line;
-}
-
-function paintCourseControl(overlay, control, sessionUsage) {
-  const panel = $("#fp-course-control", overlay);
-  if (!control?.spine?.length) { panel.classList.add("hidden"); return; }
-  panel.classList.remove("hidden");
-  const compactTokens = (value) => Number(value || 0) >= 1000000
-    ? `${(Number(value) / 1000000).toFixed(1)}M`
-    : Number(value || 0) >= 1000 ? `${(Number(value) / 1000).toFixed(1)}K` : String(Number(value || 0));
-  const usage = sessionUsage || {};
-  const hasSessionUsage = ["inputTokens", "freshInputTokens", "cachedInputTokens",
-    "cacheWriteTokens", "outputTokens"].some((key) => Number(usage[key] || 0) > 0);
-  const usageText = hasSessionUsage
-    ? ` · ${compactTokens(usage.freshInputTokens)} FRESH · ${compactTokens(usage.cachedInputTokens)} CACHED · ${compactTokens(usage.cacheWriteTokens)} WRITE · ${compactTokens(usage.outputTokens)} OUT`
-    : "";
-  const summary = control.fallback
-    ? `SECTION MAP · ${control.currentIndex || 1}/${control.spine.length} · STATUS FALLBACK`
-    : `${control.openObligations || 0} OBLIGATIONS OPEN · ${control.dueObligations || 0} DUE NOW`;
-  $("#fp-course-summary", panel).textContent = summary + usageText;
-  $("#fp-course-spine", panel).innerHTML = control.spine.map((row) =>
-    `<div class="forge-course-row${row.id === control.currentSection ? " current" : ""}" data-status="${esc(row.status)}"
-      aria-label="${esc(row.id)} ${esc(row.statusLabel)}: ${esc(row.title)}">
-      <span class="forge-course-mark" aria-hidden="true">${esc(row.mark)}</span><span class="num">${esc(row.id)}</span>
-      <span class="forge-course-title">${esc(row.title)}</span><span class="forge-course-milestone">${esc(row.milestone)}</span></div>`).join("");
-  const blockers = Array.isArray(control.blockers) ? control.blockers : [];
-  const blockerBox = $("#fp-course-blockers", panel);
-  const blockerText = formatCourseBlockers(blockers);
-  blockerBox.classList.toggle("hidden", !blockerText);
-  blockerBox.textContent = blockerText;
-}
-
-function messageStamp(value) {
-  const raw = Number(value);
-  if (!Number.isFinite(raw)) return null;
-  const date = new Date(raw < 1e12 ? raw * 1000 : raw);
-  if (Number.isNaN(date.getTime())) return null;
-  return {
-    iso: date.toISOString(),
-    label: date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" }),
-  };
+  renderTomePicker(openBuildOverlay);
 }
 
 export function openBuildOverlay(jobId, traceId = jobId) {
@@ -149,8 +38,10 @@ export function openBuildOverlay(jobId, traceId = jobId) {
         <div class="forge-session-model"><span>MODEL</span><strong id="fp-model">ATTACHING…</strong></div></div></div>
       <div class="forge-session-status"><div class="forge-session-badge" id="fp-session-state">ATTACHING</div>
         <div class="forge-running-cost hidden" id="fp-running-cost" aria-live="polite" aria-atomic="true">
-          <div class="forge-running-cost-total"><span>Running Cost:</span><output id="fp-running-cost-value">$0.00</output></div>
-          <em id="fp-weekly-usage">(0.00% weekly usage)</em></div></div></header>
+          <button type="button" class="forge-running-cost-total" id="fp-running-cost-toggle" aria-expanded="false" aria-controls="fp-cost-breakdown">
+            <span>Running Cost:</span><output id="fp-running-cost-value">$0.00</output></button>
+          <em id="fp-weekly-usage">(0.00% weekly usage)</em>
+          <div class="forge-cost-breakdown" id="fp-cost-breakdown" role="group" aria-label="Cost breakdown"></div></div></div></header>
     <div class="forge-phases">${FORGE_PHASES.map((title, index) => `<div class="forge-phase" data-ph="${index + 1}">
       <span class="num">${index + 1}</span><span>${esc(title)}</span><span class="fp-mark num"></span></div>`).join("")}</div>
     <section class="forge-course-control hidden" id="fp-course-control" aria-label="Harness course control">
@@ -195,6 +86,95 @@ export function openBuildOverlay(jobId, traceId = jobId) {
   let fallbackKey = "", fallbackControl = null;
   const pause = $("#fp-pause", overlay), composer = $("#fp-composer", overlay),
         message = $("#fp-message", overlay);
+  const costToggle = $("#fp-running-cost-toggle", overlay), costBreakdown = $("#fp-cost-breakdown", overlay);
+  let costCloseTimer = 0, costOpenTimer = 0, costBreakdownMarkup = "";
+  const prepareCostBreakdown = () => {
+    const rows = [...costBreakdown.children];
+    const viewport = costBreakdown.getBoundingClientRect();
+    const visible = rows.filter((row) => {
+      const bounds = row.getBoundingClientRect();
+      return bounds.bottom > viewport.top && bounds.top < viewport.bottom;
+    });
+    visible.forEach((row, index) => {
+      row.style.setProperty("--i", index);
+      row.style.setProperty("--o", visible.length - 1 - index);
+    });
+    costBreakdown.style.setProperty("--n", visible.length || 1);
+  };
+  const closeCostBreakdown = () => {
+    if (!costBreakdown.classList.contains("open") || costBreakdown.classList.contains("closing")) return;
+    costBreakdown.classList.remove("open");
+    costBreakdown.classList.add("closing");
+    costToggle.setAttribute("aria-expanded", "false");
+    if (!matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      shedPixels(costBreakdown, costBreakdown);
+    }
+    clearTimeout(costCloseTimer);
+    clearTimeout(costOpenTimer);
+    costCloseTimer = setTimeout(() => costBreakdown.classList.remove("closing"),
+      Number(costBreakdown.style.getPropertyValue("--n") || 1) * 30 + 180);
+  };
+  costToggle.onclick = () => {
+    if (costBreakdown.classList.contains("open")) return closeCostBreakdown();
+    clearTimeout(costCloseTimer);
+    costBreakdown.classList.remove("closing");
+    prepareCostBreakdown();
+    costBreakdown.classList.add("open", "opening");
+    costToggle.setAttribute("aria-expanded", "true");
+    clearTimeout(costOpenTimer);
+    costOpenTimer = setTimeout(() => costBreakdown.classList.remove("opening"),
+      Number(costBreakdown.style.getPropertyValue("--n") || 1) * 34 + 220);
+  };
+  overlay.addEventListener("pointerdown", (event) => {
+    if (!costBreakdown.classList.contains("open")
+        || costBreakdown.contains(event.target) || costToggle.contains(event.target)) return;
+    closeCostBreakdown();
+  });
+
+  const formatTurnTimestamp = (at) => {
+    const date = new Date(Number(at) * 1000);
+    if (Number.isNaN(date.getTime())) return "TIME UNAVAILABLE";
+    return date.toLocaleString([], { month: "short", day: "2-digit", hour: "2-digit",
+      minute: "2-digit", second: "2-digit" });
+  };
+  const turnBreakdownRows = (turns) => {
+    const grouped = new Map();
+    (Array.isArray(turns) ? turns : []).forEach((turn) => {
+      const phase = Number(turn?.phase);
+      if (!Number.isInteger(phase) || phase < 1 || phase > 8) return;
+      if (!grouped.has(phase)) grouped.set(phase, []);
+      grouped.get(phase).push(turn);
+    });
+    const turnRow = (turn) => {
+        const amount = Number(turn?.apiEquivalentUsd);
+        const price = Number.isFinite(amount) ? `$${amount.toFixed(2)}` : "UNPRICED";
+        return `<div class="forge-cost-turn"><span class="forge-cost-turn-meta">${esc(formatTurnTimestamp(turn?.at))}</span><span class="forge-cost-turn-model">${esc(turn?.model || "Unknown model")}</span><span class="forge-cost-turn-price">${price}</span></div>`;
+    };
+    const totalLabel = (rows) => {
+      const amounts = rows.map((turn) => Number(turn?.apiEquivalentUsd));
+      const priced = amounts.filter(Number.isFinite);
+      if (!priced.length) return "UNPRICED";
+      return `$${priced.reduce((sum, amount) => sum + amount, 0).toFixed(2)}${priced.length < amounts.length ? "+" : ""}`;
+    };
+    const heading = (kind, label, rows) =>
+      `<div class="${kind}"><span>${label}</span><strong>${totalLabel(rows)}</strong></div>`;
+    return [...grouped.entries()].sort(([left], [right]) => left - right).flatMap(([phase, phaseTurns]) => {
+      const orderedTurns = phaseTurns.sort((left, right) => Number(left?.at || 0) - Number(right?.at || 0));
+      if (phase !== 3) return [heading("forge-cost-phase", `PHASE ${phase}`, orderedTurns),
+        ...orderedTurns.map(turnRow)];
+      const sections = new Map();
+      orderedTurns.forEach((turn) => {
+        const section = String(turn?.section || "unassigned").toUpperCase();
+        if (!sections.has(section)) sections.set(section, []);
+        sections.get(section).push(turn);
+      });
+      return [heading("forge-cost-phase", "PHASE 3", orderedTurns),
+        ...[...sections.entries()].sort(([left], [right]) => left.localeCompare(right)).flatMap(([section, sectionTurns]) => [
+          heading("forge-cost-section", `SECTION ${esc(section)}`, sectionTurns),
+          ...sectionTurns.map(turnRow),
+        ])];
+    });
+  };
   async function post(path, body = {}) {
     const response = await apiFetch(path, { method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ id: jobId, ...body }) });
@@ -339,15 +319,26 @@ export function openBuildOverlay(jobId, traceId = jobId) {
       || fallbackForgeRunningCost(status.conversation, status.logtail);
     const currentTracked = /^(?:gpt-|claude-)/i.test(String(author.model || ""));
     const runningCost = $("#fp-running-cost", overlay);
-    runningCost.classList.toggle("hidden", !currentTracked);
+    runningCost.classList.toggle("hidden", !currentTracked && !cost);
     $("#fp-running-cost-value", overlay).textContent = cost
       ? formatForgeRunningCost(cost) : "$0.00";
     $("#fp-weekly-usage", overlay).textContent = cost?.claudeTurnCount
       ? "(Claude/GPT API-equivalent total)"
       : cost ? formatForgeWeeklyUsage(cost) : "(0.00% weekly usage)";
-    runningCost.title = cost?.aiUnpricedTurns || cost?.gptUnpricedTurns
-      ? "Cumulative AI API-equivalent cost is partial because at least one tracked turn lacked token usage."
-      : "Cumulative Claude and GPT API-equivalent cost for this build.";
+    const breakdownRows = cost?.turns?.length ? turnBreakdownRows(cost.turns)
+      : cost?.breakdown?.length ? cost.breakdown.map((row) =>
+      `<div class="forge-cost-row"><span>${esc(row.label)}</span><span>$${Number(row.usd || 0).toFixed(2)}</span></div>`)
+      : mergeForgeConversationCosts(status.conversation, status.logtail)
+          .filter((row) => String(row.eventKey || "").startsWith("gpt-cost:"))
+          .map((row) => `<div class="forge-cost-row">${esc(row.text)}</div>`);
+    const nextCostBreakdownMarkup = breakdownRows.length
+      ? breakdownRows.join("")
+      : `<div class="forge-cost-row dim">No priced turns yet.</div>`;
+    if (nextCostBreakdownMarkup !== costBreakdownMarkup) {
+      costBreakdown.innerHTML = nextCostBreakdownMarkup;
+      costBreakdownMarkup = nextCostBreakdownMarkup;
+      if (costBreakdown.classList.contains("open")) prepareCostBreakdown();
+    }
     $("#fp-session-id", overlay).textContent = status.sessionId ? `SESSION ${status.sessionId.slice(0, 12)}` : "SESSION STARTING";
     const reviewerActive = status.sessionRole === "reviewer";
     $("#fp-trace-source", overlay).dataset.role = reviewerActive ? "reviewer" : "author";

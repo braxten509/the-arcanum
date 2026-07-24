@@ -3,88 +3,16 @@ the content-quality gates."""
 import re
 from collections import Counter
 
-from .. import EXERCISE_TYPES, err, lang_config, warn
+from .. import err, lang_config, warn
 from ..phase2 import check_tooling_contract
 from ..phase3 import MIN_BODY_WORDS, MIN_EXERCISES, MIN_LESSONS
+from .exercises import check_exercise
 
 
 def is_shouting_title(value):
     """True for a multi-word ALL-CAPS display title, but not a short acronym like JSON."""
     letters = [c for c in str(value) if c.isalpha()]
     return len(letters) > 5 and all(c.isupper() for c in letters)
-
-
-def check_exercise(ex, label, seen_ex):
-    if not isinstance(ex, dict):
-        err(label, "[[lessons.exercises]] entries must be tables")
-        return
-    eid = ex.get("id")
-    if not eid:
-        err(label, "an exercise is missing its id")
-    elif eid in seen_ex:
-        err(label, f"exercise id {eid!r} is duplicated — ids key saved progress and must be unique per tome")
-    else:
-        seen_ex.add(eid)
-    t = ex.get("type")
-    if t not in EXERCISE_TYPES:
-        err(label, f"exercise {eid!r}: type {t!r} is not one of mc/text/fill/type/write")
-        return
-    if not str(ex.get("prompt", "")).strip():
-        err(label, f"exercise {eid!r}: prompt is required — the client renders it as the "
-                   "student's entire instruction for this trial")
-    pts = ex.get("points")
-    if not isinstance(pts, (int, float)) or isinstance(pts, bool) or pts <= 0:
-        err(label, f"exercise {eid!r}: points must be a positive number — the engine pays "
-                   "e.points raw, so a missing one credits NaN and corrupts the purse")
-    if t == "mc":
-        choices = ex.get("choices")
-        ans = ex.get("answer")
-        if not isinstance(choices, list) or len(choices) < 2:
-            err(label, f"mc {eid!r}: choices must be an array with at least two options")
-        elif any(not isinstance(choice, str) or not choice.strip() for choice in choices):
-            err(label, f"mc {eid!r}: every choice must be a non-empty string")
-        elif len({choice.strip().casefold() for choice in choices}) != len(choices):
-            err(label, f"mc {eid!r}: choices must be distinct — duplicate options make the "
-                       "question ambiguous or reveal the answer")
-        if not isinstance(ans, int) or isinstance(ans, bool):
-            err(label, f"mc {eid!r}: answer must be a 0-based integer index")
-        elif isinstance(choices, list) and not (0 <= ans < len(choices)):
-            err(label, f"mc {eid!r}: answer index {ans} is out of range for {len(choices)} choices")
-        if not str(ex.get("whyWrong", "")).strip():
-            err(label, f"mc {eid!r}: whyWrong is required — every mc must name the misconception "
-                       "its wrong answers betray (§3, the highest-value feedback channel)")
-    elif t in ("text", "fill"):
-        if not str(ex.get("answer", "")).strip():
-            err(label, f"{t} {eid!r}: answer is required")
-        if t == "fill" and "____" not in str(ex.get("code", "")):
-            err(label, f"fill {eid!r}: code must contain the ____ blank the answer fills — "
-                       "without it the client renders a fill exercise with nothing to complete")
-    elif t == "type":
-        if not str(ex.get("code", "")).strip():
-            err(label, f"type drill {eid!r}: code (the text to retype) is required")
-        reps = ex.get("reps")
-        if reps is not None and (not isinstance(reps, int) or isinstance(reps, bool) or reps < 1):
-            err(label, f"type drill {eid!r}: reps must be a positive integer when present")
-    elif t == "write":
-        has_re = bool(str(ex.get("expectRe", "")).strip())
-        if has_re:
-            # The engine grades with `new RegExp(expectRe, "m")` — an invalid pattern
-            # throws at grade time and the lab is unwinnable. Python re is the proxy;
-            # JS named groups (?<n>…) are rewritten to Python's (?P<n>…) first so the
-            # one syntax that legitimately differs doesn't false-error.
-            try:
-                re.compile(re.sub(r"\(\?<(?=[A-Za-z])", "(?P<", str(ex["expectRe"])))
-            except re.error as rex:
-                err(label, f"write {eid!r}: expectRe does not compile ({rex}) — the engine "
-                           "builds new RegExp(expectRe, \"m\") at grade time, so this lab is unwinnable")
-        if "expect" in ex:
-            if not str(ex["expect"]).strip():
-                err(label, f"write {eid!r}: expect is empty — unwinnable (empty stdout reads as \"(no output)\")")
-        elif not has_re:
-            err(label, f"write {eid!r}: needs a non-empty expect or an expectRe")
-    if t != "type" and not str(ex.get("hint", "")).strip():
-        warn(label, f"exercise {eid!r}: no hint (every exercise should have an exercise-specific one)",
-             phase=3)
 
 
 def check_freestyle(fs, slabel):
@@ -120,8 +48,78 @@ def check_freestyle(fs, slabel):
             err(slabel, "[[freestyle.rubric]] row is missing a numeric weight")
         else:
             total += w
+        essential = row.get("essential")
+        if essential is not None and not isinstance(essential, bool):
+            err(slabel, "[[freestyle.rubric]] essential must be a boolean")
+        minimum = row.get("minimumScore")
+        if minimum is not None:
+            if essential is not True:
+                err(slabel, "[[freestyle.rubric]] minimumScore requires essential = true")
+            if (not isinstance(minimum, (int, float)) or isinstance(minimum, bool)
+                    or not 0 <= minimum <= 10):
+                err(slabel, "[[freestyle.rubric]] minimumScore must be between 0 and 10")
     if round(total, 6) != 100:
         err(slabel, f"[[freestyle.rubric]] weights must sum to exactly 100 (got {total})")
+    verification = fs.get("verification")
+    if verification is not None:
+        if not isinstance(verification, list):
+            err(slabel, "[[freestyle.verification]] must be an array of tables")
+        else:
+            ids = set()
+            allowed = {"id", "command", "label", "required", "args", "stdin",
+                       "timeout", "expect"}
+            for index, row in enumerate(verification):
+                where = f"{slabel} [[freestyle.verification]] row {index + 1}"
+                if not isinstance(row, dict):
+                    err(where, "verification row must be a table")
+                    continue
+                unknown = set(row) - allowed
+                if unknown:
+                    err(where, "unknown keys: " + ", ".join(sorted(unknown)))
+                vid = str(row.get("id") or row.get("command") or "")
+                command = str(row.get("command") or "")
+                if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_-]*", vid):
+                    err(where, "id must be a stable identifier")
+                elif vid in ids:
+                    err(where, f"verification id {vid!r} is duplicated")
+                ids.add(vid)
+                if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_-]*", command):
+                    err(where, "command must name a registered runtime assessment command")
+                if "required" in row and not isinstance(row["required"], bool):
+                    err(where, "required must be boolean")
+                if ("args" in row and
+                        (not isinstance(row["args"], list)
+                         or any(not isinstance(arg, str) for arg in row["args"]))):
+                    err(where, "args must be a string array")
+                timeout = row.get("timeout")
+                if (timeout is not None and
+                        (not isinstance(timeout, int) or isinstance(timeout, bool)
+                         or not 1 <= timeout <= 300)):
+                    err(where, "timeout must be 1 through 300")
+                expect = row.get("expect")
+                if expect is not None and not isinstance(expect, dict):
+                    err(where, "expect must be a table")
+                elif isinstance(expect, dict):
+                    allowed_expect = {
+                        "exitCode", "exact", "raw", "regex", "json", "path",
+                        "fileRegex",
+                    }
+                    unknown_expect = set(expect) - allowed_expect
+                    if unknown_expect:
+                        err(where, "expect has unknown keys: "
+                            + ", ".join(sorted(unknown_expect)))
+                    if ("exitCode" in expect
+                            and (not isinstance(expect["exitCode"], int)
+                                 or isinstance(expect["exitCode"], bool))):
+                        err(where, "expect.exitCode must be an integer")
+                    for pattern_key in ("regex", "fileRegex"):
+                        if pattern_key in expect:
+                            try:
+                                re.compile(str(expect[pattern_key]))
+                            except re.error as exc:
+                                err(where, f"expect.{pattern_key} is invalid: {exc}")
+                    if "fileRegex" in expect and "path" not in expect:
+                        err(where, "expect.fileRegex requires expect.path")
 
 
 def check_section(sdata, sid, slabel, seen_ex, seen_les):
@@ -197,7 +195,12 @@ def check_anti_template(sections_data):
                 continue
             exs = les.get("exercises", []) or []
             ex_counts.append(len(exs))
-            lesson_types.append(tuple(sorted(e.get("type") for e in exs if isinstance(e, dict))))
+            # Invalid or incomplete exercises are reported by the structural checks.
+            # Keep them visible to this tome-wide shape check without asking Python to
+            # order incomparable values such as ``None`` and strings.
+            lesson_types.append(tuple(sorted(
+                str(e["type"]) if e.get("type") is not None else "<missing>"
+                for e in exs if isinstance(e, dict))))
             for ex in exs:
                 if not isinstance(ex, dict):
                     continue
@@ -362,6 +365,23 @@ def check_content(m, sections_data, label, tooling=None, include_manifest=True):
     depth, field-notes, narrative line counts, toolchain setup, naming drift.
     Language-neutral proxies only — no keyword matching, so non-English tomes
     aren't penalized. These warnings are owned and hard-gated by Phase 3."""
+    runtime = {**lang_config((m.get("runtime") or {}).get("name") or "custom"),
+               **(m.get("runtime") or {})}
+    registered = set((runtime.get("assessmentCommands") or {}).keys())
+    if runtime.get("buildCommand") or "build" in registered:
+        registered.add("build")
+    if runtime.get("runCommand") or runtime.get("command"):
+        registered.add("run")
+    for section in sections_data:
+        sid = section.get("id") or "?"
+        freestyle = section.get("freestyle") or {}
+        for row in freestyle.get("verification") or []:
+            if not isinstance(row, dict):
+                continue
+            command = str(row.get("command") or "")
+            if command and command not in registered:
+                err(label, f"{sid}: Working verification command {command!r} is not registered "
+                    "by the named runtime's build/run/assessmentCommands")
     lesson_records = [(sd.get("id") or "?", les) for sd in sections_data
                       for les in (sd.get("lessons") or []) if isinstance(les, dict)]
     lessons = [lesson for _, lesson in lesson_records]

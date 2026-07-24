@@ -4,7 +4,12 @@ import tempfile
 from pathlib import Path
 
 from validatelib import err, set_build_phase, warn
-from validatelib.content import check_content, check_section, is_shouting_title
+from validatelib.content import (
+    check_anti_template,
+    check_content,
+    check_section,
+    is_shouting_title,
+)
 from validatelib.content.depth import check_taught_before_used, check_verbatim_prose
 from validatelib.content.structure import check_meta, check_placeholders
 
@@ -12,6 +17,14 @@ from .support import findings
 
 
 def run_content_cases():
+    # Incomplete exercise records are ordinary authored findings, not validator
+    # infrastructure failures. The anti-template pass must tolerate missing and
+    # heterogeneous type values while retaining them in its shape comparison.
+    check_anti_template([{"lessons": [
+        {"exercises": [{}, {"type": None}, {"type": "mc"}, {"type": 7}]},
+    ]}])
+    assert not findings()
+
     # Harness phases promote only obligations already owned by that phase. Future
     # work stays a warning; host-only advisories never become errors.
     set_build_phase(3)

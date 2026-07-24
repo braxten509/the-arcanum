@@ -72,7 +72,8 @@ export function freestyleUnlocked(sec) {
 export function fsBest(sid) { return (getState().fs[sid] && getState().fs[sid].best) || null; }
 export function sectionPassed(sec) {
   const best = fsBest(sec.id);
-  return isEvidenceTome(tome()) ? workingPassed(best) : !!(best && best.total >= 60);
+  return isEvidenceTome(tome()) ? workingPassed(best)
+    : !!(best && best.total >= 60 && best.passed !== false);
 }
 export function sectionUnlocked(i) { return !!getState().spellAll || i === 0 || sectionPassed(sections()[i - 1]); }
 export function sectionProgress(sec) {
@@ -130,7 +131,7 @@ export function renderSidebar() {
       if (!unlocked) {
         const threshold = isEvidenceTome(tome())
           ? "80/B or better with every essential check green"
-          : "grade D or better";
+          : "grade D or better with every essential requirement and required verification green";
         toast(`THE PAGE IS SEALED // finish the previous chapter's Great Working first (${threshold}).`, "bad");
         return;
       }

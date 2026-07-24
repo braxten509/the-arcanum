@@ -82,12 +82,20 @@ scenario. Source similarity is never a criterion.
 When `[mastery].sourceEvidenceVersion = 1`, every essential requirement also needs at least two
 distinct non-build scenarios and each must be linked from a deterministic rubric row. Use varied
 inputs, a boundary, a failure mode, or an alternate command path. Compilation plus one happy-path
-run is insufficient evidence for essential behavior.
+run is insufficient evidence for essential behavior. Changing only the expected answer does not
+make a second scenario: its command, arguments, input, or trusted command route must differ. The
+section validator executes every non-guided hidden scenario against the reconstructed reference
+project, so every declared result must actually occur.
 
 ## Hidden Working assessment
 
 Place `assessment.toml` beside each section's `freestyle.toml`. It is authoring-only and the HTTP
 loader must never serve it. The top-level shape is exactly `version = 1` plus scenarios:
+
+Hardened run proofs use `expectRaw = "text\n"` so trailing newlines and exact stdout bytes are
+always checked. In hidden scenarios, `expectExact` and `expectRaw` both mean exact raw stdout. Use
+`expectFile = "path/to/program"` on the build scenario when the selected runtime declares an
+official `artifactPath`; the public requirement must name that same path.
 
 ```toml
 version = 1

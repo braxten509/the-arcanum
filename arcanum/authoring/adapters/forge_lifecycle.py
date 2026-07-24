@@ -12,7 +12,8 @@ import time
 from ...forge.build_state import (BUILD_TOTAL_PHASES, build_result_status,
                                   load_author_session, load_section_progress,
                                   save_active_owner)
-from ...config import BUILD_DIR, CLI_EFFORTS, OPENROUTER_IDS, ROOT
+from ...ai.models import session_models_compatible
+from ...config import BUILD_DIR, CLI_EFFORTS, ROOT, tome_opencode_model
 from ...forge import (_clear_build_terminal_state, _load_launch, _plan_concept,
                       _plan_gate, _resume_phase, _save_launch,
                       author_activity_started_at, external_build_process,
@@ -25,12 +26,15 @@ VALIDATOR_KINDS = CLI_KINDS
 
 
 def _resume_session_id(previous, author, phase, section="", build_id=""):
-    """Resume only the same model's exact phase/section session."""
+    """Resume only a compatible model's exact phase/section session."""
     if (previous.get("role") != "author"
-            or previous.get("kind") != author.get("kind")
-            or previous.get("model") != author.get("model")
+            or not session_models_compatible(
+                previous.get("kind"), previous.get("model"),
+                author.get("kind"), author.get("model"))
             or (previous.get("actualModel")
-                and previous.get("actualModel") != author.get("model"))
+                and not session_models_compatible(
+                    previous.get("kind"), previous.get("actualModel"),
+                    author.get("kind"), author.get("model")))
             or int(previous.get("phase") or 0) != int(phase)):
         return ""
     if int(phase) == 3 and str(previous.get("section") or "") != str(section or ""):
@@ -54,9 +58,12 @@ def _agent(value, role, allowed=CLI_KINDS):
     model = str(value.get("model") or "").strip()
     effort = str(value.get("effort") or "").strip()
     if kind not in allowed or not model:
-        raise ValueError(f"choose Claude CLI, Codex CLI, or approved OpenRouter model for the {role}")
-    if kind == "opencode-cli" and model not in OPENROUTER_IDS:
-        raise ValueError(f"choose an approved OpenRouter model for the {role}")
+        raise ValueError(
+            f"choose Claude CLI, Codex CLI, OpenCode Go, or approved OpenRouter "
+            f"model for the {role}")
+    if kind == "opencode-cli" and not tome_opencode_model(model):
+        raise ValueError(
+            f"choose OpenCode Go or an approved OpenRouter model for the {role}")
     efforts = CLI_EFFORTS.get(kind, ())
     if effort and effort not in efforts:
         raise ValueError(f"{kind} does not support effort {effort!r}")
@@ -117,7 +124,7 @@ def _agent_spec(agent):
 
 
 def _launch(tid, author, concept, phase, services, gate_json=None, resume_id="",
-            reviewer=None, validator=None, authors=None):
+            reviewer=None, validator=None, authors=None, resumed_build=False):
     command = [sys.executable, "-u", os.path.join(ROOT, "tools", "build_tome.py"), tid,
                "--author", _agent_spec(author), "--concept", concept,
                "--from-phase", str(max(1, min(8, int(phase or 1))))]
@@ -132,6 +139,8 @@ def _launch(tid, author, concept, phase, services, gate_json=None, resume_id="",
         command += ["--gate-json", gate_json]
     if resume_id:
         command += ["--resume-session", resume_id]
+    if resumed_build:
+        command += ["--resumed-build"]
     proc = subprocess.Popen(command, cwd=ROOT, stdin=subprocess.PIPE,
                             stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
                             text=True, bufsize=1, start_new_session=True)
@@ -245,7 +254,7 @@ def resume_build(h, body, services):
                 pass
     gid = _launch(rid, author, _plan_concept(text), phase, services,
                   resume_id=resume_id, reviewer=reviewer, validator=validator,
-                  authors=authors)
+                  authors=authors, resumed_build=True)
     return h.send_json({"ok": True, "jobId": gid, "tome": tid,
                         "continuedSession": bool(resume_id)})
 

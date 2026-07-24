@@ -1,0 +1,435 @@
+[[lessons]]
+id = "s01-l07"
+title = "Open and Close the SDL Window"
+teaches = ["language-status-failure-and-resource-cleanup", "native-window-lifecycle"]
+introduces = ["sdl-init-status-observation", "sdl-init-failure-branch", "sdl-init-error-diagnostic", "sdl-init-failure-cleanup", "sdl-window-status-observation", "sdl-window-failure-branch", "sdl-window-error-diagnostic", "sdl-window-failure-cleanup", "sdl-window-normal-cleanup"]
+validationDependencies = []
+researchSources = ["sdl2-sdl-init-reference", "sdl2-sdl-createwindow-reference", "sdl2-sdl-geterror-reference", "sdl2-sdl-log-reference", "sdl2-sdl-destroywindow-reference", "sdl2-sdl-quit-reference"]
+body = '''
+<p>Every SDL2 call that can fail tells you so through its return value, never through a crash or a
+thrown exception — the discipline this lesson teaches is checking that value every single time, in
+the same shape, twice in a row. <code>SDL_Init(SDL_INIT_VIDEO)</code> returns an <code>int</code> in
+<code>eax</code>: <code>0</code> means every requested subsystem started, anything negative means at
+least one did not. <code>cmp eax, 0</code> followed by <code>jne .init_failed</code> is the entire
+branch. On that failure path, <code>SDL_GetError()</code> — taking no arguments, returning a pointer
+to a null-terminated string in <code>rax</code> — hands back a human-readable reason. Because
+nothing SDL owns was successfully created yet, the correct cleanup here is simply to report and exit;
+calling <code>SDL_Quit</code> would have nothing to undo.</p>
+<p>Printing that reason uses <code>SDL_Log</code>, SDL2's own variadic logging function, instead of
+plain <code>puts</code>. <code>SDL_Log(fmt, ...)</code> behaves like C's <code>printf</code>: its first
+argument is a null-terminated format string, and each <code>%</code>-conversion inside that string
+consumes the next argument in calling-convention order. This lesson only ever needs one substitution,
+<code>%s</code>, to splice in <code>SDL_GetError()</code>'s returned string, so every call here is
+exactly two arguments: <code>rdi</code> holds the format string's address (formed with <code>LEA</code>,
+as lesson 3 introduced — <code>lea rdi, [err_fmt]</code> where <code>err_fmt: db "%s", 0</code>), and
+<code>rsi</code> holds <code>SDL_GetError()</code>'s pointer straight out of <code>rax</code>. One rule
+applies only to variadic calls under the System V ABI (lesson 5's calling convention, extended): the
+<code>al</code> register must hold the count of vector (floating-point/XMM) registers used to pass this
+particular call's arguments — zero here, since both arguments are pointers — so <code>xor eax, eax</code>
+always runs immediately before <code>call SDL_Log</code>. Forgetting it is a realistic, silent mistake:
+NASM assembles the call regardless, and it may even happen to work if <code>al</code> already held zero
+from an earlier instruction, but relying on that accident breaks the moment <code>al</code> holds a
+stale nonzero value — <code>SDL_Log</code> then tries to read floating-point registers that were never
+set up for this call, typically corrupting or dropping the printed message with no assembler warning
+of any kind.</p>
+<p>One line belongs at the very top of the file before any of this: the directive <code>default rel</code>.
+It tells NASM that whenever code addresses a label without saying how (exactly what <code>lea rdi,
+[err_fmt]</code> does), it should compute that address relative to the current instruction pointer
+(RIP-relative) instead of as a fixed absolute address. Without it, NASM still assembles
+<code>lea rdi, [err_fmt]</code>, but only by falling back to an older, deprecated absolute-addressing
+mode — printing a warning every time a file addresses a label this way and producing code that is
+needlessly non-relocatable. Writing <code>default rel</code> once, as the first line of the file, fixes
+every later bare-label reference in that file at once; nothing about the rest of this lesson's syntax
+changes.</p>
+<p><code>SDL_CreateWindow(title, x, y, w, h, flags)</code> — six arguments, filling every register
+lesson 5's calling convention offers before a seventh would need the stack — returns a
+<code>SDL_Window*</code> in <code>rax</code>, or exactly <code>NULL</code> (zero) on failure. The check
+mirrors init's shape almost exactly: <code>cmp rax, 0</code>, <code>je .window_failed</code>, then
+<code>SDL_GetError()</code> again for a window-specific reason. The cleanup differs this time, and the
+difference is the whole point: init already succeeded, so SDL is holding subsystem state that must be
+released even though the window itself never came to exist — <code>call SDL_Quit</code> runs on this
+failure path where it did not on init's. The success path adds one more step beyond that: once a
+window exists, its lifetime ends with <code>SDL_DestroyWindow(window)</code> — releasing that specific
+window — followed by <code>SDL_Quit()</code> — shutting down SDL entirely, in that order, window
+before subsystem, every time.</p>
+<pre><code data-kind="pseudocode">SDL_INIT_VIDEO equ 0x00000020
+; err_fmt: db "%s", 0  (declared once in .data, reused by both failure paths below)
+main:
+    mov rdi, SDL_INIT_VIDEO
+    call SDL_Init
+    cmp eax, 0
+    jne .init_failed
+
+    mov rdi, win_title
+    mov rsi, 0
+    mov rdx, 0
+    mov rcx, 400
+    mov r8, 300
+    mov r9, 0
+    call SDL_CreateWindow
+    cmp rax, 0
+    je .window_failed
+
+    mov rdi, rax
+    call SDL_DestroyWindow
+    call SDL_Quit
+    mov rdi, win_ok_msg
+    call puts
+    mov eax, 0
+    ret
+
+.window_failed:
+    call SDL_GetError
+    mov rsi, rax
+    lea rdi, [err_fmt]
+    xor eax, eax
+    call SDL_Log
+    call SDL_Quit
+    mov eax, 1
+    ret
+
+.init_failed:
+    call SDL_GetError
+    mov rsi, rax
+    lea rdi, [err_fmt]
+    xor eax, eax
+    call SDL_Log
+    mov eax, 1
+    ret</code></pre>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // WHY TWO SEPARATE FAILURE PATHS</div>
+<p>Collapsing both failures into one shared cleanup path is the realistic mistake: a single
+".failed: call SDL_Quit" used for both would run SDL_Quit even when SDL_Init itself was the thing that
+failed — SDL tolerates this (SDL_Quit on an unstarted or partially started SDL is documented as safe),
+but it hides the actual asymmetry: only the window-failure path has a window-lifetime concern to close
+out, and only the init-failure path has nothing at all yet to release.</p></div>
+'''
+
+[[lessons.concepts]]
+id = "language-status-failure-and-resource-cleanup"
+purpose = "The general discipline of checking every fallible call's return value, branching to a distinct failure path, and releasing exactly the resources that call's success would have created."
+anatomy = "Call the function; compare its return value against its documented failure signal; branch on that comparison; on failure, release only resources already acquired before this call, not resources this call itself never created."
+example = "The full init-then-window sequence in this lesson's body, with its two distinct failure labels."
+observable = "Each failure path releases a different, correct set of resources: init-failure releases nothing, window-failure releases the SDL subsystem init already started."
+failure = "Sharing one cleanup path across every failure either double-releases resources that were never acquired or, worse, skips releasing resources a later failure did acquire."
+practice = "s01-l07-e1"
+
+[[lessons.concepts]]
+id = "native-window-lifecycle"
+purpose = "The specific sequence a native SDL2 window follows from nonexistence to on-screen to properly destroyed."
+anatomy = "SDL_Init starts the subsystem; SDL_CreateWindow creates the window; SDL_DestroyWindow releases the window specifically; SDL_Quit shuts the subsystem down — window destruction always precedes subsystem shutdown on the success path."
+example = "The full lifecycle in this lesson's worked example, success path included."
+observable = "The program exits 0 having created and destroyed a window in the correct order, printing WINDOW OK."
+failure = "Calling SDL_Quit before SDL_DestroyWindow on the success path leaves window-related state torn down out of order relative to what SDL documents as safe."
+practice = "s01-l07-e1"
+
+[[lessons.concepts]]
+id = "sdl-init-status-observation"
+purpose = "Reading SDL_Init's return value to know whether video (and any other requested subsystem) actually started."
+anatomy = "SDL_Init(flags) returns an int in eax: 0 for full success, negative for failure."
+example = "call SDL_Init / cmp eax, 0 in this lesson's body."
+observable = "eax holds 0 immediately after a successful call."
+failure = "Skipping this check and calling SDL_CreateWindow regardless means a failed SDL_Init still attempts window creation against a subsystem that never started."
+practice = "s01-l07-e1"
+
+[[lessons.concepts]]
+id = "sdl-init-failure-branch"
+purpose = "Diverting control to a dedicated failure path the instant SDL_Init reports anything other than success."
+anatomy = "cmp eax, 0 followed by jne .init_failed."
+example = "The two-instruction check right after call SDL_Init in this lesson's body."
+observable = "Execution lands at .init_failed only when eax was nonzero; otherwise it falls through to window creation."
+failure = "Using je instead of jne here inverts the logic entirely — the program would treat success as failure and vice versa."
+practice = "s01-l07-e1"
+
+[[lessons.concepts]]
+id = "sdl-init-error-diagnostic"
+purpose = "Retrieving a human-readable reason for an SDL_Init failure and printing it through SDL_Log's variadic, printf-style call convention."
+anatomy = "call SDL_GetError (no arguments) returns a pointer to a null-terminated string in rax; mov rsi, rax carries it as the %s argument, lea rdi, [err_fmt] forms the format string's address, xor eax, eax zeroes al (no vector registers used), then call SDL_Log."
+example = "call SDL_GetError / mov rsi, rax / lea rdi, [err_fmt] / xor eax, eax / call SDL_Log on the .init_failed path in this lesson's body."
+observable = "A specific failure message prints instead of a silent nonzero exit."
+failure = "Calling SDL_GetError before checking that a failure actually occurred returns whatever message (possibly an empty string) is left over from an unrelated earlier call. Skipping xor eax, eax before call SDL_Log leaves al holding whatever stale value it last had, which can corrupt or drop the printed message with no assembler warning."
+practice = "s01-l07-e5"
+
+[[lessons.concepts]]
+id = "sdl-init-failure-cleanup"
+purpose = "Recognizing that an SDL_Init failure needs no SDL_Quit, because no subsystem successfully started."
+anatomy = "Report the error, then return/exit with a nonzero status directly — no call to SDL_Quit on this path."
+example = "The .init_failed label in this lesson's body, which never calls SDL_Quit."
+observable = "The program exits with status 1 after only printing the error, with no SDL_Quit call in between."
+failure = "Adding a SDL_Quit call on this path is harmless (SDL documents it as safe) but signals a misunderstanding of what actually needs releasing here — the window-failure path is where SDL_Quit is truly required."
+practice = "s01-l07-e2"
+
+[[lessons.concepts]]
+id = "sdl-window-status-observation"
+purpose = "Reading SDL_CreateWindow's return value to know whether the window actually came into existence."
+anatomy = "SDL_CreateWindow(title, x, y, w, h, flags) returns a SDL_Window* in rax, or exactly 0 (NULL) on failure."
+example = "call SDL_CreateWindow / cmp rax, 0 in this lesson's body."
+observable = "rax holds a nonzero pointer value after a successful call."
+failure = "Treating any nonzero rax as automatically valid without a real comparison risks misreading a stray leftover value as a legitimate window pointer."
+practice = "s01-l07-e3"
+
+[[lessons.concepts]]
+id = "sdl-window-failure-branch"
+purpose = "Diverting control to a dedicated failure path the instant SDL_CreateWindow returns NULL."
+anatomy = "cmp rax, 0 followed by je .window_failed."
+example = "The two-instruction check right after call SDL_CreateWindow in this lesson's body."
+observable = "Execution lands at .window_failed only when rax was exactly 0; otherwise it falls through to the success path."
+failure = "Using jne instead of je here again inverts the logic, running success-path cleanup on a window that was never created."
+practice = "s01-l07-e3"
+
+[[lessons.concepts]]
+id = "sdl-window-error-diagnostic"
+purpose = "Retrieving a human-readable reason for an SDL_CreateWindow failure, distinct from any init-failure message, and printing it through the same SDL_Log variadic call convention."
+anatomy = "call SDL_GetError again on the window-failure path returns the window-specific reason, since GetError always reports the most recent SDL error; mov rsi, rax / lea rdi, [err_fmt] / xor eax, eax / call SDL_Log prints it exactly as the init-failure path does."
+example = "call SDL_GetError / mov rsi, rax / lea rdi, [err_fmt] / xor eax, eax / call SDL_Log on the .window_failed path in this lesson's body."
+observable = "A window-specific failure message (distinct from an init failure's message) prints on this path."
+failure = "Calling SDL_GetError before SDL_Quit still gets the right message on this path, but calling it after SDL_Quit risks reading a message SDL_Quit's own internal calls may have overwritten. Skipping xor eax, eax before call SDL_Log has the same silent AL-corruption risk as on the init-failure path."
+practice = "s01-l07-e2"
+
+[[lessons.concepts]]
+id = "sdl-window-failure-cleanup"
+purpose = "Recognizing that an SDL_CreateWindow failure still requires SDL_Quit, because SDL_Init already succeeded and left subsystem state that needs shutting down."
+anatomy = "Report the error via SDL_GetError/SDL_Log (the same %s-format variadic call the init-failure path uses), call SDL_Quit, then return/exit with a nonzero status."
+example = "The .window_failed label in this lesson's body, which reports through SDL_Log and does call SDL_Quit before returning."
+observable = "The program exits with status 1 having printed an error and still called SDL_Quit exactly once."
+failure = "Omitting SDL_Quit on this path leaves the SDL subsystem initialized with no window and no planned shutdown for the remainder of the process's life."
+practice = "s01-l07-e4"
+
+[[lessons.concepts]]
+id = "sdl-window-normal-cleanup"
+purpose = "Releasing a successfully created window and shutting down SDL, in the correct order, on the success path."
+anatomy = "SDL_DestroyWindow(window) first, releasing that specific window; SDL_Quit() second, shutting down every SDL subsystem."
+example = "mov rdi, rax / call SDL_DestroyWindow / call SDL_Quit on the success path in this lesson's body."
+observable = "The program prints WINDOW OK and exits 0 after destroying the window and quitting SDL in that order."
+failure = "Calling SDL_Quit before SDL_DestroyWindow tears down SDL while a window handle it owns is still considered live, which SDL's own documentation warns against relying on."
+practice = "s01-l07-e4"
+
+[[lessons.readings]]
+label = "SDL2 wiki: SDL_Init"
+url = "https://wiki.libsdl.org/SDL2/SDL_Init"
+
+[[lessons.readings]]
+label = "SDL2 wiki: SDL_CreateWindow"
+url = "https://wiki.libsdl.org/SDL2/SDL_CreateWindow"
+
+[[lessons.readings]]
+label = "SDL2 wiki: SDL_GetError"
+url = "https://wiki.libsdl.org/SDL2/SDL_GetError"
+
+[[lessons.readings]]
+label = "SDL2 wiki: SDL_Log"
+url = "https://wiki.libsdl.org/SDL2/SDL_Log"
+
+[[lessons.readings]]
+label = "SDL2 wiki: SDL_DestroyWindow"
+url = "https://wiki.libsdl.org/SDL2/SDL_DestroyWindow"
+
+[[lessons.readings]]
+label = "SDL2 wiki: SDL_Quit"
+url = "https://wiki.libsdl.org/SDL2/SDL_Quit"
+
+[[lessons.exercises]]
+id = "s01-l07-e1"
+type = "mc"
+required = true
+capabilities = ["language-status-failure-and-resource-cleanup"]
+mechanisms = ["sdl-init-status-observation", "sdl-init-failure-branch"]
+cognitiveTask = "predict"
+scaffold = "guided"
+contextFamily = "sdl-init-check"
+aidPolicy = "learning"
+points = 15
+prompt = "SDL_Init(SDL_INIT_VIDEO) returns -1 on a particular machine because no display driver is available. Given 'cmp eax, 0' followed by 'jne .init_failed', what happens next?"
+choices = ["The program crashes immediately at the cmp instruction", "Execution falls through to SDL_CreateWindow, since -1 is still a valid-looking value", ".init_failed runs, since eax (-1) is not equal to 0", "jne is ignored because eax holds a negative number, not zero"]
+answer = 2
+whyWrong = "The wrong choices either ignore what jne actually tests (any nonzero flag result, not just positive numbers), invent a crash cmp cannot cause, or invent a special case for negative numbers that jne does not have."
+hint = "jne fires whenever the compared values are not equal — -1 is not equal to 0, regardless of sign."
+explain = "cmp eax, 0 sets the zero flag only when eax is exactly 0. Since eax is -1, the zero flag is clear, and jne (jump if not equal / zero flag clear) takes the branch to .init_failed."
+
+[[lessons.exercises]]
+id = "s01-l07-e2"
+type = "text"
+required = true
+capabilities = ["language-status-failure-and-resource-cleanup"]
+mechanisms = ["sdl-init-error-diagnostic", "sdl-init-failure-cleanup", "sdl-window-error-diagnostic"]
+cognitiveTask = "explain"
+scaffold = "guided"
+contextFamily = "sdl-init-failure-shape"
+aidPolicy = "learning"
+points = 20
+prompt = "Explain why the .init_failed path in this lesson's example does not call SDL_Quit, while the .window_failed path does, even though both paths call SDL_GetError and puts in the same order."
+answer = "A complete answer explains that reaching .init_failed means SDL_Init itself never succeeded, so no SDL subsystem state was ever established that needs shutting down — SDL_Quit would have nothing to undo. Reaching .window_failed, by contrast, means SDL_Init already succeeded before SDL_CreateWindow failed, so SDL subsystem state IS active and must be shut down with SDL_Quit even though no window was ever created."
+hint = "Ask which of the two failures happened after a prior successful call left something running, and which happened before anything successfully started."
+
+[[lessons.exercises]]
+id = "s01-l07-e3"
+type = "fill"
+required = true
+capabilities = ["language-status-failure-and-resource-cleanup"]
+mechanisms = ["sdl-window-status-observation", "sdl-window-failure-branch"]
+cognitiveTask = "complete"
+scaffold = "completion"
+contextFamily = "sdl-window-check"
+aidPolicy = "learning"
+points = 20
+prompt = "Complete the check that branches to .window_failed exactly when SDL_CreateWindow returned NULL."
+code = '''call SDL_CreateWindow
+    cmp rax, 0
+    ____ .window_failed'''
+answer = "je"
+hint = "NULL is 0; you want the branch to fire only when rax equals zero, not when it differs from zero."
+
+[[lessons.exercises]]
+id = "s01-l07-e4"
+type = "text"
+required = true
+capabilities = ["language-status-failure-and-resource-cleanup"]
+mechanisms = ["sdl-window-failure-cleanup", "sdl-window-normal-cleanup"]
+cognitiveTask = "debug"
+scaffold = "guided"
+contextFamily = "sdl-cleanup-ordering"
+aidPolicy = "learning"
+points = 20
+prompt = "A teammate's success path calls SDL_Quit() immediately after SDL_CreateWindow succeeds, then calls SDL_DestroyWindow(window) afterward, reversing this lesson's order. Explain why this ordering is wrong even though both functions still get called exactly once."
+answer = "A complete answer explains that SDL_Quit shuts down the SDL subsystems the window depends on, so calling SDL_DestroyWindow afterward operates on a window handle whose owning subsystem has already been torn down — SDL's own documentation treats destroying a window after SDL_Quit as unsupported, even though no assembler or linker error flags the reordering."
+hint = "SDL_DestroyWindow needs the subsystem SDL_Quit shuts down to still be running when it is called — think about which of the two functions depends on the other still being active."
+
+[[lessons.exercises]]
+id = "s01-l07-e5"
+type = "fill"
+required = true
+capabilities = ["language-status-failure-and-resource-cleanup"]
+mechanisms = ["sdl-init-error-diagnostic"]
+cognitiveTask = "complete"
+scaffold = "completion"
+contextFamily = "sdl-log-diagnostic"
+aidPolicy = "learning"
+points = 20
+prompt = "Complete the instruction this variadic SDL_Log call needs immediately before it runs, so al correctly reports zero vector registers used."
+code = '''mov rsi, rax
+lea rdi, [err_fmt]
+____
+call SDL_Log'''
+answer = "xor eax, eax"
+hint = "al must hold the count of vector (floating-point) registers used for this call's arguments — zero, since both arguments here are pointers."
+
+[[lessons.exercises]]
+id = "s01-l07-d1"
+type = "type"
+required = true
+capabilities = ["language-status-failure-and-resource-cleanup"]
+mechanisms = ["sdl-window-normal-cleanup"]
+cognitiveTask = "recall"
+scaffold = "worked"
+contextFamily = "sdl-cleanup-ordering"
+aidPolicy = "learning"
+points = 12
+reps = 2
+prompt = "Retype this success-path cleanup sequence exactly, in order. (Ctrl+Enter submits.)"
+code = '''mov rdi, rax
+    call SDL_DestroyWindow
+    call SDL_Quit'''
+
+[[lessons.exercises]]
+id = "s01-l07-w1"
+type = "write"
+required = true
+capabilities = ["language-status-failure-and-resource-cleanup"]
+mechanisms = ["sdl-init-status-observation", "sdl-init-failure-branch", "sdl-init-error-diagnostic", "sdl-init-failure-cleanup", "sdl-window-status-observation", "sdl-window-failure-branch", "sdl-window-error-diagnostic", "sdl-window-failure-cleanup", "sdl-window-normal-cleanup"]
+cognitiveTask = "build"
+scaffold = "guided"
+contextFamily = "sdl-full-lifecycle"
+aidPolicy = "learning"
+points = 30
+prompt = "Write a complete NASM program (extern SDL_Init, SDL_CreateWindow, SDL_GetError, SDL_DestroyWindow, SDL_Quit, SDL_Log, puts; global main) that initializes SDL_INIT_VIDEO (0x00000020), creates a window titled \"SIGNAL LAB TWO\" at position (0,0) sized 320x240 with no flags, and on success destroys the window, quits SDL, then prints exactly: WINDOW OK TWO. Follow this lesson's two-failure-path pattern exactly: no SDL_Quit if SDL_Init itself fails, SDL_Quit before returning if window creation fails, SDL_DestroyWindow before SDL_Quit on the success path, and report each failure's SDL_GetError() reason via SDL_Log(\"%s\", ...) with al zeroed before the call, exactly as this lesson's worked example does."
+starter = '''
+default rel
+section .data
+win_title:  db "SIGNAL LAB TWO", 0
+; declare win_ok_msg and err_fmt here, exactly as the prompt specifies
+
+SDL_INIT_VIDEO equ 0x00000020
+
+section .text
+    global main
+    extern SDL_Init
+    extern SDL_CreateWindow
+    extern SDL_GetError
+    extern SDL_DestroyWindow
+    extern SDL_Quit
+    extern SDL_Log
+    extern puts
+
+; implement the full init -> create-window -> success/failure
+; lifecycle from this lesson, using win_title and win_ok_msg above.
+main:
+    ret
+'''
+expect = "WINDOW OK TWO\n"
+solution = '''
+default rel
+section .data
+win_title:  db "SIGNAL LAB TWO", 0
+win_ok_msg: db "WINDOW OK TWO", 0
+err_fmt:    db "%s", 0
+
+SDL_INIT_VIDEO equ 0x00000020
+
+section .text
+    global main
+    extern SDL_Init
+    extern SDL_CreateWindow
+    extern SDL_GetError
+    extern SDL_DestroyWindow
+    extern SDL_Quit
+    extern SDL_Log
+    extern puts
+
+main:
+    sub rsp, 8
+
+    mov rdi, SDL_INIT_VIDEO
+    call SDL_Init
+    cmp eax, 0
+    jne .init_failed
+
+    mov rdi, win_title
+    mov rsi, 0
+    mov rdx, 0
+    mov rcx, 320
+    mov r8, 240
+    mov r9, 0
+    call SDL_CreateWindow
+    cmp rax, 0
+    je .window_failed
+
+    mov rdi, rax
+    call SDL_DestroyWindow
+    call SDL_Quit
+    mov rdi, win_ok_msg
+    call puts
+    add rsp, 8
+    mov eax, 0
+    ret
+
+.window_failed:
+    call SDL_GetError
+    mov rsi, rax
+    lea rdi, [err_fmt]
+    xor eax, eax
+    call SDL_Log
+    call SDL_Quit
+    add rsp, 8
+    mov eax, 1
+    ret
+
+.init_failed:
+    call SDL_GetError
+    mov rsi, rax
+    lea rdi, [err_fmt]
+    xor eax, eax
+    call SDL_Log
+    add rsp, 8
+    mov eax, 1
+    ret
+'''
+hint = "Reuse this lesson's exact structure; only the title, dimensions, and success message text differ from the worked example."

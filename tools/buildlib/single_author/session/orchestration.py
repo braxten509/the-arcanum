@@ -19,6 +19,7 @@ def run_author_session(self, dependencies):
     continue_prompt = dependencies["continue_prompt"]
     current_unit = dependencies["current_unit"]
     ensure_unit = dependencies["ensure_unit"]
+    interrupted_prompt = dependencies["interrupted_prompt"]
     is_contract_conflict_report = dependencies["is_contract_conflict_report"]
     is_planning_contract_cycle_report = dependencies["is_planning_contract_cycle_report"]
     label = dependencies["label"]
@@ -32,6 +33,7 @@ def run_author_session(self, dependencies):
     report_completed_unit_cost = dependencies["report_completed_unit_cost"]
     section_repair_limit_reached = dependencies["section_repair_limit_reached"]
     unit_prompt = dependencies["unit_prompt"]
+    validate_author_blocked_check = dependencies["validate_author_blocked_check"]
     validate_author_self_check = dependencies["validate_author_self_check"]
     validate_unit = dependencies["validate_unit"]
     validation_failure_message = dependencies["validation_failure_message"]
@@ -50,9 +52,12 @@ def run_author_session(self, dependencies):
               author_prompt(self.build_id, self.concept, self.tooling, self.from_phase)
               + "\n\n" + assignment)
     conversation_kind = "harness"
-    conversation_text = (
-        f"Assigned {label(unit)}. The author runs the exact mechanical checks; the harness "
-        "independently repeats them after handoff.")
+    if self.session_id:
+        conversation_text = f"Resuming {label(unit)} in the existing author session."
+    elif self.resumed_build:
+        conversation_text = f"Restarting {label(unit)} in a new author session."
+    else:
+        conversation_text = f"Assigned {label(unit)}."
     deferred_message, deferred_switch = "", False
     nonvalidating_states = {}
     section_repair_failures = {}
@@ -169,11 +174,41 @@ def run_author_session(self, dependencies):
             elif outcome != "failed":
                 codex_patch_recoveries.pop(unit_key, None)
                 codex_fresh_session_recoveries.pop(unit_key, None)
+            if outcome == "authentication-required":
+                auth_message = (
+                    f"{label(unit)} paused before starting another author turn because "
+                    f"{self.kind} has no usable headless credential.\n\n{message}"
+                )
+                append_conversation(self.build_id, "harness", auth_message)
+                self.state("paused", gate="author-authentication", error=auth_message)
+                notify(
+                    "✗ Author authentication required",
+                    f"{self.current_tome()}: configure {self.kind}, then resume.",
+                    priority=1,
+                )
+                resumed = self.await_validation_controls()
+                if resumed is None:
+                    break
+                resumed_message, switched = resumed
+                if resumed_message:
+                    prompt = resumed_message + "\n\n" + prompt
+                    conversation_kind, conversation_text = "user", resumed_message
+                else:
+                    conversation_kind, conversation_text = "harness", (
+                        f"Retrying {label(unit)} after author authentication was restored.")
+                if switched:
+                    prompt = (
+                        author_prompt(
+                            self.build_id, self.concept, self.tooling,
+                            unit.get("phase", self.from_phase))
+                        + "\n\n" + prompt
+                    )
+                continue
             if outcome == "stopped":
                 break
             if outcome == "message":
                 unit = ensure_unit(self.build_id, self.from_phase)
-                prompt = message + "\n\n" + unit_prompt(self.build_id, unit)
+                prompt = interrupted_prompt(message, unit)
                 conversation_kind, conversation_text = "user", message
                 continue
             if outcome in ("harness-blocked", "repair-required"):
@@ -183,14 +218,24 @@ def run_author_session(self, dependencies):
                 self_check_ok = None
                 self_check_report = ""
                 ready_unit = None
-                # Never trust a provider-authored infrastructure label. Reproduce
-                # the exact deterministic self-check first; structured findings go
-                # back as authored repairs, while genuine crashes pause and re-probe
-                # mechanically after resume before any further paid author call.
+                # Never trust a provider-authored infrastructure label. HARNESS_BLOCKED
+                # must name its command, and the harness reproduces that exact command.
+                # HARNESS_REPAIR_REQUIRED remains the self-check-only compatibility path.
                 while self_check_ok is None and not self.stop:
                     try:
-                        self_check_ok, self_check_report = validate_author_self_check(
-                            self.build_id, unit)
+                        if outcome == "harness-blocked":
+                            check_kind, self_check_ok, self_check_report = (
+                                validate_author_blocked_check(
+                                    self.build_id, unit, message))
+                            if check_kind == "self-check":
+                                self_check_ok, self_check_report = (
+                                    validate_author_self_check(self.build_id, unit))
+                        else:
+                            check_kind = "self-check"
+                            self_check_ok, self_check_report = validate_author_self_check(
+                                self.build_id, unit)
+                        if check_kind == "bootstrap" and self_check_ok:
+                            break
                         if self_check_ok:
                             ready_unit = mark_unit_validating(self.build_id, unit)
                             if not ready_unit:
@@ -208,6 +253,20 @@ def run_author_session(self, dependencies):
                         deferred_switch = deferred_switch or switched
                 if self_check_ok is None:
                     break
+                if check_kind == "bootstrap":
+                    prompt = (
+                        f"Continue the exact {label(unit)} assignment already active in this "
+                        "session. The harness reproduced the named bootstrap command and it is "
+                        "now clean. Preserve current work and context; do not rerun that bootstrap "
+                        "command or restart discovery."
+                    )
+                    conversation_kind, conversation_text = "harness", (
+                        f"The harness reproduced the exact author-reported bootstrap command "
+                        f"for {label(unit)} and it is now clean. Continuing the same unit "
+                        "without regenerating its initial context.")
+                    prompt, conversation_kind, conversation_text = decorate_deferred(
+                        prompt, unit, conversation_kind, conversation_text)
+                    continue
                 if self_check_ok:
                     unit = ready_unit
                     append_conversation(
@@ -222,7 +281,8 @@ def run_author_session(self, dependencies):
                 prompt = repair_prompt(self.build_id, unit, self_check_report)
                 claimed = ("reported HARNESS_REPAIR_REQUIRED"
                            if outcome == "repair-required" else
-                           "reported HARNESS_BLOCKED, but the independently reproduced check")
+                           "reported HARNESS_BLOCKED; the exact named mechanical check "
+                           "returned authored findings")
                 conversation_kind, conversation_text = "harness", (
                     f"The author {claimed} for {label(unit)}. Structured authored findings "
                     "were aggregated and returned to the same author session. "

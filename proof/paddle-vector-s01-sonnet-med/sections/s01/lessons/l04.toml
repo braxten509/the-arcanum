@@ -1,0 +1,146 @@
+[[lessons]]
+id = "s01-l04"
+title = "Drive Decisions with Flags"
+teaches = ["language-branch-loop-control"]
+introduces = ["nasm-compare-branch-loop-control"]
+validationDependencies = []
+researchSources = ["nasm-manual-instruction-list"]
+body = '''
+<p>x86-64 has no if-statement and no while-loop as a single instruction; both are built from two
+separate steps. First, <code>CMP dest, src</code> subtracts <code>src</code> from <code>dest</code>
+and throws the numeric result away — it keeps only the CPU flags that subtraction set (zero, sign,
+carry, overflow). Second, a conditional jump instruction, one of the <code>Jcc</code> family, reads
+those flags and decides whether to jump. <code>JE</code>/<code>JNE</code> ("jump if equal / not
+equal") check the zero flag that a matching <code>CMP</code> just set; <code>JL</code>/<code>JGE</code>
+("jump if less / greater-or-equal") check the sign and overflow flags together to compare signed
+values. Because the flags are simply whatever the last instruction left behind, a <code>CMP</code>
+and its <code>Jcc</code> must sit next to each other — any instruction between them that also touches
+the flags overwrites the comparison before the jump ever reads it.</p>
+<p><code>JMP label</code> is the unconditional cousin: it always jumps, no flags involved, and is what
+turns a chain of comparisons into a loop — jump backward to a label you already passed, and the same
+instructions run again. A loop also needs some piece of state that changes each pass, or it would
+repeat forever; <code>INC reg</code> adds 1 to a register and <code>DEC reg</code> subtracts 1, the
+simplest way to advance or wind down a counter between iterations. A disposable example, checking a
+lamp count instead of anything from your project, puts all four pieces together:</p>
+<pre><code data-kind="pseudocode">section .text
+    global patrol_start
+patrol_start:
+    mov rcx, 0
+patrol_loop:
+    cmp rcx, 5
+    jge patrol_done
+    inc rcx
+    jmp patrol_loop
+patrol_done:</code></pre>
+<p>Trace it by hand once: rcx starts at 0. Each pass through <code>patrol_loop</code>, <code>cmp rcx, 5</code>
+sets the flags as if it computed <code>rcx - 5</code>, and <code>jge patrol_done</code> jumps away only
+once rcx reaches 5 or more. While rcx is still less than 5, that jump is not taken, execution falls
+through to <code>inc rcx</code>, and <code>jmp patrol_loop</code> sends control back to the top. The
+loop body runs for rcx = 0, 1, 2, 3, 4 — five passes — and the sixth check (rcx = 5) is the one that
+finally jumps to <code>patrol_done</code>. This exact shape, a compare against a limit followed by a
+conditional exit, is the pattern every bounded loop in this course will reuse.</p>
+<p>A realistic mistake is comparing the wrong quantity or reusing a register for two purposes between
+the <code>CMP</code> and the <code>Jcc</code>. Since <code>Jcc</code> reads flags, not registers, any
+instruction placed between a <code>CMP</code> and its intended <code>Jcc</code> that itself sets flags
+(another <code>CMP</code>, an <code>ADD</code>, even another <code>INC</code>) silently replaces the
+comparison you meant to act on — the branch still executes, just based on the wrong condition, with
+no assembler warning of any kind.</p>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // SIGNED VS UNSIGNED COMPARISON</div>
+<p>JL/JGE and their signed relatives read the sign and overflow flags, meaning they interpret the
+compared bits as a signed number. A parallel unsigned family (JB/JAE, "below"/"above-or-equal") reads
+carry instead. Mixing the two families for a comparison you meant the other way still assembles and
+still jumps — just on the wrong boundary — so picking JL/JGE for signed counters and JB/JAE for
+unsigned ones is a discipline, not something NASM enforces.</p></div>
+'''
+
+[[lessons.concepts]]
+id = "language-branch-loop-control"
+purpose = "Making a program take one of several paths, or repeat a block of instructions a bounded number of times, based on a comparison's result."
+anatomy = "CMP dest, src sets flags from dest - src; a Jcc instruction reads those flags and jumps or falls through; JMP jumps unconditionally; INC/DEC change a counter so a loop eventually ends."
+example = "The patrol_loop counting example in this lesson's body."
+observable = "Tracing the example by hand shows the loop body executing exactly 5 times before patrol_done is reached."
+failure = "Placing a flag-setting instruction between CMP and its Jcc replaces the comparison silently; the jump still fires, just on the wrong condition."
+practice = "s01-l04-e1"
+
+[[lessons.concepts]]
+id = "nasm-compare-branch-loop-control"
+purpose = "The specific CMP/Jcc/JMP instruction family, plus INC/DEC, that together build conditionals and bounded loops in NASM."
+anatomy = "CMP a, b computes a - b and keeps only the flags; JE/JNE test the zero flag; JL/JGE test sign+overflow for signed comparisons; JMP always jumps; INC/DEC adjust a counter by 1."
+example = "cmp rcx, 5 / jge patrol_done / inc rcx / jmp patrol_loop in this lesson's body."
+observable = "Each pass through the loop body increments rcx by exactly 1 until the cmp/jge pair diverts control to patrol_done."
+failure = "Comparing a signed counter with an unsigned Jcc (or the reverse) still assembles and still jumps, just on a different numeric boundary than intended — there is no assembler error to catch the mismatch."
+practice = "s01-l04-e1"
+
+[[lessons.readings]]
+label = "NASM manual: Instruction List (CMP, Jcc)"
+url = "https://www.nasm.us/doc/nasmaf.html"
+
+[[lessons.exercises]]
+id = "s01-l04-e1"
+type = "mc"
+required = true
+capabilities = ["language-branch-loop-control"]
+mechanisms = ["nasm-compare-branch-loop-control"]
+cognitiveTask = "predict"
+scaffold = "guided"
+contextFamily = "loop-trace"
+aidPolicy = "learning"
+points = 15
+prompt = "In a loop shaped like patrol_loop but comparing against 3 instead of 5 (cmp rcx, 3 / jge done), starting from rcx = 0 and incrementing each pass, how many times does the loop body actually execute before the jump to done is taken?"
+choices = ["Zero times, because jge always jumps on the first check", "4 times (rcx = 0, 1, 2, 3)", "2 times (rcx = 0, 1)", "3 times (rcx = 0, 1, 2)"]
+answer = 3
+whyWrong = "The wrong choices either count the exiting check itself as a body execution, undercount by one, or assume jge fires immediately regardless of the compared value — jge only jumps once rcx actually reaches or exceeds 3."
+hint = "The jump away happens on the check where rcx first equals or exceeds the limit — that check itself does not run the loop body again."
+explain = "rcx passes through the body at 0, 1, and 2; on the fourth check rcx equals 3, cmp/jge detects rcx >= 3, and control leaves the loop without running the body a fourth time."
+
+[[lessons.exercises]]
+id = "s01-l04-e2"
+type = "text"
+required = true
+capabilities = ["language-branch-loop-control"]
+mechanisms = ["nasm-compare-branch-loop-control"]
+cognitiveTask = "explain"
+scaffold = "guided"
+contextFamily = "flags-dependency"
+aidPolicy = "learning"
+points = 20
+prompt = "Explain, in your own words, why 'cmp rcx, 5' followed immediately by 'inc rcx' followed by 'jge patrol_done' does NOT correctly detect rcx reaching 5, even though the cmp still runs. What exactly does the inc instruction disturb?"
+answer = "A complete answer explains that inc rcx also updates the CPU flags (as an arithmetic instruction), so by the time jge executes, it is reading the flags left by inc rcx (comparing the incremented value against zero, effectively), not the flags cmp rcx, 5 set — the intended comparison against 5 has already been overwritten."
+hint = "Jcc never looks at cmp or at rcx directly — it only ever reads whatever flags the most recently executed flag-setting instruction left behind."
+
+[[lessons.exercises]]
+id = "s01-l04-e3"
+type = "fill"
+required = true
+capabilities = ["language-branch-loop-control"]
+mechanisms = ["nasm-compare-branch-loop-control"]
+cognitiveTask = "complete"
+scaffold = "completion"
+contextFamily = "loop-trace"
+aidPolicy = "learning"
+points = 20
+prompt = "Complete the conditional jump so this loop exits once rdx is greater than or equal to 10."
+code = '''check_loop:
+    cmp rdx, 10
+    ____ check_done
+    inc rdx
+    jmp check_loop
+check_done:'''
+answer = "jge"
+hint = "You need 'jump if greater or equal', matching a signed compare against a fixed limit."
+
+[[lessons.exercises]]
+id = "s01-l04-d1"
+type = "type"
+required = true
+capabilities = ["language-branch-loop-control"]
+mechanisms = ["nasm-compare-branch-loop-control"]
+cognitiveTask = "recall"
+scaffold = "worked"
+contextFamily = "loop-trace"
+aidPolicy = "learning"
+points = 12
+reps = 2
+prompt = "Retype this compare-and-branch pair exactly. (Ctrl+Enter submits.)"
+code = '''cmp rcx, 5
+jge patrol_done'''

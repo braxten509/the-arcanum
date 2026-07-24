@@ -15,6 +15,7 @@ from unittest.mock import patch
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from tools.buildlib.single_author import gate  # noqa: E402
+from tools.buildlib.single_author import section_review  # noqa: E402
 from tools.buildlib.single_author import full_review  # noqa: E402
 from tools.buildlib.workflow import section_progress  # noqa: E402
 from arcanum.platform.agent_commands import scoped_runner_command, scoped_shell_command  # noqa: E402
@@ -115,6 +116,7 @@ with tempfile.TemporaryDirectory() as root:
                           {"id": "s02", "status": "planned"}]}
 
     with patch.object(gate, "BUILD_DIR", build_dir), patch.object(gate, "REPO", root), \
+            patch.object(section_review, "BUILD_DIR", build_dir), \
             patch.object(section_progress, "BUILD_DIR", build_dir), \
             patch.object(gate, "resolve_working_id", return_value="course"), \
             patch.object(gate, "tome_section_ids", return_value=["s01", "s02"]), \
@@ -122,7 +124,7 @@ with tempfile.TemporaryDirectory() as root:
             patch.object(gate, "load_course_map", return_value=course), \
             patch.object(gate, "derive_course_state", return_value=state), \
             patch.object(gate, "prepare_handoff"), \
-            patch.object(gate, "review_prerequisites", return_value={"status": "PASS"}), \
+            patch.object(section_review, "review_prerequisites", return_value={"status": "PASS"}), \
             patch.object(gate, "record_section_verification", return_value={
                 "activeObligations": [], "sections": [{"id": "s01", "status": "verified"},
                                                        {"id": "s02", "status": "verified"}]}), \
@@ -149,7 +151,7 @@ with tempfile.TemporaryDirectory() as root:
         window.assert_called_once()
 
         with patch.object(gate, "validate_section", return_value=(False, "mechanical failure")), \
-                patch.object(gate, "review_prerequisites") as validator_call:
+                patch.object(section_review, "review_prerequisites") as validator_call:
             failed, failed_report = gate.validate_unit("build", last)
         assert not failed and "mechanical failure" in failed_report
         validator_call.assert_not_called()
@@ -157,7 +159,7 @@ with tempfile.TemporaryDirectory() as root:
         with patch.object(gate, "validate_section", return_value=(True, "section clean")), \
                 patch.object(gate, "validate_phase3", return_value=(False, "full failure")), \
                 patch.object(gate, "record_section_failure"), \
-                patch.object(gate, "review_prerequisites") as validator_call:
+                patch.object(section_review, "review_prerequisites") as validator_call:
             failed, failed_report = gate.validate_unit("build", last)
         assert not failed and "full failure" in failed_report
         validator_call.assert_not_called()
@@ -262,6 +264,35 @@ assert gate.validation_issue_count("# FAIL\n\nIssues found: 4\n\nRepairs") == 4
 failure_text = gate.validation_failure_message(
     {"kind": "phase", "phase": 1}, "ERROR plan: one")
 assert failure_text.endswith("(1 issues found)"), failure_text
+assert "repeated finding was not cleared" in failure_text
+
+blocked = (
+    "HARNESS_BLOCKED:\n"
+    "COMMAND: `python3 tools/workflow/context/render_section_context.py build s01`\n"
+    "DIAGNOSTIC:\npacket too large")
+assert gate.author_blocked_command(blocked) == [
+    "python3", "tools/workflow/context/render_section_context.py", "build", "s01"]
+with patch.object(gate, "self_validation_argvs", return_value=[]), \
+        patch.object(gate, "context", return_value={"tid": "course"}), \
+        patch.object(
+            gate, "run_harness_command",
+            return_value=subprocess.CompletedProcess(
+                ["python3", "tools/workflow/context/render_section_context.py",
+                 "build", "s01"],
+                0, stdout='{"version":1}\n', stderr="")) as reproduce:
+    blocked_kind, blocked_ok, blocked_report = gate.validate_author_blocked_check(
+        "build", {"kind": "section", "section": "s01"}, blocked)
+assert (blocked_kind, blocked_ok) == ("bootstrap", True)
+assert '"version":1' in blocked_report
+reproduce.assert_called_once_with(
+    ["python3", "tools/workflow/context/render_section_context.py", "build", "s01"],
+    "course")
+try:
+    gate.author_blocked_command("HARNESS_BLOCKED:\nDIAGNOSTIC:\nbroken")
+except Exception as exc:
+    assert "missing required" in str(exc)
+else:
+    raise AssertionError("a commandless HARNESS_BLOCKED report was accepted")
 
 phase2_context = {
     "tid": "course", "tooling": "external", "plan": ".tome-build/build.plan.md"}
@@ -312,6 +343,12 @@ resumed_codex = single_author_runtime.resume_command(
     "codex-cli", "gpt-5.6-terra", "medium", "session", "continue")[1]
 assert "model_auto_compact_token_limit=80000" in resumed_codex
 assert resumed_codex[resumed_codex.index("-m") + 1] == "gpt-5.6-terra"
+resumed_opencode = single_author_runtime.resume_command(
+    "opencode-cli", "opencode-go/deepseek-v4-pro", "max",
+    "same-model-conversation", "continue")[1]
+assert resumed_opencode[resumed_opencode.index("--session") + 1] == "same-model-conversation"
+assert resumed_opencode[resumed_opencode.index("-m") + 1] == "opencode-go/deepseek-v4-pro"
+assert resumed_opencode[resumed_opencode.index("--variant") + 1] == "max"
 with patch.object(single_author, "current_unit", return_value={
         "kind": "section", "phase": 3, "section": "s01"}), \
         patch("arcanum.platform.agent_scratch.provider_session_exists",

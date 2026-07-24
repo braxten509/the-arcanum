@@ -6,7 +6,8 @@ from arcanum_core.findings import Finding
 from .schema import error
 
 HIDDEN_KEYS = {"referenceSteps", "solution", "assessment", "scenarios", "hidden",
-               "reference", "mutations", "expectRegex", "expectExact", "verificationReceipt"}
+               "reference", "mutations", "expectRegex", "expectExact", "expectRaw",
+               "verificationReceipt"}
 
 
 def evidence_payload_privacy_enabled(manifest: dict) -> bool:

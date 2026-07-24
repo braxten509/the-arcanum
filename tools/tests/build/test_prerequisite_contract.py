@@ -175,6 +175,11 @@ assert added == {"id": "function-call", "label": "function call",
                  "kind": "syntax-form", "owner": "s01.l01"}
 assert "function-call" in expanded["sections"][0]["nodes"][0]["introduces"]
 assert "function-call" in expanded["sections"][0]["nodes"][1]["mechanisms"]
+cumulative_expanded = candidate_with_findings(cumulative_course, "s01", [finding])
+assert "function-call" in cumulative_expanded["sections"][1]["nodes"][1]["mechanisms"]
+assert not validate_map_contract(
+    cumulative_expanded, cumulative_expanded["sections"], cumulative_positions,
+    detailed=True, map_version=4)
 future_course = json.loads(json.dumps(course))
 future_course["sections"].append({
     "id": "s02", "nodes": [

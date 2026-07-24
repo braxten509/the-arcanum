@@ -48,6 +48,7 @@ class WorkspaceSnapshot:
     home: str
     workspace_hash: str
     manifest: tuple[dict, ...]
+    excluded: tuple[dict, ...]
     limits: SnapshotLimits
 
     def close(self) -> None:
@@ -92,7 +93,8 @@ def _hash_manifest(manifest: list[dict]) -> str:
 
 
 def create_snapshot(workspace: str, *, parent: str | None = None,
-                    limits: SnapshotLimits | None = None) -> WorkspaceSnapshot:
+                    limits: SnapshotLimits | None = None,
+                    excluded_dirs: tuple[str, ...] = ()) -> WorkspaceSnapshot:
     limits = limits or SnapshotLimits()
     source_root = os.path.realpath(workspace)
     if not os.path.isdir(source_root):
@@ -102,15 +104,42 @@ def create_snapshot(workspace: str, *, parent: str | None = None,
     home = os.path.join(root, "home")
     os.makedirs(source)
     os.makedirs(home, mode=0o700)
-    manifest, total = [], 0
+    manifest, excluded, total = [], [], 0
+    directory_policy = EXCLUDED_DIRS | frozenset(excluded_dirs)
     try:
         for dirpath, dirnames, filenames in os.walk(source_root, followlinks=False):
             if os.path.islink(dirpath):
                 raise SnapshotError("workspace contains an unsupported directory symlink")
-            dirnames[:] = sorted(name for name in dirnames
-                                  if name not in EXCLUDED_DIRS and not _secret_name(name))
+            kept_dirs = []
+            for name in sorted(dirnames):
+                original_dir = os.path.join(dirpath, name)
+                relative_dir = os.path.relpath(original_dir, source_root).replace(os.sep, "/")
+                if os.path.islink(original_dir):
+                    raise SnapshotError(
+                        f"workspace contains unsupported symlink {relative_dir!r}")
+                if _secret_name(name):
+                    excluded.append({
+                        "path": relative_dir + "/", "kind": "directory",
+                        "reason": "private-name policy",
+                    })
+                elif name in directory_policy:
+                    excluded.append({
+                        "path": relative_dir + "/", "kind": "directory",
+                        "reason": ("runtime exclusion" if name in excluded_dirs
+                                   and name not in EXCLUDED_DIRS else
+                                   "dependency/cache/output policy"),
+                    })
+                else:
+                    kept_dirs.append(name)
+            dirnames[:] = kept_dirs
             for filename in sorted(filenames):
                 if _secret_name(filename):
+                    relative_secret = os.path.relpath(
+                        os.path.join(dirpath, filename), source_root).replace(os.sep, "/")
+                    excluded.append({
+                        "path": relative_secret, "kind": "file",
+                        "reason": "private-name policy",
+                    })
                     continue
                 original = os.path.join(dirpath, filename)
                 if os.path.islink(original):
@@ -143,7 +172,8 @@ def create_snapshot(workspace: str, *, parent: str | None = None,
         with open(os.path.join(root, "manifest.json"), "w", encoding="utf-8") as handle:
             json.dump(manifest, handle, sort_keys=True, separators=(",", ":"))
         return WorkspaceSnapshot(
-            root, source, work, home, _hash_manifest(manifest), tuple(manifest), limits)
+            root, source, work, home, _hash_manifest(manifest), tuple(manifest),
+            tuple(excluded), limits)
     except Exception:
         shutil.rmtree(root, ignore_errors=True)
         raise

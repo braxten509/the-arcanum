@@ -1,10 +1,12 @@
 """Private, disposable scratch directories for one authoring build."""
 from __future__ import annotations
 
+import json
 import os
 import re
 import shutil
 import sqlite3
+import time
 
 
 ROOT = "/tmp/arcanum"
@@ -88,6 +90,10 @@ def provider_state_mounts(provider: str, build_id: str, role: str, phase: int,
             (".local/share/opencode", ("auth.json", "account.json")),
             (".local/state/opencode", ()),
         ),
+        "antigravity": ((".gemini", (
+            "google_accounts.json", "installation_id", "oauth_creds.json",
+            "settings.json",
+        )),),
     }
     if provider not in layouts:
         raise ValueError(f"provider {provider!r} has no isolated state layout")
@@ -110,6 +116,41 @@ def provider_state_mounts(provider: str, build_id: str, role: str, phase: int,
                 if os.path.isfile(original):
                     shutil.copy2(original, target)
         mounts.append((source, os.path.join(home, relative)))
+    if provider == "claude":
+        # Claude Code 2.1.x keeps mutable installation/account metadata in the
+        # sibling ~/.claude.json file. The directory-only overlay made that file
+        # disappear, so an expired OAuth session produced a misleading restore
+        # warning before the harness could explain that it lacked headless auth.
+        #
+        # Do not copy the host file wholesale: it contains unrelated project and
+        # usage history. A minimal unit-local file satisfies Claude's configuration
+        # lifecycle while session history and persistent memory remain isolated.
+        source = os.path.join(unit, ".claude.json")
+        if initialize or not os.path.isfile(source):
+            first_start = int(time.time() * 1000)
+            host_file = os.path.join(home, ".claude.json")
+            try:
+                with open(host_file, encoding="utf-8") as handle:
+                    host_state = json.load(handle)
+                if isinstance(host_state.get("firstStartTime"), (int, float)):
+                    first_start = host_state["firstStartTime"]
+            except (OSError, ValueError, TypeError):
+                pass
+            with open(source, "w", encoding="utf-8") as handle:
+                json.dump({
+                    "firstStartTime": first_start,
+                    "hasCompletedOnboarding": True,
+                }, handle, separators=(",", ":"))
+                handle.write("\n")
+            os.chmod(source, 0o600)
+        mounts.append((source, os.path.join(home, ".claude.json")))
+        # Share only Claude's dedicated credential file so a refresh performed by
+        # either the terminal or a harness unit is immediately visible to the other.
+        # The surrounding ~/.claude directory remains unit-local, keeping projects,
+        # transcripts, plugins, sessions, and persistent memory outside the boundary.
+        host_credentials = os.path.join(home, ".claude", ".credentials.json")
+        if os.path.isfile(host_credentials):
+            mounts.append((host_credentials, host_credentials))
     if initialize:
         os.makedirs(unit, mode=0o700, exist_ok=True)
         with open(marker, "w", encoding="utf-8") as handle:

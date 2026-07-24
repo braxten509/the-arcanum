@@ -25,13 +25,20 @@ class _CliProvider:
         command, input_mode = self.command(request)
         workspace = os.path.realpath(request.workspace)
         tomes_root = os.path.join(ROOT, "tomes")
-        if os.path.commonpath((workspace, tomes_root)) == tomes_root:
+        declared_profile = request.permission_paths is not None
+        declared_state = request.state_scope is not None
+        if declared_profile != declared_state:
+            raise ProviderConfigurationError(
+                "CLI permission profile and isolated state scope must be declared together")
+        if (os.path.commonpath((workspace, tomes_root)) == tomes_root
+                and not declared_profile):
             raise ProviderConfigurationError(
                 "generic CLI tome work has no declared permission profile; use the Forge role runner")
         command = scoped_runner_command(
             self.provider_id, command, request.workspace,
             list(request.writable_paths), ROOT,
-            readonly_paths=request.readonly_paths, web_allowed=request.web_allowed)
+            readonly_paths=request.readonly_paths, web_allowed=request.web_allowed,
+            permission_paths=request.permission_paths, state_scope=request.state_scope)
         ensure_cli_access(
             f"{self.provider_id} {request.model}".strip(), command, input_mode)
         environment = {key: value for key, value in os.environ.items() if key != "CLAUDECODE"}
@@ -62,6 +69,8 @@ class ClaudeCliProvider(_CliProvider):
             command += ["--model", request.model]
         if request.effort:
             command += ["--effort", request.effort]
+        if request.stream_events:
+            command += ["--output-format", "stream-json", "--verbose"]
         return command, "arg"
 
 
@@ -91,6 +100,8 @@ class CodexCliProvider(_CliProvider):
             command += ["-m", request.model]
         if request.effort:
             command += ["-c", f"model_reasoning_effort={request.effort}"]
+        if request.stream_events:
+            command += ["--json"]
         return [*command, "-"], "stdin"
 
 
@@ -99,6 +110,8 @@ class OpenCodeCliProvider(_CliProvider):
 
     def command(self, request: AiRequest) -> tuple[list[str], str]:
         command = [OPENCODE_BIN, "run", "--auto"]
+        if request.stream_events:
+            command += ["--format", "json"]
         if request.model:
             command += ["-m", request.model]
         if request.effort:
@@ -121,5 +134,8 @@ class OllamaProvider:
             role=request.role, model=model, input=request.input, timeout=request.timeout,
             workspace=request.workspace, response_schema=request.response_schema,
             allowed_tools=request.allowed_tools, web_allowed=request.web_allowed,
-            effort=request.effort, trace=request.trace))
+            effort=request.effort, trace=request.trace,
+            writable_paths=request.writable_paths, readonly_paths=request.readonly_paths,
+            permission_paths=request.permission_paths, state_scope=request.state_scope,
+            stream_events=request.stream_events))
         return AiResponse(self.provider_id, request.model, response.text, response.trace)

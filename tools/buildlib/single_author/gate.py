@@ -11,7 +11,8 @@ import time
 from .. import BUILD_DIR, REPO
 from ..ai_costs import completed_cost_line
 from ..authoring import standard_phase_registry
-from ..measure import (preflight_validator_runtime, run_harness_command,
+from ..measure import (ValidatorInfrastructureError, preflight_validator_runtime,
+                       run_harness_command,
                        phase3_validator_argv, section_validator_argv, validate_phase3,
                        validate_section)
 from ..workflow.prompts import LEARNER_CONSTRUCTION_INSTRUCTION, read_tooling
@@ -27,13 +28,20 @@ from ..section_quality_contract import (section_quality_authority,
                                         section_quality_settings)
 from ..course.state import (derive_course_state, record_section_failure,
                            record_section_verification)
-from ..prerequisites.review import review_prerequisites
+from .section_review import review_section
+from .prompts.continuation import (
+    LESSON_BATCH_INSTRUCTION,
+    continue_prompt as render_continue_prompt,
+    interrupted_prompt,
+)
+from .validation_messages import (
+    validation_failure_message as render_validation_failure_message,
+    validation_issue_count,
+)
 from ..planning_review import (planning_authority, planning_dynamic_authority,
                                review_planning_phase,
                                review_report as planning_review_report)
 from ..status_log import emit_status_line
-from ..mechanism_contract import candidate_with_findings
-from ..course.amend import amend_course_map
 from arcanum.catalog.build_ids import resolve_working_id
 from tools.validatelib.phase3 import tome_section_ids
 
@@ -150,42 +158,9 @@ def validate_unit(build_id, unit):
             if not full_ok:
                 record_section_failure(build_id, unit["section"], full)
                 return False, report
-        prerequisite = review_prerequisites(build_id, unit["section"])
-        if prerequisite.get("status") not in ("PASS", "not-required"):
-            findings = prerequisite.get("missingMechanisms") or []
-            quality_findings = prerequisite.get("qualityFindings") or []
-            amended = ""
-            if findings:
-                try:
-                    candidate = candidate_with_findings(
-                        load_course_map(build_id), unit["section"], findings)
-                    amend_course_map(
-                        build_id, candidate,
-                        f"Prerequisite audit found undeclared first-use mechanisms in {unit['section']}")
-                    amended = (" The harness amended the sealed mechanism ledger; repair the "
-                               "new lesson introductions and demand declarations, then retry.")
-                except (CourseMapError, ValueError, TypeError) as exc:
-                    amended = f" Controlled amendment was rejected: {exc}"
-            quality_repairs = "; ".join(
-                f"{item.get('node', '?')} [{item.get('category', 'quality')}]: "
-                f"{item.get('requiredRepair', 'repair the cited defect')}"
-                for item in quality_findings if isinstance(item, dict))
-            helpful_repairs = "; ".join(
-                item.strip() for item in prerequisite.get("guidance") or []
-                if isinstance(item, str) and item.strip())
-            semantic_issues = max(1, len(findings) + len(quality_findings))
-            review_report = (f"Issues found: {semantic_issues}\n"
-                             "section teaching-quality and prerequisite audit: "
-                             f"{prerequisite.get('status')} — "
-                             + "; ".join(prerequisite.get("reasons") or ["no cited evidence"])
-                             + (f" Repairs: {quality_repairs}." if quality_repairs else "")
-                             + (f" Helpful findings: {helpful_repairs}."
-                                if helpful_repairs else "")
-                             + amended)
-            try:
-                record_section_failure(build_id, unit["section"], review_report)
-            except ValueError:
-                pass
+        # Single optional advisory pass, then deterministic-only (see section_review).
+        ok, review_report = review_section(build_id, unit)
+        if not ok:
             return False, "\n".join(part for part in (report, review_report) if part)
         try:
             state = record_section_verification(build_id, unit["section"], report)
@@ -328,6 +303,64 @@ def validate_author_self_check(build_id, unit):
     return True, "\n".join(reports)
 
 
+def author_blocked_command(text):
+    """Parse the exact command named by a structured HARNESS_BLOCKED report."""
+    for line in str(text or "").splitlines():
+        match = re.match(r"^\s*COMMAND:\s*(.*?)\s*$", line)
+        if not match:
+            continue
+        rendered = match.group(1).strip()
+        if len(rendered) >= 2 and rendered[0] == rendered[-1] == "`":
+            rendered = rendered[1:-1]
+        try:
+            return shlex.split(rendered)
+        except ValueError as exc:
+            raise ValidatorInfrastructureError(
+                "HARNESS_BLOCKED report",
+                f"could not parse COMMAND line: {exc}") from exc
+    raise ValidatorInfrastructureError(
+        "HARNESS_BLOCKED report",
+        "missing required `COMMAND: <exact command>` line")
+
+
+def author_bootstrap_argv(build_id, unit):
+    """Return the one bounded context command allowed before this unit's authoring."""
+    if unit["kind"] == "section":
+        return ["python3", "tools/workflow/context/render_section_context.py",
+                build_id, unit["section"]]
+    if int(unit.get("phase") or 0) == 2:
+        return ["python3", "tools/workflow/context/render_phase2_context.py", build_id]
+    return []
+
+
+def validate_author_blocked_check(build_id, unit, claim):
+    """Reproduce the command an author says was blocked.
+
+    Returns ``("self-check", None, "")`` for an allowlisted unit validator or
+    ``("bootstrap", True, report)`` for a clean bounded-context command.
+    Unstructured command failures raise ``ValidatorInfrastructureError`` through
+    ``run_harness_command`` and pause without substituting a different check.
+    """
+    command = author_blocked_command(claim)
+    self_checks = self_validation_argvs(build_id, unit)
+    if command in self_checks:
+        # The orchestrator invokes its injected self-check dependency so tests,
+        # alternate registries, and the complete multi-command aggregate retain
+        # the same behavior as an ordinary handoff.
+        return "self-check", None, ""
+    bootstrap = author_bootstrap_argv(build_id, unit)
+    if bootstrap and command == bootstrap:
+        ctx = context(build_id)
+        process = run_harness_command(command, ctx["tid"])
+        report = ((process.stdout or "") + (process.stderr or "")).strip()
+        return "bootstrap", True, report
+    allowed = [shlex.join(item) for item in [*self_checks, *([bootstrap] if bootstrap else [])]]
+    raise ValidatorInfrastructureError(
+        shlex.join(command),
+        "HARNESS_BLOCKED named a command outside the assigned exact command set; "
+        f"allowed commands: {', '.join(allowed)}")
+
+
 def mark_unit_validating(build_id, unit):
     """Trusted marker used after independently reproducing a clean author self-check."""
     if unit["kind"] == "section":
@@ -357,31 +390,8 @@ def preflight_unit(build_id, unit):
     preflight_validator_runtime(ctx["tid"], entrypoints)
 
 
-_ISSUE_COUNT_RE = re.compile(r"(?im)^\s*issues?\s+found\s*[:=]\s*(\d+)\b")
-_SUMMARY_COUNT_RE = re.compile(
-    r"(?i)(\d+)\s+error\(s\)(?:\s*,\s*(\d+)\s+warning\(s\))?")
-
-
-def validation_issue_count(report):
-    """Return the number of findings represented by a failed validator report."""
-    text = str(report or "")
-    explicit = [int(match.group(1)) for match in _ISSUE_COUNT_RE.finditer(text)]
-    if explicit:
-        return max(1, explicit[-1])
-    structured = sum(
-        1 for line in text.splitlines()
-        if re.match(r"^\s*(?:ERROR|WARN)\b", line))
-    if structured:
-        return structured
-    summarized = sum(
-        int(match.group(1)) + int(match.group(2) or 0)
-        for match in _SUMMARY_COUNT_RE.finditer(text))
-    return max(1, summarized)
-
-
 def validation_failure_message(unit, report):
-    return (f"Validation failed for {label(unit)}. The report was returned to the same "
-            f"author session. ({validation_issue_count(report)} issues found)")
+    return render_validation_failure_message(label(unit), report)
 
 
 def mechanical_validation_prompt(build_id, unit):
@@ -394,8 +404,13 @@ def mechanical_validation_prompt(build_id, unit):
         "mechanical checks are required author feedback and are not the Validator AI. Do not run "
         "or imitate the Validator AI, run deterministic transition commands, or substitute ad-hoc "
         "checks. If an exact command cannot start or crashes before returning structured "
-        "ERROR/WARN findings, answer once with `HARNESS_BLOCKED:` plus the raw diagnostic and stop; "
-        "do not edit repository tooling.\nExact mechanical checks:\n"
+        "ERROR/WARN findings, answer once in this exact form and stop:\n"
+        "`HARNESS_BLOCKED:`\n"
+        "`COMMAND: <copy the exact failed command>`\n"
+        "`DIAGNOSTIC:`\n"
+        "`<raw diagnostic>`\n"
+        "Do not edit repository tooling. The harness reruns the named command; it never "
+        "substitutes a different check.\nExact mechanical checks:\n"
         f"{rendered}\nOnly after all exact checks exit 0, set the unit's progress marker to "
         "`validating` and stop. The harness independently reruns the same complete mechanical gate, "
         "then starts the Validator AI when that unit has one."
@@ -445,39 +460,13 @@ def repair_prompt(build_id, unit, report):
             + "so the harness can validate the repair.")
 
 
-# A full section plus hidden replay is too large for one upstream generation, while one
-# lesson per turn repeatedly charges the same warm context. The stable boundary is all
-# lessons in one batch, followed by one Working/assessment/handoff turn.
-LESSON_BATCH_INSTRUCTION = (
-    "Use TWO COHERENT AUTHORING BATCHES for this section. In the first turn, research the "
-    "section's external facts, then author EVERY sealed planned lesson completely in one batch. "
-    "Stop after all lesson files without authoring the Working, assessment, handoff, "
-    "or progress marker. The harness returns you to this same session once, retaining the bounded "
-    "context. In the second turn, author the Working, assessment, and handoff together, then use "
-    "the exact mechanical-check and marker instructions below.")
-
-
 def continue_prompt(build_id, unit):
-    """Return the author to the same unit after it stopped without a handoff.
-
-    For a section this is the expected two-batch boundary rather than a stall, so it must
-    not re-send unit_prompt, whose section branch
-    re-runs render_section_context and the continuity packet the author already has. A
-    genuine stall is caught by the no-progress fingerprint in single_author.run(), which
-    compares author-writable state across turns, so this prompt never has to police it.
-    """
-    if unit["kind"] != "section":
-        return (f"You stopped before handing off {label(unit)}. Finish only that unit, "
-                "set its progress marker to validating, and stop.\n\n" + unit_prompt(build_id, unit))
-    marker = (f"python3 tools/workflow/report_section_progress.py {build_id} {unit['section']} "
-              f"{unit['index']} {unit['total']} validating")
-    return (f"Continuing {label(unit)} in the same bounded session. Do not rerender the "
-            "section context, reread the phase guide, or repeat discovery. Verify that every "
-            "sealed planned lesson is complete. If an interrupted first batch left any lesson "
-            "incomplete, finish ALL remaining lessons together and stop again before the Working. "
-            "Otherwise author the Working, assessment, and handoff together, then "
-            f"{mechanical_validation_prompt(build_id, unit)} Then run exactly `{marker}` and stop so the harness "
-            "can validate the complete section.")
+    return render_continue_prompt(
+        build_id, unit,
+        label=label,
+        unit_prompt=unit_prompt,
+        mechanical_validation_prompt=mechanical_validation_prompt,
+    )
 
 
 

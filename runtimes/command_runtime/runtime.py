@@ -46,6 +46,7 @@ class CommandRuntime(WorkspaceMixin, DiagnosticsMixin, SnippetMixin, ExecutionMi
         }
         self.diag_re = cfg.get("diagRegex") or ""
         self.entry = cfg.get("entryFile") or "main.txt"
+        self.artifact = cfg.get("artifactPath") or ""
         self.starter = cfg.get("starterCode") or ""
         self.project_file_tpl = cfg.get("projectFile") or self.entry
         self.exclude_dirs = set(cfg.get("excludeDirs") or [])
@@ -56,7 +57,10 @@ class CommandRuntime(WorkspaceMixin, DiagnosticsMixin, SnippetMixin, ExecutionMi
 
     def _exe(self):
         for argv in (self.cmd, self.run_cmd, self.build_cmd):
-            if argv:
+            if argv and "{" not in argv[0]:
+                return argv[0]
+        for argv in self.assessment_commands.values():
+            if argv and "{" not in argv[0]:
                 return argv[0]
         return None
 

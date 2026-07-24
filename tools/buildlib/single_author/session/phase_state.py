@@ -2,6 +2,8 @@
 import json
 import time
 
+from arcanum.ai.models import session_models_compatible
+
 from .support import write_json
 
 
@@ -39,8 +41,10 @@ class PhaseAuthorStateMixin:
         """Compatibility helper for direct callers that only switch phase routing."""
         kind, model, effort = self.phase_author(phase)
         identity_changed = (kind, model) != (self.kind, self.model)
+        compatible = session_models_compatible(
+            self.kind, self.model, kind, model)
         self.kind, self.model, self.effort = kind, model, effort
-        if identity_changed:
+        if identity_changed and not compatible:
             self.session_id = ""
         return identity_changed
 

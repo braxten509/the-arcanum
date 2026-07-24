@@ -12,6 +12,7 @@ ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(ROOT))
 
 from arcanum.authoring import amender
+from arcanum.authoring.services import binder as binder_service
 from arcanum.jobs import JobManager, ProcessStore
 
 
@@ -30,6 +31,17 @@ class CapturingAi:
             argv=("/usr/bin/true",), input_mode="none", environment={}, cwd=request.workspace)
 
 
+class DeferredThread:
+    instances = []
+
+    def __init__(self, target, args, daemon):
+        self.target, self.args, self.daemon = target, args, daemon
+        self.instances.append(self)
+
+    def start(self):
+        pass
+
+
 with tempfile.TemporaryDirectory() as temporary:
     root = Path(temporary)
     build_root = root / ".tome-build"
@@ -43,6 +55,18 @@ with tempfile.TemporaryDirectory() as temporary:
     with patch.object(amender, "ROOT", str(root)), \
             patch.object(amender, "BUILD_DIR", str(build_root)), \
             patch.object(amender, "notify", lambda *_args, **_kwargs: None):
+        validator_commands = []
+        with patch.object(
+                amender.subprocess, "run",
+                lambda command, **_kwargs: (
+                    validator_commands.append(command)
+                    or SimpleNamespace(returncode=0, stdout="", stderr=""))):
+            amender._validate_amendment("demo", strict=True)
+        assert validator_commands == [[
+            sys.executable, str(root / "tools" / "validate_tome.py"),
+            "tomes/demo", "--strict",
+        ]]
+
         amender.checkpoint_tome("demo")
         assert not (build_root / "binder-checkpoints" / "demo" / "save").exists()
         (tome / "lesson.toml").write_text("partial edit\n", encoding="utf-8")
@@ -67,16 +91,124 @@ with tempfile.TemporaryDirectory() as temporary:
 
         capturing = CapturingAi()
         complete = jobs.create("binder-amend", tome="demo")
+        validation_calls = []
         with patch.object(amender, "_run_agent_turn",
-                          lambda *_args, **_kwargs: (0, False, ["no changes needed"])):
+                          lambda *_args, **_kwargs: (0, False, ["no changes needed"])), \
+                patch.object(
+                    amender, "_validate_amendment",
+                    lambda jid, strict=False: (
+                        validation_calls.append((jid, strict))
+                        or SimpleNamespace(returncode=0, stdout="", stderr=""))):
             amender.run_amender(
                 complete["id"], "demo", "is it already correct?", "fixed", "model",
+                broad=True, update_standard=True,
                 job_manager=jobs, processes=ProcessStore(), ai=capturing)
         request = capturing.request
         assert request.role == "binder-amend" and request.workspace == str(tome)
         assert request.writable_paths == (str(tome),)
+        assert request.permission_paths is not None
+        assert request.state_scope == {
+            "build_id": complete["id"], "role": "binder-amend",
+            "phase": 7, "section": "",
+        }
         assert request.web_allowed and {"read", "write", "shell"} <= set(request.allowed_tools)
+        assert "STANDARD UPDATE" in request.input
+        assert "current validator and current Markdown instructions as authoritative" in request.input
+        assert "if the tome is already current" in request.input
+        assert "Never add or partially imitate an opt-in contract" in request.input
+        assert "trusted repository generator may update its own generated output" in request.input
+        assert "`python3 tools/validate_tome.py tomes/demo --strict`" in request.input
+        assert validation_calls == [("demo", True)]
         assert jobs.status(complete["id"])["status"] == "done"
         assert not (build_root / "binder-checkpoints" / "demo").exists()
+
+        review_ai = CapturingAi()
+        review_job = jobs.create("binder-amend", tome="demo", review=True)
+        with patch.object(
+                amender, "_run_agent_turn",
+                lambda *_args, **_kwargs: (0, False, ["review complete"])):
+            amender.run_amender(
+                review_job["id"], "demo", "", "fixed", "model", review=True,
+                job_manager=jobs, processes=ProcessStore(), ai=review_ai)
+        review_prompt = review_ai.request.input
+        assert review_ai.request.role == "binder-review"
+        assert "FIRST substantive section MUST be `## Recommendation and implementation order`" \
+            in review_prompt
+        assert "EVERY material recommended workstream" in review_prompt
+        assert "Rank learner privacy, correctness, teaching integrity" in review_prompt
+        assert "Recommend broad correction when the evidence warrants it" in review_prompt
+        assert "label finding-specific actions `Remediation`" in review_prompt
+        assert "End with one short paragraph" not in review_prompt
+        history = amender.review_history("demo")
+        assert len(history["reviews"]) == 1, history
+        historical = history["reviews"][0]
+        assert historical["providerKind"] == "fixed"
+        assert historical["providerModel"] == "model"
+        report_file = root / historical["path"]
+        report_file.write_text(
+            "# Demo review\n\n## Recommendation and implementation order\n\n"
+            "Repair the boundary first.\n\n## Findings\n\nDetails.\n",
+            encoding="utf-8")
+        detail = amender.review_history("demo", historical["path"])
+        assert detail["content"].startswith("# Demo review"), detail
+        assert "Repair the boundary first." in detail["summary"], detail
+        assert amender.review_history("demo", "../reviews/not-demo.md") == {}
+
+        strict_failures = []
+        failed_standard = jobs.create("binder-amend", tome="demo")
+        with patch.object(
+                amender, "_run_agent_turn",
+                lambda *_args, **_kwargs: (0, False, ["repair attempted"])), \
+                patch.object(
+                    amender, "_validate_amendment",
+                    lambda jid, strict=False: (
+                        strict_failures.append((jid, strict))
+                        or SimpleNamespace(
+                            returncode=1, stdout="-- demo: 0 error(s), 1 warning(s)",
+                            stderr=""))):
+            amender.run_amender(
+                failed_standard["id"], "demo", "", "fixed", "model",
+                broad=True, update_standard=True,
+                job_manager=jobs, processes=ProcessStore(), ai=CapturingAi())
+        failed_status = jobs.status(failed_standard["id"])
+        assert failed_status["status"] == "error"
+        assert "strict standard validator still fails" in failed_status["error"]
+        assert strict_failures == [("demo", True), ("demo", True)]
+        assert not (build_root / "binder-checkpoints" / "demo").exists()
+
+        states = []
+        with patch.object(binder_service, "save_amend_state", states.append), \
+                patch.object(binder_service.threading, "Thread", DeferredThread):
+            service = binder_service.BinderService(JobManager(), ProcessStore(), CapturingAi())
+            refused, status = service.start("demo", {
+                "request": "", "broad": False, "updateStandard": True,
+            })
+            assert status == 400 and not refused["ok"]
+            accepted, status = service.start("demo", {
+                "request": "", "kind": "fixed", "model": "model",
+                "broad": True, "updateStandard": True,
+            })
+            assert status == 200 and accepted["ok"]
+            assert states[-1]["updateStandard"] is True
+            assert DeferredThread.instances[-1].args[11] is True
+
+            review_service = binder_service.BinderService(
+                JobManager(), ProcessStore(), CapturingAi())
+            refused_review, status = review_service.start("demo", {
+                "request": "apply it", "kind": "fixed", "model": "model",
+                "reviewPath": "reviews/another-tome-20260724-000000.md",
+            })
+            assert status == 400 and not refused_review["ok"]
+            applied, status = review_service.start("demo", {
+                "request": "apply it", "kind": "fixed", "model": "model",
+                "reviewPath": historical["path"],
+                "broad": False, "updateStandard": False, "iterate": True,
+            })
+            assert status == 200 and applied["ok"]
+            application_args = DeferredThread.instances[-1].args
+            assert application_args[6] is True       # broad
+            assert application_args[7] is False      # iterate
+            assert application_args[10] == historical["path"]
+            assert application_args[11] is True      # update standard
 
 print("Binder checkpoint, rollback, and invocation tests: OK")

@@ -14,6 +14,9 @@ from .build_state import (BUILD_PHASE_TITLES, BUILD_TOTAL_PHASES, build_result_s
                           record_build_result, remove_active_owner)
 from .tool_trace import mirror_tool_trace
 from .notify import notify
+# Re-exported for callers that still import them from arcanum.forge (e.g. forge_lifecycle).
+from .plan_text import (_plan_concept, _plan_gate,  # noqa: F401
+                        replace_plan_tooling, tooling_conflict_details)
 
 BUILD_PHASE_RE = re.compile(r"^\s*>\s*Phase (\d+)\s*—\s*(.+?)(?:\s+\[runner|$)")
 # Worker CLIs color their output; the browser log is plain text, where the ESC byte is
@@ -146,11 +149,6 @@ def watch_build(gid, proc, job_manager: JobManager, processes: ProcessStore, cat
 # Phase 2 may RENAME the tome (untitled -> writforge) while leaving the plan under the old
 # id, and the phase reached is only known from the live job — so we persist it to a sidecar.
 
-def _plan_concept(text):
-    m = re.search(r"(?ms)^## Concept\n(.+?)\n\n", text)
-    return (m.group(1).strip().replace("\n", " ") if m else "")[:280]
-
-
 def _load_launch(*ids):
     for i in ids:
         try:
@@ -159,6 +157,22 @@ def _load_launch(*ids):
         except (OSError, ValueError):
             continue
     return {}
+
+
+def _section_ai_review_mode(*sources):
+    """Section-review mode from the first source that specifies it, defaulting to "pass".
+    Falls back to the retired boolean `sectionAiReview` (False -> "off", True -> "pass")."""
+    for source in sources:
+        mode = (source or {}).get("sectionAiReviewMode")
+        if mode in ("pass", "gate", "off"):
+            return mode
+    for source in sources:
+        legacy = (source or {}).get("sectionAiReview")
+        if legacy is False:
+            return "off"
+        if legacy is True:
+            return "pass"
+    return "pass"
 
 
 def _save_launch(tid, body, concept, plan_text=""):
@@ -177,6 +191,7 @@ def _save_launch(tid, body, concept, plan_text=""):
     section_cost_limit = (body.get("sectionCostLimitUsd")
                           if "sectionCostLimitUsd" in body
                           else previous.get("sectionCostLimitUsd", 2.0))
+    section_ai_mode = _section_ai_review_mode(body, previous)
     try:
         with open(os.path.join(BUILD_DIR, f"{tid}.launch.json"), "w", encoding="utf-8") as f:
             json.dump({"bindery": body.get("bindery") or previous.get("bindery") or {},
@@ -186,77 +201,10 @@ def _save_launch(tid, body, concept, plan_text=""):
                        "reviewer": (body.get("reviewer") or {}) if "reviewer" in body
                        else previous.get("reviewer") or {},
                        "sectionCostLimitUsd": section_cost_limit,
+                       "sectionAiReviewMode": section_ai_mode,
                        "concept": concept, "gate": gate}, f)
     except OSError:
         pass
-
-
-def _plan_gate(text):
-    """Gate answers parsed back out of a plan's '- **Label:** value' lines — the fallback
-    for workings launched before launch.json carried them."""
-    out = {}
-    for key, label in (("prior_knowledge", "Prior knowledge"), ("prior_level", "Starting level"),
-                       ("project_scope", "Project scope"),
-                       ("depth", "(?:Lesson depth|Scope / depth)"), ("mastery", "Mastery"),
-                       ("tooling", "Tooling")):
-        m = re.search(rf"(?im)^- \*\*{label}[^:]*?:\*\*\s*(.+)$", text)
-        if m:
-            out[key] = m.group(1).strip()
-    if "project_scope" not in out:
-        legacy = re.search(r"(?im)^- \*\*Breadth[^:]*?:\*\*\s*([0-9]+)\s*$", text)
-        if legacy:
-            out["project_scope"] = str(max(1, min(5, (int(legacy.group(1)) + 1) // 2)))
-    return out
-
-
-def tooling_conflict_details(text, failure=""):
-    """Structured Phase-1 conflict data for the approval UI and resume endpoint."""
-    fit = re.search(
-        r"(?im)^\*\*Tooling fit:\*\*\s*(internal|external|both)\s*[—-]\s*"
-        r"BLOCKED\s*:\s*(.+)$", text)
-    conflict = bool(fit or "TOOLING_CONFLICT:" in failure)
-    if not conflict:
-        return {"conflict": False, "current": "", "required": "", "reason": ""}
-    current = (fit.group(1).lower() if fit
-               else str(_plan_gate(text).get("tooling") or "").lower())
-    detail = fit.group(2).strip() if fit else failure.split("TOOLING_CONFLICT:", 1)[-1].strip()
-    required_match = re.search(
-        r"(?i)(?:REQUIRED_TOOLING\s*=|REQUIRED\s*:)\s*(internal|external|both)",
-        detail + " " + failure)
-    required = required_match.group(1).lower() if required_match else ""
-    reason = re.split(
-        r"(?i)\s+(?:[—-]\s*)?(?:REQUIRED_TOOLING\s*=|REQUIRED\s*:)",
-        detail, maxsplit=1)[0].strip().rstrip(".;")
-    # Legacy conflicts predate the structured REQUIRED marker. BOTH is the safe widening
-    # for an internal/external-only plan; new conflicts always carry the exact recommendation.
-    if not required and current in ("internal", "external"):
-        required = "both"
-    return {"conflict": True, "current": current, "required": required,
-            "reason": reason or "The selected Tooling cannot deliver the promised artifact."}
-
-
-def replace_plan_tooling(text, tooling):
-    """Apply a human tooling-conflict resolution without changing any other gate answer."""
-    policies = {
-        "internal": ("INTERNAL (in-browser only)",
-                     "Use the browser workbench only; do not require downloads or set `externalWorkspace`."),
-        "external": ("EXTERNAL (teach the real tools)",
-                     "Teach the real toolchain from install through diagnostics and final delivery; use `externalWorkspace` when the real work cannot run in-browser."),
-        "both": ("BOTH (internal + external available)",
-                 "Support the browser workbench and teach the complete real-tool path through final delivery."),
-    }
-    if tooling not in policies:
-        raise ValueError("tooling must be internal, external, or both")
-    label, meaning = policies[tooling]
-    updated, gate_count = re.subn(
-        r"(?im)^- \*\*Tooling:\*\*\s*(?:internal|external|both)\s*$",
-        f"- **Tooling:** {tooling}", text, count=1)
-    updated, policy_count = re.subn(
-        r"(?im)^- \*\*Tooling — .*?$",
-        f"- **Tooling — {label}:** {meaning}", updated, count=1)
-    if gate_count != 1 or policy_count != 1:
-        raise ValueError("the build plan's Tooling gate or calibration line is missing")
-    return updated
 
 
 def _write_progress(tome, phase):
@@ -476,6 +424,7 @@ def list_workings(job_manager: JobManager, catalog):
                     "sectionCostLimitUsd": (
                         launch["sectionCostLimitUsd"]
                         if "sectionCostLimitUsd" in launch else 2.0),
+                    "sectionAiReviewMode": _section_ai_review_mode(launch),
                     "gate": launch.get("gate") or _plan_gate(text),
                     "toolingConflict": tooling["conflict"],
                     "requiredTooling": tooling["required"],

@@ -1,0 +1,269 @@
+[[lessons]]
+id = "s01-l05"
+title = "Follow the Calling Convention"
+teaches = ["language-abi-procedures-and-register-discipline"]
+introduces = ["sysv-abi-procedure-discipline"]
+validationDependencies = []
+researchSources = ["x86-64-sysv-psabi"]
+body = '''
+<p>A procedure in NASM is just a label you jump to with <code>CALL</code> instead of <code>JMP</code>.
+The difference matters: <code>CALL target</code> pushes the address of the instruction right after it
+onto the stack, then jumps to <code>target</code>; <code>RET</code>, placed at the end of the
+procedure, pops that saved address back off the stack and jumps to it. Together they are how control
+returns to exactly where it left off — <code>JMP</code> alone has no way to remember where it came
+from.</p>
+<p>Calling a procedure only works predictably if caller and callee agree on where arguments live and
+where the result comes back. Linux x86-64 programs (including every C library your assembly will ever
+call, and any procedure you write for another piece of assembly to call) follow one fixed
+convention, the System V AMD64 ABI: the first six integer or pointer arguments travel in
+<code>rdi</code>, <code>rsi</code>, <code>rdx</code>, <code>rcx</code>, <code>r8</code>, then
+<code>r9</code>, in that order, and a single integer or pointer return value comes back in
+<code>rax</code>. A disposable example, adding two numbers instead of anything from your project,
+shows the shape:</p>
+<pre><code data-kind="pseudocode">section .text
+    global combine_signals
+combine_signals:
+    mov rax, rdi        ; first argument
+    add rax, rsi        ; + second argument
+    ret                 ; result is now in rax
+
+caller_demo:
+    mov rdi, 4
+    mov rsi, 9
+    call combine_signals
+    ; rax now holds 13</code></pre>
+<p><code>combine_signals</code> never has to be told which registers hold its arguments — the
+convention fixes that in advance, for every procedure, everywhere. That is exactly why it is called a
+convention rather than a rule enforced by the CPU: NASM will happily assemble a call that puts the
+wrong value in <code>rsi</code>, or a procedure that reads <code>rdx</code> expecting a second
+argument that was actually passed in <code>rsi</code>. Nothing fails at assembly time; the callee
+simply computes a wrong answer using whatever garbage was sitting in the register it read.</p>
+<p>One more rule matters before you ever call a real library function: at the exact instruction where
+<code>CALL</code> executes, the stack pointer <code>rsp</code> must be a multiple of 16. <code>CALL</code>
+itself then pushes an 8-byte return address, which is precisely what the function you are calling
+expects to find at that offset. Nothing checks this for you either — an unaligned <code>CALL</code>
+into a well-behaved library function like <code>printf</code> or <code>SDL_Init</code> can crash with
+no message at all, because that function internally uses instructions (typically for floating-point
+setup) that require 16-byte alignment and simply fault on data that is not aligned that way.</p>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // CALLER-SAVED VS CALLEE-SAVED</div>
+<p>Not every register is fair game inside a procedure. rbx, rbp, rsp, and r12–r15 are "callee-saved" —
+if combine_signals wanted to use rbx internally, it would have to save rbx's incoming value and
+restore it before returning, since the caller is trusting that rbx survives the call untouched. rax,
+rcx, rdx, rsi, rdi, r8–r11 are "caller-saved" — a procedure is free to overwrite them, so the caller
+must not assume any of them survive a call.</p></div>
+<p>The exercise below asks you to call one real library function, <code>puts</code>, so its calling
+convention is worth fixing before you write that call. <code>puts</code> takes exactly one argument —
+the address of a null-terminated string, i.e. a <code>db "...", 0</code> label — passed the same way
+any first argument travels, in <code>rdi</code>. It follows that address until it finds the trailing
+zero byte, writes every byte before that zero to standard output, then adds one trailing newline of
+its own. A minimal call looks like this:</p>
+<pre><code data-kind="pseudocode">section .data
+hello_msg: db "HELLO", 0
+
+section .text
+    extern puts
+    mov rdi, hello_msg
+    call puts       ; prints: HELLO
+                     ; (puts appends the newline itself)</code></pre>
+<p>Because <code>puts</code> trusts the string it is given to actually be null-terminated, forgetting
+the trailing <code>, 0</code> on a <code>db</code> declaration is the one mistake that breaks it
+silently at assembly time: <code>puts</code> keeps reading memory past the string's real end looking
+for a zero byte that was never placed there, printing garbage bytes (or crashing) instead of stopping
+where you intended.</p>
+<p>One convention rule applies only to a specific category of function: a <em>variadic</em> one, whose
+parameter list ends in <code>...</code> and accepts a different number of arguments on each call (C's
+<code>printf</code> is the classic example; lesson 7's <code>SDL_Log</code> is built the same way). The
+System V ABI adds exactly one extra requirement for a call into a variadic function: the <code>al</code>
+register (the low byte of <code>rax</code>) must hold the count of vector (floating-point/XMM) registers
+used to pass that call's arguments — <code>0</code> whenever every argument is an integer or pointer,
+true of every call this course ever makes. A minimal call shaped like lesson 7's
+<code>SDL_Log(fmt, ...)</code> demonstrates it, using a printf-style stand-in instead of anything from
+your project:</p>
+<pre><code data-kind="pseudocode">section .data
+demo_fmt: db "%s", 0
+
+section .text
+    extern variadic_demo   ; a stand-in for a printf-shaped variadic function
+    lea rdi, [demo_fmt]    ; format string address
+    mov rsi, some_ptr      ; the %s argument
+    xor eax, eax           ; al = 0: zero vector-register arguments used
+    call variadic_demo</code></pre>
+<p><code>xor eax, eax</code> is the idiomatic way to zero <code>al</code> here: it clears all of
+<code>rax</code> (al included) in one cheap instruction, and nothing about rax's prior value needs
+preserving since the call is about to overwrite it anyway. Forgetting this before a variadic call is a
+realistic, silent mistake — NASM assembles the call with no complaint regardless of <code>al</code>'s
+value, and it may even happen to work if <code>al</code> already held zero by coincidence, but the
+moment it holds a stale nonzero value left over from earlier arithmetic, the variadic function reads
+that many nonexistent vector-register arguments, typically corrupting or dropping the message it was
+asked to print, with no assembler warning of any kind.</p>
+'''
+
+[[lessons.concepts]]
+id = "language-abi-procedures-and-register-discipline"
+purpose = "Calling and returning from a procedure using a fixed, shared agreement about which registers carry arguments and results."
+anatomy = "CALL pushes a return address and jumps; RET pops it and jumps back; the first six integer/pointer arguments arrive in rdi, rsi, rdx, rcx, r8, r9 in order; a single return value comes back in rax."
+example = "The combine_signals procedure and its caller in this lesson's body."
+observable = "After 'call combine_signals' with rdi=4 and rsi=9, rax holds 13."
+failure = "Passing an argument in the wrong register (or reading it from the wrong one inside the callee) assembles and runs without complaint — it just computes a wrong result using whatever value that register already held."
+practice = "s01-l05-e1"
+
+[[lessons.concepts]]
+id = "sysv-abi-procedure-discipline"
+purpose = "The specific System V AMD64 register assignment and 16-byte stack-alignment rule that every procedure call on Linux x86-64 must respect."
+anatomy = "Integer/pointer args: rdi, rsi, rdx, rcx, r8, r9 (first six, in order); return value: rax; rsp must be a multiple of 16 at the instruction where CALL executes; for a variadic function specifically, al must hold the count of vector-register arguments used (0 for every all-pointer call this course makes), set with xor eax, eax immediately before the call."
+example = "mov rdi, 4 / mov rsi, 9 / call combine_signals in this lesson's body, plus the xor eax, eax / call variadic_demo sequence later in this lesson's body."
+observable = "A correctly aligned call into a real library function (later, SDL_Init) runs without a crash; nothing about the assembly syntax itself signals whether alignment was respected. A correctly al-zeroed call into a variadic function (later, SDL_Log) prints its message intact."
+failure = "Calling a real library function with rsp not a multiple of 16 can crash with no diagnostic message — the failure surfaces inside the called function's own internal instructions, not at the call site. Calling a variadic function without zeroing al first can silently corrupt or drop the printed message whenever al happens to hold a stale nonzero value."
+practice = "s01-l05-e2"
+
+[[lessons.readings]]
+label = "System V AMD64 ABI (x86-64 psABI)"
+url = "https://gitlab.com/x86-psABIs/x86-64-ABI"
+
+[[lessons.exercises]]
+id = "s01-l05-e1"
+type = "mc"
+required = true
+capabilities = ["language-abi-procedures-and-register-discipline"]
+mechanisms = ["sysv-abi-procedure-discipline"]
+cognitiveTask = "predict"
+scaffold = "guided"
+contextFamily = "abi-register-trace"
+aidPolicy = "learning"
+points = 15
+prompt = "A procedure 'double_first' is defined as 'mov rax, rdi / add rax, rax / ret' (rax = rdi * 2). Before calling it, a caller sets rdi = 6 and rsi = 100. What ends up in rax after 'call double_first'?"
+choices = ["12", "100", "6", "200"]
+answer = 0
+whyWrong = "100 mistakes rsi for the value the procedure actually reads; 6 forgets the doubling runs at all; 200 doubles rsi's value instead of rdi's."
+hint = "The procedure only ever reads rdi (the first argument register) — rsi is irrelevant here since this procedure never touches it."
+explain = "rdi = 6 is copied into rax, then doubled once by 'add rax, rax', giving 12. rsi's value of 100 is never read by this procedure at all."
+
+[[lessons.exercises]]
+id = "s01-l05-e2"
+type = "text"
+required = true
+capabilities = ["language-abi-procedures-and-register-discipline"]
+mechanisms = ["sysv-abi-procedure-discipline"]
+cognitiveTask = "debug"
+scaffold = "guided"
+contextFamily = "abi-alignment-failure"
+aidPolicy = "learning"
+points = 20
+prompt = "A teammate's program pushes one extra value onto the stack with 'push rax' right before 'call some_library_function' and never pops it back, throwing off the expected 16-byte alignment. Explain what kind of failure this can cause when the call executes, and why the assembler and linker have no way to catch it beforehand."
+answer = "A complete answer explains that the stray push shifts rsp so it is no longer a multiple of 16 at the call instruction, and that the called function may internally use instructions requiring 16-byte-aligned memory access (commonly for floating-point/SSE setup) that fault when the alignment is wrong — producing a crash with no assembly-time warning, since NASM has no concept of the ABI's alignment rule and cannot track rsp's runtime value across a whole program."
+hint = "Alignment is a runtime property of rsp's actual value, not something visible in the source text — nothing in the assembly file itself records how many pushes happened before this point."
+
+[[lessons.exercises]]
+id = "s01-l05-e3"
+type = "fill"
+required = true
+capabilities = ["language-abi-procedures-and-register-discipline"]
+mechanisms = ["sysv-abi-procedure-discipline"]
+cognitiveTask = "complete"
+scaffold = "completion"
+contextFamily = "abi-register-order"
+aidPolicy = "learning"
+points = 20
+prompt = "In the System V AMD64 calling convention, complete the register that carries the THIRD integer/pointer argument (after rdi and rsi)."
+code = 'Argument order: rdi, rsi, ____, rcx, r8, r9'
+answer = "rdx"
+hint = "It comes right after rsi in the fixed six-register argument order this lesson lists."
+
+[[lessons.exercises]]
+id = "s01-l05-e4"
+type = "mc"
+required = true
+capabilities = ["language-abi-procedures-and-register-discipline"]
+mechanisms = ["sysv-abi-procedure-discipline"]
+cognitiveTask = "predict"
+scaffold = "guided"
+contextFamily = "abi-variadic-al-rule"
+aidPolicy = "learning"
+points = 15
+prompt = "Right before 'call variadic_demo' (a printf-style variadic function taking only a format string and one pointer argument, no floating-point arguments), al happens to still hold 2 left over from an earlier unrelated computation, and no xor eax, eax runs first. What happens?"
+choices = ["NASM refuses to assemble the call, since al is not zeroed", "The call runs exactly as if al had been 0, since this call passes no floating-point arguments at all", "variadic_demo may read 2 nonexistent vector-register arguments it was never actually given, corrupting or dropping its output, with no assembler warning", "The call always crashes immediately with a protection fault"]
+answer = 2
+whyWrong = "NASM has no concept of this ABI rule and assembles the call regardless; the call is not automatically safe just because no float arguments were intended, since al's stale value is what the callee actually trusts; and the realistic failure is corrupted or dropped output, not a guaranteed hard crash."
+hint = "al's value is read by the callee as a literal instruction to look for that many vector-register arguments — it does not know your intent, only the byte you left there."
+explain = "Since al was never re-zeroed, variadic_demo trusts it and looks for 2 vector-register arguments that were never actually passed, typically corrupting or silently dropping the printed message — exactly the silent failure this rule exists to prevent."
+
+[[lessons.exercises]]
+id = "s01-l05-d1"
+type = "type"
+required = true
+capabilities = ["language-abi-procedures-and-register-discipline"]
+mechanisms = ["sysv-abi-procedure-discipline"]
+cognitiveTask = "recall"
+scaffold = "worked"
+contextFamily = "abi-register-trace"
+aidPolicy = "learning"
+points = 12
+reps = 2
+prompt = "Retype this two-argument procedure exactly. (Ctrl+Enter submits.)"
+code = '''combine_signals:
+    mov rax, rdi
+    add rax, rsi
+    ret'''
+
+[[lessons.exercises]]
+id = "s01-l05-w1"
+type = "write"
+required = true
+capabilities = ["language-abi-procedures-and-register-discipline"]
+mechanisms = ["sysv-abi-procedure-discipline"]
+cognitiveTask = "build"
+scaffold = "guided"
+contextFamily = "abi-call-execution"
+aidPolicy = "learning"
+points = 30
+prompt = "Write a complete NASM program that declares two null-terminated strings 'ok_msg: db \"SIGNAL CONFIRMED\", 0' and 'bad_msg: db \"SIGNAL LOST\", 0', extern's puts, defines global main, and a procedure 'combine_signals' that follows the System V calling convention (first argument in rdi, second in rsi, sum returned in rax). From main, realign the stack, call combine_signals(15, 27), compare the result to 42, call puts with ok_msg if it matches (bad_msg otherwise), restore the stack, and return 0. The program must print exactly: SIGNAL CONFIRMED"
+starter = '''
+section .data
+; declare ok_msg and bad_msg here, exactly as the prompt specifies
+
+section .text
+    global main
+    extern puts
+
+; write combine_signals(rdi, rsi) -> rax here, call it from main with
+; 15 and 27, compare to 42, and puts() the matching message. main is
+; entered 8 bytes off 16-byte alignment, like any called function --
+; realign rsp before your own nested calls and restore it before ret.
+main:
+    ret
+'''
+expect = '''
+SIGNAL CONFIRMED'''
+solution = '''
+section .data
+ok_msg:  db "SIGNAL CONFIRMED", 0
+bad_msg: db "SIGNAL LOST", 0
+
+section .text
+    global main
+    extern puts
+
+combine_signals:
+    mov rax, rdi
+    add rax, rsi
+    ret
+
+main:
+    sub rsp, 8
+    mov rdi, 15
+    mov rsi, 27
+    call combine_signals
+    cmp rax, 42
+    jne .mismatch
+    mov rdi, ok_msg
+    call puts
+    jmp .done
+.mismatch:
+    mov rdi, bad_msg
+    call puts
+.done:
+    add rsp, 8
+    mov eax, 0
+    ret
+'''
+hint = "15 + 27 is 42, so a correct combine_signals and compare always reach the ok_msg path — SIGNAL LOST printing instead means the add or the compare has a bug."

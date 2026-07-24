@@ -3,7 +3,6 @@ from __future__ import annotations
 
 import os
 import tomllib
-import json
 
 from arcanum_core.findings import Finding
 from arcanum_core.ids import is_stable_id
@@ -13,7 +12,7 @@ from runtimes import resolve_config as resolve_runtime_config
 from .schema import error
 
 SCENARIO_KEYS = {"id", "kind", "requirementIds", "capabilityIds", "commandRef", "args",
-                 "stdin", "expect", "expectRegex", "expectExact", "expectJson",
+                 "stdin", "expect", "expectRegex", "expectExact", "expectRaw", "expectJson",
                  "expectFile", "expectFileRegex", "exitCode", "timeout", "public"}
 
 
@@ -34,20 +33,29 @@ def _adversarial_requirement_findings(contract, location: str) -> list[Finding]:
         if not requirement.essential:
             continue
         scenarios = [row for row in contract.scenarios
-                     if requirement.id in row.requirement_ids and row.kind != "build"]
+                     if requirement.id in row.requirement_ids
+                     and row.kind not in ("build", "guided-observation")]
         if len(scenarios) < 2:
             findings.append(error("mastery.assessment.varied-evidence", location,
                                   f"essential requirement {requirement.id!r} needs at least two "
                                   "non-build deterministic scenarios (ordinary plus boundary, "
                                   "failure, or alternate input)", 3))
             continue
-        signatures = {(row.kind, row.command_ref, row.args, row.stdin,
-                       json.dumps(row.expect, sort_keys=True, separators=(",", ":")))
-                      for row in scenarios}
+        # A different expected answer is not a different test input. Requiring the
+        # command, arguments, stdin, or scenario route to differ prevents two
+        # contradictory expectations for one uncontrolled process invocation from
+        # masquerading as ordinary-plus-failure evidence.
+        stimuli = [(row.kind, row.command_ref, row.args, row.stdin)
+                   for row in scenarios]
+        signatures = set(stimuli)
         if len(signatures) < 2:
             findings.append(error("mastery.assessment.duplicate-evidence", location,
-                                  f"essential requirement {requirement.id!r} repeats the same "
-                                  "scenario; vary input, command path, or expected behavior", 3))
+                                  f"essential requirement {requirement.id!r} repeats one "
+                                  "uncontrolled command; vary input or command path", 3))
+        elif len(signatures) != len(stimuli):
+            findings.append(error("mastery.assessment.redundant-evidence", location,
+                                  f"essential requirement {requirement.id!r} includes a duplicate "
+                                  "scenario input; remove it or give it a distinct control", 3))
         uncovered = [row.id for row in scenarios
                      if not set(requirement.capability_ids).issubset(row.capability_ids)]
         if uncovered:
@@ -165,6 +173,16 @@ def working_findings(tome_root: str, manifest: dict, sections: list[dict]) -> li
             continue
         if _hardened(manifest):
             findings += _adversarial_requirement_findings(contract, path)
+        artifact = runtime.get("artifactPath")
+        if artifact:
+            build_scenarios = [scenario for scenario in contract.scenarios
+                               if scenario.kind == "build"]
+            declared_paths = [scenario.expect.get("path") for scenario in build_scenarios]
+            if artifact not in declared_paths:
+                findings.append(error(
+                    "mastery.assessment.artifact", path,
+                    f"a build scenario must declare expectFile = {artifact!r}, the runtime's "
+                    "official executable path", 3))
         kinds = {scenario.kind for scenario in contract.scenarios}
         if "build" not in kinds:
             findings.append(error("mastery.assessment.build", path,

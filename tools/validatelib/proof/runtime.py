@@ -4,8 +4,12 @@ import os
 import re
 import shlex
 import shutil
+import subprocess
 import tempfile
 
+from arcanum.assessment.contracts import load_working_contract
+from arcanum.assessment.scenarios import evaluate_expectation
+import runtimes.common as runtime_common
 from tome_proof import (apply_step, learner_project_path, proof_evidence_path,
                         proof_fingerprint, safe_project_path, section_capabilities,
                         step_lists)
@@ -16,6 +20,11 @@ from .. import REPO, err
 def _normalize(value):
     return "\n".join(line.rstrip() for line in
                      str(value or "").replace("\r\n", "\n").splitlines()).strip()
+
+
+def _stream_text(value):
+    return (value.decode("utf-8", errors="replace")
+            if isinstance(value, bytes) else str(value or ""))
 
 
 def _active_capabilities(section, proof, active, supersedes):
@@ -31,7 +40,12 @@ def _run_proof(runtime, project, proof, env):
     if not result.get("ok"):
         return False, str(result.get("output") or "")[-3000:], result
     actual = _normalize(result.get("output"))
-    if proof.get("expectRegex"):
+    if "expectRaw" in proof:
+        raw = str(result.get("stdout") or "")
+        if raw != str(proof["expectRaw"]):
+            return False, (f"raw stdout mismatch; expected {proof['expectRaw']!r}, "
+                           f"got {raw!r}"), result
+    elif proof.get("expectRegex"):
         if not re.fullmatch(str(proof["expectRegex"]), actual, re.S):
             return False, f"output did not full-match expectRegex; got {actual!r}", result
     elif actual != _normalize(proof.get("expect")):
@@ -135,6 +149,66 @@ def _check_files(project, checkpoint, owner, proof):
             err("proof", f"{checkpoint} {kind}: active proof {owner} expected file {path!r} "
                 "does not exist")
             return False
+    return True
+
+
+def _run_working_assessment(tome_path, runtime, project, section, env, rows):
+    """Execute the authored hidden checks against the reconstructed reference project."""
+    sid = str(section.get("id") or "?")
+    try:
+        contract = load_working_contract(
+            tome_path, sid, section.get("freestyle") or {})
+    except (OSError, ValueError) as exc:
+        err("assessment", f"{sid} hidden assessment could not load: {exc}")
+        return False
+    for scenario in contract.scenarios:
+        if scenario.kind == "guided-observation":
+            continue
+        try:
+            command = runtime.assessment_command(
+                scenario.command_ref, project, scenario.args)
+            process = subprocess.run(
+                command, cwd=project, env=env, input=scenario.stdin,
+                capture_output=True, text=True, timeout=scenario.timeout)
+            output = runtime_common.join_output(process.stdout, process.stderr)
+            result = {
+                "exitCode": process.returncode,
+                "output": output,
+                "stdout": process.stdout or "",
+                "stderr": process.stderr or "",
+                "timedOut": False,
+            }
+        except subprocess.TimeoutExpired as exc:
+            stdout, stderr = _stream_text(exc.stdout), _stream_text(exc.stderr)
+            result = {
+                "exitCode": None,
+                "output": runtime_common.join_output(stdout, stderr),
+                "stdout": stdout,
+                "stderr": stderr,
+                "timedOut": True,
+            }
+        except (OSError, ValueError) as exc:
+            err("assessment", f"{sid} hidden scenario {scenario.id!r} could not run: {exc}")
+            return False
+        passed, problems = evaluate_expectation(scenario.expect, result, project)
+        if result.get("timedOut"):
+            problems.append("command timed out")
+        elif "exitCode" not in scenario.expect and result.get("exitCode") != 0:
+            problems.append(f"exit code was {result.get('exitCode')}, expected 0")
+        if problems or not passed:
+            err("assessment", f"{sid} hidden scenario {scenario.id!r} failed: "
+                + "; ".join(dict.fromkeys(problems or ["expectation failed"])))
+            return False
+        rows.append({
+            "id": f"assessment:{sid}/{scenario.id}",
+            "section": sid,
+            "scenario": scenario.id,
+            "mode": scenario.kind,
+            "status": "pass",
+            "command": list(command),
+            "output": _normalize(result.get("output")),
+            "exit": result.get("exitCode"),
+        })
     return True
 
 
@@ -270,6 +344,11 @@ def replay(tome_path, manifest, sections, run_section=None, persist=False,
                            "capabilities": _active_capabilities(
                                section, proof, active, supersedes)}
             if not _checkpoint(runtime, project, sid, active, env, rows):
+                return False
+            hardened = ((manifest.get("mastery") or {})
+                        .get("sourceEvidenceVersion") == 1)
+            if hardened and not _run_working_assessment(
+                    tome_path, runtime, project, section, env, rows):
                 return False
 
         declared = ((manifest.get("content") or {}).get("sections")

@@ -22,6 +22,7 @@ from ..validator_policy import (ValidatorOutput, extract_json, readable_guidance
                                 readable_outcome, readable_reasons)
 from .prompt import DYNAMIC_MARKER, prerequisite_prompt as _prompt
 from . import records as _records
+from . import ledger as _ledger
 from .result import validate_detailed as _validate_detailed
 from ..runtime.runners import author_runner
 from arcanum.catalog.build_ids import resolve_working_id
@@ -452,29 +453,40 @@ def review_prerequisites(build_id, sid, *, adapter=None):
     if cached.get("fingerprint") == fingerprint and isinstance(cached.get("result"), dict):
         return {**cached["result"], "cached": True}
     prompt = _prompt(packet, sid, sources, prior, start, depth, mastery)
-    audit_label = (f"section quality {sid} › "
-                   f"{validator.get('kind')} {validator.get('model')}")
-    emit_status_line(f"AI VALIDATOR CALL START [{time.time():.3f}] › {audit_label}",
-                     build_id, build_dir=BUILD_DIR)
-    try:
-        raw, meta = _invoke(prompt, validator, adapter, (build_id, audit_label),
-                            build_id=build_id, section=sid)
-    except Exception as exc:
-        _append_infrastructure_failure(build_id, sid, packet, validator, exc)
-        emit_status_line(f"AI VALIDATOR CALL FAILED [{time.time():.3f}] › {audit_label}",
+
+    def run(active, escalated_from=""):
+        audit_label = (f"section quality {sid} › "
+                       f"{active.get('kind')} {active.get('model')}")
+        emit_status_line(f"AI VALIDATOR CALL START [{time.time():.3f}] › {audit_label}",
                          build_id, build_dir=BUILD_DIR)
-        raise RuntimeError(
-            f"section Validator AI infrastructure failed: {brief_exception(exc)}") from exc
-    parsed, errors, output = _classify_output(raw, sources, sid, known_mechanisms)
-    _append_call(
-        build_id, sid, packet,
-        output.result if output.recovered_verdict else parsed,
-        meta, raw=raw, malformed=output.malformed)
-    emit_status_line(
-        f"AI VALIDATOR CALL COMPLETE [{time.time():.3f}] "
-        f"({output.result['status']}) › {audit_label}",
-        build_id, build_dir=BUILD_DIR)
-    result = output.result
+        try:
+            raw, meta = _invoke(prompt, active, adapter, (build_id, audit_label),
+                                build_id=build_id, section=sid)
+        except Exception as exc:
+            _append_infrastructure_failure(build_id, sid, packet, active, exc,
+                                           escalated_from=escalated_from)
+            emit_status_line(f"AI VALIDATOR CALL FAILED [{time.time():.3f}] › {audit_label}",
+                             build_id, build_dir=BUILD_DIR)
+            raise RuntimeError(
+                f"section Validator AI infrastructure failed: {brief_exception(exc)}") from exc
+        parsed, _errors, output = _classify_output(raw, sources, sid, known_mechanisms)
+        _append_call(
+            build_id, sid, packet,
+            output.result if output.recovered_verdict else parsed,
+            meta, raw=raw, malformed=output.malformed, escalated_from=escalated_from)
+        emit_status_line(
+            f"AI VALIDATOR CALL COMPLETE [{time.time():.3f}] "
+            f"({output.result['status']}) › {audit_label}",
+            build_id, build_dir=BUILD_DIR)
+        return output
+
+    # A finding the primary keeps re-raising across an author edit is either real or its own
+    # noise: the stronger tiebreak validator decides, and the ledger tracks persistence.
+    output, diff = _ledger.run_with_escalation(BUILD_DIR, build_id, sid, validator, run)
+    result = {**output.result, "findingDiff": diff}
+    progress = _ledger.finding_progress(diff)
+    if progress and result.get("status") != "PASS":
+        result["reasons"] = [*(result.get("reasons") or []), progress]
     if not output.unusable:
         _write(result_path(build_id, sid), {"fingerprint": fingerprint, "result": result})
     return {**result, "cached": False}

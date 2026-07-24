@@ -1,5 +1,4 @@
 """Legacy freestyle grading and Oracle role services."""
-import difflib
 import hashlib
 import json
 import os
@@ -9,13 +8,120 @@ import time
 
 from runtimes.common import atomic_write
 
+from ..assessment.sandbox import (SandboxRunner, environment_for_runtime,
+                                  policy_for_runtime)
+from ..assessment.scenarios import evaluate_expectation
+from ..assessment.snapshot import SnapshotError, create_snapshot
 from ..config import GRADE_TIMEOUT, GRADER_MODELS, ORACLE_TIMEOUT, read_json
 from ..jobs import JobManager
-from ..ai import AiRequest, AiService
+from ..ai import AiService
 from ..ai.contracts.errors import ProviderConfigurationError
+from .grading.judgment import (
+    MAX_PROMPT_FILE_CHARS, build_grade_prompt, extract_json,
+    grade_with_ai as _grade_with_ai,
+)
 
 FALLBACK_GRADER = "qwen2.5:14b"  # strongest installed Ollama model; overridable per-request from settings
 ORACLE_MODEL = "llama3.1:8b"
+MAX_PROMPT_FILE_CHARS = 20_000
+
+
+def _snapshot_access(snapshot, project):
+    return {
+        "root": os.path.realpath(project),
+        "files": [{
+            "path": row["path"], "bytes": row["size"], "sha256": row["sha256"],
+        } for row in snapshot.manifest],
+        "excluded": list(snapshot.excluded),
+        "totalBytes": sum(row["size"] for row in snapshot.manifest),
+    }
+
+
+def grading_disclosure(payload, files, report, project="", access=None):
+    """Describe and bind the recursive read-only scope for one judgement."""
+    grader = payload.get("grader") or {}
+    provider = str(grader.get("kind") or "claude-cli")
+    model = str(grader.get("model") or "")
+    if access is None and project:
+        with create_snapshot(project) as snapshot:
+            access = _snapshot_access(snapshot, project)
+    access = access or {
+        "root": "", "files": [{
+            "path": rel,
+            "bytes": len(content.encode()),
+            "sha256": hashlib.sha256(content.encode()).hexdigest(),
+        } for rel, content in files],
+        "excluded": [], "totalBytes": sum(
+            len(content.encode()) for _rel, content in files),
+    }
+    manifest = {
+        "version": 1,
+        "sectionId": str(payload.get("sectionId") or "x"),
+        "provider": provider,
+        "model": model,
+        "promptFiles": [{
+            "path": rel,
+            "sha256": hashlib.sha256(content.encode()).hexdigest(),
+            "characters": len(content),
+            "sentCharacters": min(len(content), MAX_PROMPT_FILE_CHARS),
+            "truncated": len(content) > MAX_PROMPT_FILE_CHARS,
+        } for rel, content in files],
+        "accessRoot": access["root"],
+        "accessFiles": access["files"],
+        "excluded": access["excluded"],
+        "gradingContract": {
+            "brief": str(payload.get("brief") or ""),
+            "rubric": payload.get("rubric") or [],
+            "verification": payload.get("verification") or [],
+        },
+    }
+    token = hashlib.sha256(json.dumps(
+        manifest, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
+    access_hashes = {
+        item["path"]: item["sha256"] for item in manifest["accessFiles"]
+    }
+    workspace_hash = hashlib.sha256(json.dumps(
+        access_hashes, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
+    return {
+        "ok": True,
+        "version": 1,
+        "provider": provider,
+        "model": model,
+        "remote": provider != "ollama",
+        "isolated": True,
+        "files": [{"path": item["path"], "bytes": item["bytes"]}
+                  for item in manifest["accessFiles"]],
+        "fileCount": len(manifest["accessFiles"]),
+        "totalBytes": access["totalBytes"],
+        "accessRoot": access["root"],
+        "recursive": True,
+        "readOnly": True,
+        "promptFiles": [{
+            key: value for key, value in item.items() if key != "sha256"
+        } for item in manifest["promptFiles"]],
+        "promptFileLimit": int(report.get("limit") or 0),
+        "promptOmitted": list(report.get("omitted") or []),
+        "excluded": manifest["excluded"],
+        "gradingContract": manifest["gradingContract"],
+        "complete": True,
+        "consentToken": token,
+        "workspaceHash": workspace_hash,
+        "_accessFileHashes": access_hashes,
+        "sourceCache": "hashes and judgement only; learner file contents are not copied",
+    }
+
+
+def collect_grading_disclosure(payload, jid, catalog, workspaces):
+    runtime = catalog.runtime(jid)
+    project = workspaces.project_dir(jid)
+    with create_snapshot(
+            project, excluded_dirs=tuple(getattr(runtime, "exclude_dirs", ()))) as snapshot:
+        report = runtime.collect_code_report(snapshot.source)
+        disclosure = grading_disclosure(
+            payload, report["files"], report, project,
+            access=_snapshot_access(snapshot, project))
+    disclosure.pop("_accessFileHashes", None)
+    return disclosure
 
 
 def start_grader_smoke(jid, payload, job_manager: JobManager, catalog):
@@ -34,121 +140,168 @@ def start_grader_smoke(jid, payload, job_manager: JobManager, catalog):
     return {"ok": True, "jobId": job_id, "smoke": True}, 200
 
 
-def extract_json(text):
-    """Pull the first JSON object out of possibly-noisy LLM text."""
-    m = re.search(r"```(?:json)?\s*(\{.*?\})\s*```", text, re.S)
-    if m:
-        text = m.group(1)
-    start = text.find("{")
-    if start == -1:
-        raise ValueError("no JSON object in grader output")
-    depth = 0
-    for i in range(start, len(text)):
-        if text[i] == "{":
-            depth += 1
-        elif text[i] == "}":
-            depth -= 1
-            if depth == 0:
-                return json.loads(text[start:i + 1])
-    raise ValueError("unbalanced JSON in grader output")
+def verification_specs(payload, runtime):
+    raw = payload.get("verification")
+    if raw is None:
+        raw = []
+    if not isinstance(raw, list):
+        raise ValueError("freestyle verification must be an array")
+    build_cmd = getattr(runtime, "build_cmd", None)
+    assessment_commands = getattr(runtime, "assessment_commands", {}) or {}
+    if not raw and (build_cmd or assessment_commands.get("build")):
+        raw = [{"id": "build", "command": "build", "label": "Project build",
+                "required": True}]
+    specs = []
+    for index, item in enumerate(raw):
+        if isinstance(item, str):
+            item = {"id": item, "command": item, "label": item, "required": True}
+        if not isinstance(item, dict):
+            raise ValueError(f"verification[{index}] must be a table")
+        allowed = {"id", "command", "label", "required", "args", "stdin",
+                   "timeout", "expect"}
+        unknown = set(item) - allowed
+        if unknown:
+            raise ValueError(
+                f"verification[{index}] has unknown keys: {', '.join(sorted(unknown))}")
+        command_ref = str(item.get("command") or "").strip()
+        spec_id = str(item.get("id") or command_ref).strip()
+        if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_-]*", spec_id):
+            raise ValueError(f"verification[{index}] needs a stable id")
+        if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_-]*", command_ref):
+            raise ValueError(f"verification[{index}] needs a registered command")
+        args = item.get("args") or []
+        if not isinstance(args, list) or any(not isinstance(arg, str) for arg in args):
+            raise ValueError(f"verification[{index}].args must be a string array")
+        timeout = item.get(
+            "timeout", min(300, int(getattr(runtime, "build_timeout", 120) or 120)))
+        if not isinstance(timeout, int) or isinstance(timeout, bool) or not 1 <= timeout <= 300:
+            raise ValueError(f"verification[{index}].timeout must be 1 through 300")
+        expect = item.get("expect") or {"exitCode": 0}
+        if not isinstance(expect, dict):
+            raise ValueError(f"verification[{index}].expect must be a table")
+        expect_keys = {"exitCode", "exact", "raw", "regex", "json", "path",
+                       "fileRegex"}
+        unknown_expect = set(expect) - expect_keys
+        if unknown_expect:
+            raise ValueError(
+                f"verification[{index}].expect has unknown keys: "
+                + ", ".join(sorted(unknown_expect)))
+        if ("exitCode" in expect
+                and (not isinstance(expect["exitCode"], int)
+                     or isinstance(expect["exitCode"], bool))):
+            raise ValueError(
+                f"verification[{index}].expect.exitCode must be an integer")
+        for key in ("regex", "fileRegex"):
+            if key in expect:
+                try:
+                    re.compile(str(expect[key]))
+                except re.error as exc:
+                    raise ValueError(
+                        f"verification[{index}].expect.{key} is invalid: {exc}") from exc
+        if "fileRegex" in expect and "path" not in expect:
+            raise ValueError(
+                f"verification[{index}].expect.fileRegex requires path")
+        specs.append({
+            "id": spec_id,
+            "command": command_ref,
+            "label": str(item.get("label") or spec_id).strip(),
+            "required": item.get("required") is not False,
+            "args": args,
+            "stdin": str(item.get("stdin") or ""),
+            "timeout": timeout,
+            "expect": expect,
+        })
+    if len({item["id"] for item in specs}) != len(specs):
+        raise ValueError("freestyle verification ids must be unique")
+    return specs
 
 
-def build_grade_prompt(payload, files, prev, rt, pdir):
-    section = payload.get("sectionTitle", "")
-    brief = payload.get("brief", "")
-    rubric = payload.get("rubric", [])
-    language = payload.get("language") or getattr(rt, "LANGUAGE", None) or rt.NAME
-    persona = payload.get("persona") or "THE MAGISTER"
-    student = payload.get("studentTerm") or "apprentice"
-    scale = payload.get("gradeScale") or "S|A|B|C|D|F"
-    build_label = payload.get("buildLabel") or f"{rt.NAME} build"  # no per-language branch; the runtime names itself
-    build_out = rt.try_build(pdir)
-
-    parts = [
-        f"You are the grader inside a {language} learning game. A student learning {language} submitted their "
-        "freestyle project for the section below. Grade it strictly against the rubric.",
-        "You have read-only access to this tome and the surrounding repository. You may read supporting "
-        "course/runtime files, execute trusted repository Python for verification, use /tmp, and search/fetch "
-        "the web for current official conventions. Do not modify project files.",
-        "",
-        f"SECTION: {section}",
-        f"ASSIGNMENT BRIEF: {brief}",
-        "",
-        "HOW TO READ THE BRIEF: it is written in the game's in-world, themed voice. Grade every "
-        "requirement by its INTENT, not its literal flavor wording. A requirement is a hard, exact "
-        "spec ONLY when it is stated concretely — an exact output string in quotes or code font, a "
-        "named command/token, or an explicit word like 'exactly'. Where wording is atmospheric or "
-        "vague, accept any reasonable implementation and do NOT dock points for not matching the "
-        "flavor. Resolve ambiguity in the student's favor and lean on the rubric below.",
-        "",
-    ]
-    parts.append("RUBRIC (score each criterion 0-10; weights sum to 100):")
-    for r in rubric:
-        parts.append(f"- [{r['weight']}%] {r['criterion']}: {r['desc']}")
-    parts.append("")
-    parts.append(
-        f"CONVENTIONS & IDIOM: where a criterion concerns style, readability, or craft, judge it against "
-        f"real-world {language} conventions — idiomatic naming and casing, brace/layout style, consistent "
-        "formatting, and idiomatic use of the constructs this section teaches. Anchor these judgments in "
-        f"the language's official or de-facto community style guide (for example: Microsoft's C# Coding "
-        "Conventions, PEP 8 for Python, gofmt for Go, the Ruby Style Guide) — recall that guide and apply "
-        "it. Judge only conventions you are certain that guide states; never invent house rules or import "
-        "another language's style. Name each convention breach concretely in that criterion's comment and "
-        "state the pattern to follow, so the student learns the convention, not just the score. Expect "
-        "only the conventions a learner at this section could know.")
-    parts.append("")
-    parts.append(f"COMPILER OUTPUT of `{build_label}`:\n{build_out[:4000]}")
-    parts.append("")
-    parts.append("STUDENT CODE (entire workspace):")
-    for rel, content in files:
-        parts.append(f"\n===== FILE: {rel} =====\n{content[:20000]}")
-    if prev and prev.get("result", {}).get("scores"):
-        parts.append("\nPREVIOUS SUBMISSION: this student already had this project graded. Previous scores:")
-        for s in prev["result"]["scores"]:
-            parts.append(f"- {s.get('criterion')}: {s.get('score')}/10 — {s.get('comment', '')}")
-        old, cur = prev.get("files", {}), dict(files)
-        diff = []
-        for name in sorted(set(old) | set(cur)):
-            if old.get(name, "") != cur.get(name, ""):
-                diff += difflib.unified_diff(old.get(name, "").splitlines(), cur.get(name, "").splitlines(),
-                                             fromfile="previous/" + name, tofile="current/" + name, lineterm="")
-        parts.append("\nDIFF since the previously graded submission:")
-        parts.append("\n".join(diff)[:20000] or "(no changes)")
-        parts.append(
-            "\nSCORE STABILITY RULE (mandatory): a criterion's score MUST be exactly the previous score "
-            "unless the diff above changes code relevant to that criterion. Never raise or lower a criterion "
-            "the diff does not touch. Only re-judge what actually changed.")
-    parts.append("""
-Respond with ONLY a JSON object, no prose before or after, exactly this shape:
-{
-  "scores": [{"criterion": "<name>", "score": <0-10>, "comment": "<1-2 sentences, direct, specific>"}],
-  "total": <0-100 weighted total>,
-  "grade": "<%SCALE%>",  // S=flawless+elegant, A>=90, B>=80, C>=70, D>=60, F<60
-  "feedback": "<3-6 sentences of overall feedback in the voice of a gruff but fair ops mentor codenamed %PERSONA%. Address the student as '%STUDENT%'. Be specific about what to improve. No spoiler solutions.>",
-  "bestLine": "<quote the single best line/idea in their code, or empty string>"
-}
-Grade honestly. A beginner who met every goal with working, readable code deserves an A.
-Reserve S for code that would pass review from a senior %LANG% dev. Do not inflate.
-Grade code and observable behavior ONLY. Do NOT deduct for tone, phrasing, verbosity, or stylistic
-wording of the program's output text (e.g. a message feeling "redundant" or off-tone versus the brief) —
-if the required output elements are present and correct, that aspect earns full marks. Deduct only for
-missing or broken functionality, bugs, or code-quality issues the rubric explicitly names."""
-                 .replace("%SCALE%", scale).replace("%PERSONA%", persona)
-                 .replace("%STUDENT%", student).replace("%LANG%", language))
-    return "\n".join(parts)
+def run_verification(runtime, snapshot, specs):
+    sandbox = SandboxRunner()
+    policy = policy_for_runtime(runtime)
+    environment = environment_for_runtime(runtime)
+    outcomes = []
+    for spec in specs:
+        command = runtime.assessment_command(
+            spec["command"], snapshot.work, spec["args"])
+        result = sandbox.run(
+            command, cwd=snapshot.work, stdin=spec["stdin"],
+            timeout=spec["timeout"], policy=policy, env=environment,
+            home=snapshot.home)
+        expectation_passed, problems = evaluate_expectation(
+            spec["expect"], result, snapshot.work)
+        completed = (result.get("exitCode") is not None
+                     and not result.get("timedOut")
+                     and not result.get("outputClipped"))
+        exit_explicit = "exitCode" in spec["expect"]
+        process_passed = completed and (exit_explicit or bool(result.get("passed")))
+        outcomes.append({
+            "id": spec["id"],
+            "command": spec["command"],
+            "label": spec["label"],
+            "required": spec["required"],
+            "passed": process_passed and expectation_passed,
+            "exitCode": result.get("exitCode"),
+            "timedOut": bool(result.get("timedOut")),
+            "outputClipped": bool(result.get("outputClipped")),
+            "output": str(result.get("output") or "")[-4_000:],
+            "problems": problems,
+        })
+    return outcomes
 
 
-def _grade_with_ai(ai: AiService, provider: str, model: str, prompt: str,
-                   tome_root: str, *, key: str = "", command: str = "",
-                   effort: str = "") -> dict:
-    response = ai.complete(provider, AiRequest(
-        role="legacy-working-grader", model=model, input=prompt,
-        timeout=GRADE_TIMEOUT, workspace=tome_root,
-        allowed_tools=("read_repo_file", "list_repo_files", "run_repo_python"),
-        web_allowed=True, effort=effort, api_key=key, custom_command=command,
-        response_schema={"scores": "array", "total": "number", "grade": "string"},
-        trace={"legacy": True}))
-    return extract_json(response.text)
+def finalize_grade_result(result, rubric, verification):
+    returned = {
+        str(row.get("criterion") or "").strip(): row
+        for row in (result.get("scores") or []) if isinstance(row, dict)
+    }
+    scores = []
+    essential = []
+    weighted = 0.0
+    for item in rubric:
+        criterion = str(item.get("criterion") or "").strip()
+        row = returned.get(criterion) or {}
+        try:
+            score = max(0.0, min(10.0, float(row.get("score", 0))))
+        except (TypeError, ValueError):
+            score = 0.0
+        score_value = int(score) if score.is_integer() else round(score, 1)
+        scores.append({
+            "criterion": criterion,
+            "score": score_value,
+            "comment": str(row.get("comment") or
+                           "The grader returned no score for this criterion."),
+            "essential": item.get("essential") is True,
+        })
+        weighted += score / 10 * float(item.get("weight") or 0)
+        if item.get("essential") is True:
+            minimum = float(item.get("minimumScore", 6))
+            essential.append({
+                "criterion": criterion,
+                "score": score_value,
+                "minimumScore": minimum,
+                "passed": score >= minimum,
+            })
+    total = max(0, min(100, round(weighted)))
+    model_grade = str(result.get("grade") or "").upper()
+    grade = ("S" if total == 100 and model_grade == "S" else
+             "A" if total >= 90 else "B" if total >= 80 else
+             "C" if total >= 70 else "D" if total >= 60 else "F")
+    essential_passed = all(item["passed"] for item in essential)
+    verification_passed = all(
+        item["passed"] for item in verification if item["required"])
+    return {
+        **result,
+        "scores": scores,
+        "total": total,
+        "grade": grade,
+        "essential": essential,
+        "essentialPassed": essential_passed,
+        "verification": verification,
+        "verificationPassed": verification_passed,
+        "scorePassed": total >= 60,
+        "passed": total >= 60 and essential_passed and verification_passed,
+    }
 
 
 def run_grader(job_id, payload, jid, job_manager: JobManager, catalog, workspaces,
@@ -156,11 +309,46 @@ def run_grader(job_id, payload, jid, job_manager: JobManager, catalog, workspace
     # jid comes from the request handler (query param) — the body has no tome key,
     # so resolving here again would misroute grading to the first installed tome
     rt = catalog.runtime(jid)
-    pdir = workspaces.project_dir(jid)
+    project = workspaces.project_dir(jid)
+    try:
+        with create_snapshot(
+                project,
+                excluded_dirs=tuple(getattr(rt, "exclude_dirs", ()))) as snapshot:
+            return _run_grader_snapshot(
+                job_id, payload, jid, job_manager, catalog, workspaces, ai,
+                rt, project, snapshot)
+    except (SnapshotError, ValueError) as exc:
+        job_manager.update(job_id, status="error", error=str(exc))
+    except Exception as exc:
+        job_manager.update(job_id, status="error", error=str(exc)[:500])
+
+
+def _run_grader_snapshot(job_id, payload, jid, job_manager, catalog, workspaces,
+                         ai, rt, project, snapshot):
     gdir = workspaces.grades_dir(jid)
     sid = payload.get("sectionId", "x")
-    files = rt.collect_code(pdir)
-    ws_hash = hashlib.sha256(json.dumps(files, sort_keys=True).encode()).hexdigest()
+    report = rt.collect_code_report(snapshot.source)
+    files = report["files"]
+    disclosure = grading_disclosure(
+        payload, files, report, project,
+        access=_snapshot_access(snapshot, project))
+    if disclosure["remote"] and payload.get("consentToken") != disclosure["consentToken"]:
+        job_manager.update(
+            job_id, status="error",
+            error="grading evidence or provider changed after consent; preview it again")
+        return
+    specs = verification_specs(payload, rt)
+    verification = run_verification(rt, snapshot, specs)
+    contract_hash = hashlib.sha256(json.dumps({
+        "brief": payload.get("brief") or "",
+        "rubric": payload.get("rubric") or [],
+        "verification": specs,
+    }, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
+    verification_hash = hashlib.sha256(json.dumps(
+        verification, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
+    ws_hash = hashlib.sha256(
+        f"{disclosure['workspaceHash']}:{contract_hash}:{verification_hash}".encode()
+    ).hexdigest()
     last_path = os.path.join(gdir, f"last-{sid}.json")
     last = read_json(last_path, None)
 
@@ -180,18 +368,25 @@ def run_grader(job_id, payload, jid, job_manager: JobManager, catalog, workspace
         job_manager.update(job_id, status="done", result=result)
         return
 
-    prompt = build_grade_prompt(payload, files, last, rt, pdir)
-    tome_root = catalog.paths.tome(jid)
+    prompt = build_grade_prompt(
+        payload, files, last, rt, snapshot.work, verification,
+        disclosure["_accessFileHashes"])
     last_err = "no model attempted"
 
     def finish(result, model):
+        result = finalize_grade_result(
+            result, payload.get("rubric") or [], verification)
         result["model"] = model
         result["gradedAt"] = time.time()
         job_manager.update(job_id, status="done", result=result)
         atomic_write(os.path.join(gdir, f"{sid}-{int(time.time())}.json"),
                      json.dumps(result, indent=2))
-        atomic_write(last_path, json.dumps(
-            {"hash": ws_hash, "grader": grader_sig, "files": dict(files), "result": result}, indent=2))
+        atomic_write(last_path, json.dumps({
+            "hash": ws_hash,
+            "grader": grader_sig,
+            "fileHashes": disclosure["_accessFileHashes"],
+            "result": result,
+        }, indent=2))
 
     if kind == "claude-cli":
         attempts = [("claude-cli", m, "") for m in ([model] if model else GRADER_MODELS)]
@@ -200,7 +395,7 @@ def run_grader(job_id, payload, jid, job_manager: JobManager, catalog, workspace
 
     for kind, model, key in attempts:
         try:
-            result = _grade_with_ai(ai, kind, model, prompt, tome_root,
+            result = _grade_with_ai(ai, kind, model, prompt, snapshot.work,
                                     key=key, command=command, effort=effort)
             return finish(result, model)
         except ProviderConfigurationError as e:
@@ -217,7 +412,7 @@ def run_grader(job_id, payload, jid, job_manager: JobManager, catalog, workspace
     fb = payload.get("fallbackModel") or FALLBACK_GRADER
     if not (kind == "ollama" and model == fb):
         try:
-            result = _grade_with_ai(ai, "ollama", fb, prompt, tome_root)
+            result = _grade_with_ai(ai, "ollama", fb, prompt, snapshot.work)
             return finish(result, fb + " (local fallback)")
         except Exception as e:
             last_err += f"; ollama {fb}: {str(e)[:300]}"

@@ -80,6 +80,7 @@
 }
 
 .forge-running-cost {
+  position: relative;
   display: grid;
   justify-items: end;
   gap: 2px;
@@ -93,6 +94,19 @@
   display: flex;
   align-items: baseline;
   gap: 5px;
+  background: none;
+  border: none;
+  padding: 0;
+  margin: 0;
+  color: inherit;
+  font: inherit;
+  letter-spacing: inherit;
+  cursor: pointer;
+}
+
+.forge-running-cost-total:hover output,
+.forge-running-cost-total:focus-visible output {
+  text-decoration: underline;
 }
 
 .forge-running-cost output {
@@ -107,6 +121,170 @@
   font-size: 1em;
   font-style: italic;
   letter-spacing: .01em;
+}
+
+.forge-cost-breakdown {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  z-index: 5;
+  margin-top: 8px;
+  min-width: 260px;
+  max-width: 360px;
+  max-height: 360px;
+  overflow: auto;
+  padding: 8px 10px;
+  background: var(--bg2);
+  border: 1px solid var(--line-hi);
+  border-radius: var(--rad);
+  box-shadow: 0 10px 24px rgba(0, 0, 0, .4), inset 0 0 0 1px color-mix(in srgb, var(--line) 60%, transparent);
+  text-align: left;
+  white-space: normal;
+  opacity: 0;
+  transform: translateY(-6px) scale(.97);
+  transform-origin: top right;
+  pointer-events: none;
+  visibility: hidden;
+}
+
+.forge-cost-breakdown.open {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+  pointer-events: auto;
+  visibility: visible;
+  animation: menu-open .08s ease-out both;
+}
+
+.forge-cost-breakdown.closing {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+  pointer-events: none;
+  visibility: visible;
+  animation: menu-fade calc(var(--n, 1) * 30ms + 160ms) linear both;
+}
+
+.forge-cost-breakdown.opening > *,
+.forge-cost-breakdown.closing > * {
+  animation: line-in .2s steps(18, end) both;
+  animation-delay: calc(var(--i, 0) * 34ms);
+}
+
+.forge-cost-breakdown.closing > * {
+  animation-name: line-out;
+  animation-duration: .16s;
+  animation-delay: calc(var(--o, 0) * 30ms);
+}
+
+.forge-cost-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 4px 0;
+  border-bottom: 1px solid color-mix(in srgb, var(--line-hi) 40%, transparent);
+  color: var(--tx-dim);
+  font: var(--forge-meta-size)/1.35 var(--mono);
+}
+
+.forge-cost-row:last-child {
+  border-bottom: none;
+}
+
+.forge-cost-row.dim {
+  color: var(--tx-faint);
+  justify-content: flex-start;
+}
+
+.forge-cost-phase {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 7px -10px 2px;
+  padding: 5px 10px 3px;
+  border-top: 1px solid color-mix(in srgb, var(--line-hi) 54%, transparent);
+  color: var(--tx-faint);
+  font: 600 calc(var(--forge-meta-size) - .5px)/1.2 var(--mono);
+  letter-spacing: .12em;
+}
+
+.forge-cost-phase strong,
+.forge-cost-section strong {
+  color: var(--ac);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: .03em;
+}
+
+.forge-cost-phase:first-child {
+  margin-top: -1px;
+  border-top: 0;
+}
+
+.forge-cost-turn {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(16px, .4fr) auto;
+  column-gap: 12px;
+  padding: 5px 0;
+  color: var(--tx-dim);
+  font: var(--forge-meta-size)/1.25 var(--mono);
+}
+
+.forge-cost-turn::after {
+  content: "";
+  grid-column: 2;
+  grid-row: 1 / span 2;
+  align-self: center;
+  border-top: 1px dotted color-mix(in srgb, var(--line-hi) 68%, transparent);
+}
+
+.forge-cost-section {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 4px 0 1px;
+  padding: 5px 0 3px;
+  border-top: 1px solid color-mix(in srgb, var(--line-hi) 54%, transparent);
+  color: var(--tx-faint);
+  font: 600 calc(var(--forge-meta-size) - .5px)/1.2 var(--mono);
+  letter-spacing: .1em;
+}
+
+.forge-cost-turn-meta {
+  grid-column: 1;
+  grid-row: 1;
+  min-width: 0;
+  color: var(--tx-faint);
+  white-space: nowrap;
+}
+
+.forge-cost-turn-model {
+  grid-column: 1;
+  grid-row: 2;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.forge-cost-turn-price {
+  grid-column: 3;
+  grid-row: 1 / span 2;
+  align-self: center;
+  color: var(--ac);
+  font-variant-numeric: tabular-nums;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .forge-cost-breakdown,
+  .forge-cost-breakdown.open,
+  .forge-cost-breakdown.closing,
+  .forge-cost-breakdown.opening > *,
+  .forge-cost-breakdown.closing > * {
+    animation-duration: .001s;
+    animation-delay: 0s;
+  }
 }
 
 .forge-progress .forge-phases {

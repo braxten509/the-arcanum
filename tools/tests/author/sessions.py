@@ -82,7 +82,12 @@ class OscillatingNoHandoffSession(single_author.AuthorSession):
 class ExplicitBlockedSession(UnlimitedRepairSession):
     def run_turn(self, prompt, conversation_kind="system", conversation_text=""):
         self.prompts.append(prompt)
-        return "harness-blocked", "HARNESS_BLOCKED: validator import failed"
+        active = gate.current_unit("warm", 8) or gate.ensure_unit("warm", 8)
+        command = gate.self_validation_commands("warm", active)[0]
+        return "harness-blocked", (
+            "HARNESS_BLOCKED:\n"
+            f"COMMAND: {command}\n"
+            "DIAGNOSTIC:\nvalidator import failed")
 
 
 # A provider cannot turn structured authored findings into an infrastructure pause
@@ -91,6 +96,11 @@ class BlockedThenHandoffSession(ExplicitBlockedSession):
     def run_turn(self, prompt, conversation_kind="system", conversation_text=""):
         self.prompts.append(prompt)
         if len(self.prompts) == 1:
-            return "harness-blocked", "HARNESS_BLOCKED: claimed infrastructure failure"
+            active = gate.current_unit("warm", 8) or gate.ensure_unit("warm", 8)
+            command = gate.self_validation_commands("warm", active)[0]
+            return "harness-blocked", (
+                "HARNESS_BLOCKED:\n"
+                f"COMMAND: {command}\n"
+                "DIAGNOSTIC:\nclaimed infrastructure failure")
         gate._write_phase("warm", 8, "validating")
         return "complete", ""

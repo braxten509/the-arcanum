@@ -1,0 +1,236 @@
+[[lessons]]
+id = "s01-l02"
+title = "Author the Empty Workspace"
+teaches = ["assembly-workspace-authorship", "tool-create-open", "tool-navigate", "tool-edit-save"]
+introduces = ["workspace-directory-creation", "tool-edit-save", "nasm-source-layout", "makefile-authorship"]
+validationDependencies = []
+researchSources = ["nasm-manual-directives"]
+body = '''
+<p>With the toolchain confirmed, the next skill is arranging the folder that toolchain will operate
+on. A workspace is nothing exotic: a project root directory holding a <code>src/</code> subdirectory
+for source files and, at the root, a <code>Makefile</code> that will later drive the build. You create
+that shape with three ordinary shell operations — make the directories, move into them, and confirm
+where you are:</p>
+<pre><code data-kind="terminal">mkdir -p paddle-vector/src
+cd paddle-vector
+pwd</code></pre>
+<p><code>mkdir -p</code> creates a directory and any missing parent directories in one step, so it never
+complains that <code>paddle-vector</code> does not exist yet before making <code>src</code> inside it.
+<code>cd</code> changes your shell's current directory, and <code>pwd</code> ("print working directory")
+answers the question "where am I right now?" — a habit worth keeping any time a file seems to be
+missing. From here you create and edit two empty files, <code>src/pong.asm</code> and
+<code>Makefile</code>, in whatever editor you prefer (a terminal editor like <code>nano</code>, or a
+GUI editor like VS Code). Opening a path that does not exist yet and saving to it is exactly how a
+new file gets created; every editor treats "open, type, save" the same way.</p>
+<p>An empty <code>.asm</code> file will eventually hold real structure, and two NASM directives shape
+that structure before a single instruction is written. <code>SECTION</code> (or the older synonym
+<code>SEGMENT</code>) declares which output section the lines below it belong to; the three
+conventional Linux sections are <code>.data</code> (initialized values), <code>.bss</code>
+(uninitialized storage), and <code>.text</code> (instructions). <code>GLOBAL</code> exports a label
+defined in this file so other object files — including the C runtime that eventually calls into your
+code — can see it; <code>EXTERN</code> is its mirror, declaring a label this file wants to use even
+though it is defined somewhere else. A disposable skeleton using different names than your project
+shows the shape without giving any of it away:</p>
+<pre><code data-kind="pseudocode">section .data
+
+section .bss
+
+section .text
+    global  beacon_ready
+    extern  signal_strength
+
+beacon_ready:</code></pre>
+<p>Two more small things belong in that same disposable file before it can become a real program: a
+named constant declared with <code>EQU</code>, and the entrypoint every linked NASM+C program needs,
+<code>global main</code>. <code>EQU</code> binds a symbolic name to a fixed numeric value at assembly
+time — nothing about it is stored in memory, it just lets the rest of the file spell out
+<code>MAX_RETRIES</code> instead of a bare <code>3</code> repeated everywhere. <code>main</code> is the
+specific label C's own startup code calls the moment your OS process starts; declaring it
+<code>global</code> is what lets gcc's linker (lesson 6) find that label when it links your object
+file against the C runtime.</p>
+<pre><code data-kind="pseudocode">MAX_RETRIES equ 3
+
+section .text
+    global main
+
+main:
+    mov eax, 0
+    ret</code></pre>
+<p>Assembled and linked on its own exactly as lesson 6 will show, this second skeleton produces a
+runnable executable that does nothing but exit 0 immediately — a fixed constant with no storage behind
+it, and one real linkable entrypoint, both already observable (via <code>echo $?</code> printing
+<code>0</code> after running it) before a single instruction beyond <code>ret</code> is ever added.</p>
+<p>The <code>Makefile</code> at the project root is a different small language: it is a list of
+targets, each naming what it depends on and the shell commands (a "recipe") that produce it. A recipe
+line must start with a literal tab character, not spaces — the single most common first Makefile
+mistake. A disposable example, unrelated to assembling anything, shows a variable, a
+file target, and a housekeeping target that does not name a real file:</p>
+<pre><code data-kind="pseudocode">OUT = report.txt
+SRC = notes.txt
+
+$(OUT): $(SRC)
+	cat $(SRC) > $(OUT)
+
+.PHONY: clean
+clean:
+	rm -f $(OUT)</code></pre>
+<p><code>$(OUT)</code> and <code>$(SRC)</code> substitute the variables defined above; <code>.PHONY</code>
+tells make that <code>clean</code> names an action, not a file, so make will always run it even if a
+file named <code>clean</code> happened to exist.</p>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // TABS, NOT SPACES</div>
+<p>If a recipe line uses spaces instead of a tab, make refuses with "missing separator" and stops
+before running anything. Most editors can be configured to insert a real tab for Makefiles
+specifically — worth checking once, since the error gives no line-by-line hint about which
+character is wrong.</p></div>
+'''
+
+[[lessons.concepts]]
+id = "workspace-directory-creation"
+purpose = "Building the exact folder shape this course expects — a project root with a src/ subdirectory, navigated into and confirmed — in one short sequence."
+anatomy = "mkdir -p <root>/src creates both the root and the nested src directory together, even though src does not exist yet; cd <root> then moves into it, and pwd confirms the absolute path before any file is touched."
+example = "The mkdir/cd/pwd sequence in this lesson's body."
+observable = "pwd reports the new project directory ending in /paddle-vector, and ls paddle-vector shows a src entry that is itself empty."
+failure = "Plain mkdir (without -p), or creating files before the directory exists, fails with 'No such file or directory'; mkdir -p first avoids that order-of-operations mistake, and cd into a directory that does not exist yet leaves you exactly where you were."
+practice = "s01-l02-e1"
+
+[[lessons.concepts]]
+id = "tool-edit-save"
+purpose = "Creating a new file by opening a path that does not exist yet in a text editor, typing content, and writing those changes to disk so they persist after the editor closes."
+anatomy = "Invoke your editor with the target path (a terminal editor command or a GUI editor's Open/New dialog) — every editor creates the file the first time you save; type into the open buffer, then invoke the save action before closing."
+example = "Opening and saving src/pong.asm and Makefile for the first time, and later saving the disposable Makefile skeleton shown in this lesson's body into a real file."
+observable = "The file appears when you list the directory afterward, even if still empty; re-opening it, or running cat on it from the terminal, shows the exact content you saved."
+failure = "Opening a path inside a directory that does not exist yet fails or silently opens elsewhere depending on the editor (mkdir -p first removes the ambiguity); closing without saving discards every change, so a cat showing the file empty afterward means the save step never happened."
+practice = "s01-l02-e2"
+
+[[lessons.concepts]]
+id = "assembly-workspace-authorship"
+purpose = "The combined skill this lesson builds: workspace-directory-creation plus tool-edit-save together, since every later lesson assumes this exact paddle-vector/src + Makefile shape already exists and stays populated the same way."
+anatomy = "First run the mkdir -p/cd/pwd sequence once to fix the shape, then use open-type-save in your editor every time you add or change src/pong.asm or Makefile from here on."
+example = "The same mkdir/cd/pwd sequence and the same src/pong.asm and Makefile creation shown in this lesson's body, viewed together as one repeatable habit rather than two unrelated actions."
+observable = "ls at the project root always shows src/ and Makefile side by side, no matter how many times you have re-opened and re-saved either one."
+failure = "Recreating the directory shape (mkdir -p) after files already exist inside it is harmless and idempotent, but skipping it on a brand-new machine before ever opening an editor is the one order-of-operations mistake that breaks both skills at once."
+practice = "s01-l02-e1"
+
+[[lessons.concepts]]
+id = "tool-create-open"
+purpose = "The specific editor action of opening a path that does not exist yet, which is what actually creates a new file on disk once you save."
+anatomy = "Invoke your editor with the target path; the editor shows an empty buffer for a path with nothing behind it yet, distinct from opening a path that already has content."
+example = "Opening src/pong.asm and Makefile for the very first time in this lesson's body, before either has ever been saved."
+observable = "The editor's buffer is empty and its title bar or tab shows the exact path you asked for, confirming which file you are about to create."
+failure = "Opening a path inside a directory that does not exist yet fails or silently opens elsewhere depending on the editor — the mkdir -p step earlier in this lesson exists specifically to remove that ambiguity before you ever reach for the editor."
+practice = "s01-l02-e2"
+
+[[lessons.concepts]]
+id = "tool-navigate"
+purpose = "Confirming your shell's current location before trusting any relative path you are about to create or open."
+anatomy = "cd <directory> changes the shell's current directory; pwd immediately after prints the absolute path you actually landed in, which is the one fact every relative path in this course depends on being correct."
+example = "The cd paddle-vector and pwd commands in this lesson's body, run right after the directory is created."
+observable = "pwd's output ends in exactly the project directory name you just created, confirming every subsequent relative path (src/pong.asm, Makefile) will resolve where you expect."
+failure = "cd into a directory that does not exist yet reports 'No such file or directory' and leaves your shell exactly where it was — the very next pwd is still worth running as confirmation, since it turns 'the cd probably worked' into a printed, checkable fact."
+practice = "s01-l02-e1"
+
+[[lessons.concepts]]
+id = "nasm-source-layout"
+purpose = "Shaping a NASM file into named sections, declaring which labels are visible to other object files, naming fixed constants, and marking the one label a linked program actually starts at — all before any real instructions are written."
+anatomy = "SECTION .data / SECTION .bss / SECTION .text switch which section following lines assemble into; GLOBAL name exports a label this file defines; EXTERN name imports a label defined elsewhere; NAME EQU value binds a symbolic constant with no runtime storage; GLOBAL main marks the label C's startup code calls into once linked."
+example = "The beacon_ready/signal_strength skeleton, and the MAX_RETRIES/global main skeleton, both in this lesson's body."
+observable = "The file assembles into distinct .data/.bss/.text regions in the resulting object, visible later with tools like objdump -h; once linked (lesson 6), a file with global main produces an executable the OS can actually start running."
+failure = "Declaring GLOBAL on a name this file never actually defines is a link-time error ('undefined reference'), not an assemble-time one — the mistake surfaces one step later than you might expect. Omitting global main entirely still assembles fine, but gcc's link step then fails with 'undefined reference to main', since nothing external can find that entrypoint."
+practice = "s01-l02-e3"
+
+[[lessons.concepts]]
+id = "makefile-authorship"
+purpose = "Writing a Makefile's target/prerequisite/recipe structure, plus variables and phony (non-file) targets."
+anatomy = "target: prerequisite(s) on one line, then one or more tab-indented recipe lines; VAR = value defines a variable, $(VAR) reads it; .PHONY: name marks name as an action rather than a file."
+example = "The report.txt/notes.txt Makefile skeleton in this lesson's body."
+observable = "Running make in the directory containing that Makefile produces report.txt from notes.txt's contents, and make clean removes it."
+failure = "A recipe line indented with spaces instead of a real tab makes make stop immediately with 'missing separator'."
+practice = "s01-l02-e4"
+
+[[lessons.readings]]
+label = "NASM manual: Assembler Directives (SECTION, GLOBAL, EXTERN)"
+url = "https://www.nasm.us/doc/nasm08.html"
+
+[[lessons.exercises]]
+id = "s01-l02-e1"
+type = "mc"
+required = true
+capabilities = ["language-data-layout-and-integer-state"]
+mechanisms = ["workspace-directory-creation"]
+cognitiveTask = "predict"
+scaffold = "guided"
+contextFamily = "workspace-setup"
+aidPolicy = "learning"
+points = 15
+prompt = "You run 'mkdir -p signal-lab/src' from your home directory, then 'cd signal-lab', then 'pwd'. What does pwd print?"
+choices = ["An error, because src was never separately created", "Your home directory followed by /signal-lab", "Just 'src', since that was the last directory named", "Nothing, because pwd only works after cd into a subdirectory of src"]
+answer = 1
+whyWrong = "The distractors misread what cd actually changed (only signal-lab, not src), invent an error mkdir -p specifically avoids, and invent a restriction pwd does not have — pwd always reports the shell's current absolute location."
+hint = "cd only moved into 'signal-lab' in this sequence, not into 'src' — pwd reports exactly where cd left you."
+explain = "mkdir -p created both directories in one step; cd then moved one level, into signal-lab; pwd reports that exact absolute path."
+
+[[lessons.exercises]]
+id = "s01-l02-e2"
+type = "text"
+required = true
+capabilities = ["language-data-layout-and-integer-state"]
+mechanisms = ["tool-edit-save"]
+cognitiveTask = "build"
+scaffold = "guided"
+contextFamily = "editor-workflow"
+aidPolicy = "learning"
+points = 25
+prompt = "Create the paddle-vector/src directory, then open and save an empty src/pong.asm and an empty Makefile at the project root. Afterward run 'ls -la' in the project root and 'ls -la src'. Paste both outputs, or, if a file is missing from the listing, say which one and what you tried."
+answer = "A complete answer shows both ls -la listings with pong.asm present under src and Makefile present at the root, both zero bytes (or whatever size your editor left after an empty save)."
+hint = "An editor that 'creates on open' still has not written anything until you explicitly save — if a file is missing from ls, check whether the save step actually ran."
+
+[[lessons.exercises]]
+id = "s01-l02-e3"
+type = "fill"
+required = true
+capabilities = ["language-data-layout-and-integer-state"]
+mechanisms = ["nasm-source-layout"]
+cognitiveTask = "complete"
+scaffold = "completion"
+contextFamily = "nasm-layout"
+aidPolicy = "learning"
+points = 20
+prompt = "Complete the directive that exports the label 'lantern_ready' so another object file can reference it."
+code = '''____  lantern_ready
+lantern_ready:'''
+answer = "global"
+hint = "It is the directive that makes a label visible outside this file — its mirror image is EXTERN, for labels defined elsewhere."
+
+[[lessons.exercises]]
+id = "s01-l02-e4"
+type = "fill"
+required = true
+capabilities = ["language-data-layout-and-integer-state"]
+mechanisms = ["makefile-authorship"]
+cognitiveTask = "complete"
+scaffold = "completion"
+contextFamily = "makefile-syntax"
+aidPolicy = "learning"
+points = 20
+prompt = "This Makefile rule reads log.txt and, via cat's redirection, writes its recipe's output to a new file. Fill in the missing target name on the rule line so it matches exactly what the recipe line actually produces."
+code = '''____: log.txt
+	cat log.txt > summary.txt'''
+answer = "summary.txt"
+hint = "The target is what the rule produces — the file named on the left of the colon, matching what the recipe's output redirects into."
+
+[[lessons.exercises]]
+id = "s01-l02-d1"
+type = "type"
+required = true
+capabilities = ["language-data-layout-and-integer-state"]
+mechanisms = ["makefile-authorship"]
+cognitiveTask = "recall"
+scaffold = "worked"
+contextFamily = "makefile-syntax"
+aidPolicy = "learning"
+points = 12
+reps = 2
+prompt = "Retype this phony target exactly, including the leading tab before rm. (Ctrl+Enter submits.)"
+code = '''.PHONY: clean
+clean:
+	rm -f report.txt'''

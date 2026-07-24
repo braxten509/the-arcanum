@@ -27,7 +27,7 @@ TERMINAL_SUFFIXES = (
     "active.json", "cancelled.json", "result.json", "session.json",
     "conversation.jsonl", "amend.json", "progress", "section-progress.json",
 )
-PHASE3_SIDECARS = ("handoffs", "sections-done")
+PHASE3_SIDECARS = ("handoffs", "sections-done", "section-findings")
 COURSE_SEED_SIDECARS = ("course-map.seed.json", "course-map.proposal.json",
                         "course-map-author", "phase2-research.json")
 COURSE_MAP_SIDECARS = ("course-map.json", "course-map.amendments.json")

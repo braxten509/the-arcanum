@@ -108,6 +108,16 @@ class RuntimeConfig:
             raise RuntimeConfigurationError(
                 f"runtime {name!r} assessmentEnvironment must be a string table")
         values["assessmentEnvironment"] = MappingProxyType(dict(assessment_environment))
+        artifact = values.get("artifactPath")
+        if artifact is not None:
+            artifact_parts = artifact.split("/") if isinstance(artifact, str) else ()
+            if (not isinstance(artifact, str) or not artifact.strip()
+                    or "\x00" in artifact or artifact.startswith(("/", "\\"))
+                    or "\\" in artifact
+                    or any(part in ("", ".", "..") for part in artifact_parts)):
+                raise RuntimeConfigurationError(
+                    f"runtime {name!r} artifactPath must stay inside the project")
+            values["artifactPath"] = artifact.strip()
         for key in ("buildTimeout", "runTimeout"):
             if key in values and (not isinstance(values[key], int) or values[key] < 1):
                 raise RuntimeConfigurationError(f"runtime {name!r} {key} must be positive")

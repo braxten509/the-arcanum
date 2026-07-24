@@ -12,9 +12,11 @@ from .. import BUILD_DIR, REPO, brief_exception
 from ..ai_costs import api_equivalent_completion_cost
 from ..course.state import tree_digest
 from .gate import (advance_unit, context, continue_prompt, current_unit, ensure_unit,
-                          label, mark_unit_validating, next_prompt, preflight_unit,
+                          interrupted_prompt, label, mark_unit_validating, next_prompt,
+                          preflight_unit,
                           repair_prompt, report_completed_unit_cost, unit_prompt,
-                          validate_author_self_check, validate_unit,
+                          validate_author_blocked_check, validate_author_self_check,
+                          validate_unit,
                           validation_failure_message, validation_issue_count)
 from . import full_review
 from .scope import previous_section_id, profile_paths
@@ -100,10 +102,11 @@ def configured_section_cost_limit(build_id, claude_author=False):
 class AuthorSession(AuthorControlsMixin, PhaseAuthorStateMixin,
                     ReviewerSessionMixin, AuthorTurnMixin):
     def __init__(self, build_id, kind, model, effort, concept, tooling, from_phase=1,
-                 resume_id="", reviewer=None, phase_authors=None):
+                 resume_id="", reviewer=None, phase_authors=None, resumed_build=False):
         self.build_id, self.kind, self.model = build_id, kind, model
         self.effort, self.concept, self.tooling = effort, concept, tooling
         self.from_phase, self.session_id = from_phase, str(resume_id or "")
+        self.resumed_build = bool(resumed_build)
         if self.kind == "opencode-cli" and self.session_id:
             # The lifecycle normally filters orphan IDs before launch, but a web server
             # that predates a sandbox migration can still pass one to a new worker.

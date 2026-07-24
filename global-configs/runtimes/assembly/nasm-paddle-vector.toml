@@ -4,14 +4,15 @@ capabilities = ["project", "build", "run", "assessment"]
 language = "NASM x86-64 Assembly on Linux (System V AMD64 ABI)"
 entryFile = "src/pong.asm"
 projectFile = "Makefile"
+artifactPath = "build/pong"
 newFileExt = ".asm"
 editorLang = "nasm"
-runLabel = "make build && ./build/paddle-vector"
+runLabel = "make build && ./build/pong"
 
 # The runtime supplies process orchestration only. The learner authors the
 # source tree, Make rules, checks, documentation, and resulting executable.
 command = ["bash", "-lc", "set -eu; src=\"$1\"; scratch=\"$(mktemp -d)\"; trap 'rm -rf -- \"$scratch\"' EXIT; nasm -f elf64 -g -F dwarf -o \"$scratch/example.o\" \"$src\"; gcc -no-pie -Wl,--build-id=none -o \"$scratch/example\" \"$scratch/example.o\" $(pkg-config --cflags --libs sdl2); \"$scratch/example\"", "_", "{file}"]
-runCommand = ["bash", "-lc", "set -eu; make -s build; exec ./build/paddle-vector \"$@\"", "_"]
+runCommand = ["bash", "-lc", "set -eu; make -s build; exec \"./{artifact}\" \"$@\"", "_"]
 commandTargetTools = ["make"]
 
 checkCommand = ["nasm", "-f", "elf64", "-g", "-F", "dwarf", "-o", "/dev/null", "{file}"]
@@ -71,3 +72,4 @@ ctorRegex = '^([A-Za-z_.$?][A-Za-z0-9_.$?#@~]*)$'
 build = ["make", "build"]
 check = ["make", "check"]
 test = ["make", "check"]
+init-failure = ["bash", "-lc", "SDL_VIDEODRIVER=arcanum-invalid exec \"./{artifact}\" \"$@\"", "_"]

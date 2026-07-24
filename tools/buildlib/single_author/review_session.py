@@ -78,8 +78,12 @@ class ReviewerSessionMixin:
             if outcome == "stopped":
                 break
             if outcome == "message":
-                prompt = message + "\n\n" + review_prompt(
-                    self.build_id, self.current_tome())
+                prompt = (
+                    message
+                    + "\n\nRespond to the operator, then continue the exact exhaustive review "
+                    "that was interrupted in this same session. Preserve the existing review "
+                    "packet and progress; do not restart discovery."
+                )
                 conversation_kind, conversation_text = "user", message
                 continue
             if outcome in ("paused", "failed"):

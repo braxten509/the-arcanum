@@ -34,6 +34,12 @@
   background: color-mix(in srgb, var(--ac-bg) 32%, transparent);
 }
 
+/* With RESUME FROM directly above, group PHASE AUTHORS snug beneath it (the resume field's own
+   6px bottom margin governs) instead of leaving the 32px break meant for the no-resume layout. */
+.forge-resume-field + .forge-author-field {
+  margin-top: 0;
+}
+
 .forge-reviewer-field {
   margin-top: -3px;
   padding: 11px 13px 12px;
@@ -167,6 +173,23 @@
   overflow-wrap: anywhere;
 }
 
+/* Two mutually exclusive per-section modes; neither checked dims the validator selection to
+   signal no section audit runs (Phases 1–2 still use the validator, so it stays selected). */
+.forge-validator-modes {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: 2px;
+}
+
+.forge-validator-route .forge-ai-row {
+  transition: opacity 160ms ease;
+}
+
+.forge-validator-route.forge-validator-off .forge-ai-row {
+  opacity: .42;
+}
+
 @media (min-width: 821px) {
   .forge-validator-route {
     position: relative;
@@ -182,7 +205,9 @@
     border-top: 1px dashed color-mix(in srgb, var(--ac) 28%, var(--line));
   }
 
-  .forge-validator-label {
+  .forge-validator-label,
+  .forge-validator-modes {
+    /* Line up with the leftmost combo box, which is pulled into the same -32px gutter. */
     margin-left: -32px;
   }
 }

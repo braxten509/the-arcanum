@@ -331,6 +331,10 @@ def candidate_with_findings(course, sid, findings):
                      for index, item in enumerate(candidate.get("sections") or [])}
     record_by_id = {item.get("id"): item for item in records if isinstance(item, dict)}
     nodes = {node["id"]: node for node in section["nodes"]}
+    current_working = next(
+        (node for node in section["nodes"] if node.get("kind") == "working"), None)
+    current_artifacts = set(
+        (current_working or {}).get("learnerOwnedArtifacts") or [])
     for finding in findings:
         expected = MECHANISM_KEYS | {"demands", "closestExisting", "semanticDelta"}
         if not isinstance(finding, dict) or set(finding) != expected:
@@ -365,5 +369,20 @@ def candidate_with_findings(course, sid, findings):
             field = "introduces" if target.get("kind") == "lesson" else "mechanisms"
             if mid not in target[field]:
                 target[field].append(mid)
+        # A mechanism added to a cumulative learner-owned artifact remains active
+        # in every later Working that keeps that artifact. Build the complete valid
+        # amendment candidate here instead of predictably failing whole-map closure.
+        if current_working and mid in (current_working.get("mechanisms") or []):
+            for later_section in candidate["sections"][
+                    section_order.get(sid, -1) + 1:]:
+                later_working = next(
+                    (node for node in later_section.get("nodes") or []
+                     if isinstance(node, dict) and node.get("kind") == "working"),
+                    None)
+                later_artifacts = set(
+                    (later_working or {}).get("learnerOwnedArtifacts") or [])
+                if (later_working and current_artifacts & later_artifacts
+                        and mid not in later_working["mechanisms"]):
+                    later_working["mechanisms"].append(mid)
         known.add(mid)
     return candidate

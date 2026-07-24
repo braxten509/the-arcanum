@@ -1,0 +1,37 @@
+# Permission profile for Binder amendments and read-only review reports.
+# The runner mounts these inputs read-only, then overlays only the request's explicit
+# writable path: the target tome for amendments or one pre-created review report.
+
+[system]
+read = ["/usr", "/bin", "/lib", "/lib64", "/usr/local", "/etc", "/opt", "/proc"]
+write = []
+both = ["/tmp/arcanum/{build_id}", "/dev"]
+execute = []
+
+[permissions]
+read = [
+  "AGENTS.md",
+  "CLAUDE.md",
+  "course-configuration-guide.md",
+  "course-improvement-guide.md",
+  "tome-authoring",
+  "tome-workflow",
+  "tools",
+  "arcanum",
+  "arcanum_core",
+  "runtimes",
+  "global-configs",
+  "skins",
+  "web",
+  "tomes",
+  "reviews",
+  "tome_layout.py",
+  "tome_proof.py",
+]
+write = []
+both = []
+execute = [
+  ["python3", "tools/validate_tome.py", "tomes/{tome_id}"],
+  ["python3", "tools/validate_tome.py", "tomes/{tome_id}", "--strict"],
+  ["python3", "tools/gen_attacks.py", "{tome_id}"],
+]

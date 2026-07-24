@@ -1,9 +1,11 @@
 """Provider process lifecycle for one warm single-author turn."""
 from __future__ import annotations
 
+import json
 import os
 import queue
 import signal
+import stat
 import subprocess
 import threading
 import time
@@ -32,6 +34,87 @@ from arcanum.jobs.stall import StallWatch
 # is not a patience budget: a thinking model and a running tool both keep the clock at 0.
 STALL_SECONDS = float(os.environ.get("ARCANUM_STALL_SECONDS", "10"))
 STALL_POLL_SECONDS = 2.0
+
+
+def _claude_oauth_token_file():
+    configured = str(os.environ.get("ARCANUM_CLAUDE_OAUTH_TOKEN_FILE") or "").strip()
+    return os.path.abspath(os.path.expanduser(
+        configured or "~/.config/arcanum/claude-oauth-token"))
+
+
+def _claude_oauth_token_from_file():
+    """Read a user-only token file without ever returning its contents in an error."""
+    path = _claude_oauth_token_file()
+    try:
+        details = os.lstat(path)
+    except FileNotFoundError:
+        return "", ""
+    except OSError as exc:
+        return "", f"Cannot inspect Claude token file `{path}`: {exc}."
+    if not stat.S_ISREG(details.st_mode):
+        return "", f"Claude token file `{path}` must be a regular file, not a symlink."
+    if hasattr(os, "getuid") and details.st_uid != os.getuid():
+        return "", f"Claude token file `{path}` must be owned by the Forge user."
+    if stat.S_IMODE(details.st_mode) & 0o077:
+        return "", f"Claude token file `{path}` must have mode 0600."
+    try:
+        with open(path, encoding="utf-8") as handle:
+            token = handle.read().strip()
+    except OSError as exc:
+        return "", f"Cannot read Claude token file `{path}`: {exc}."
+    if not token:
+        return "", f"Claude token file `{path}` is empty."
+    return token, ""
+
+
+def claude_headless_environment(kind):
+    """Return private environment additions and an auth error for a provider."""
+    if kind != "claude-cli":
+        return {}, ""
+    direct_credentials = (
+        "CLAUDE_CODE_OAUTH_TOKEN",
+        "ANTHROPIC_API_KEY",
+        "ANTHROPIC_AUTH_TOKEN",
+    )
+    if any(str(os.environ.get(name) or "").strip() for name in direct_credentials):
+        return {}, ""
+    cloud_auth = (
+        str(os.environ.get("CLAUDE_CODE_USE_BEDROCK") or "").strip().lower()
+        in ("1", "true", "yes"),
+        str(os.environ.get("CLAUDE_CODE_USE_VERTEX") or "").strip().lower()
+        in ("1", "true", "yes"),
+    )
+    if any(cloud_auth):
+        return {}, ""
+
+    token, token_file_error = _claude_oauth_token_from_file()
+    if token:
+        return {"CLAUDE_CODE_OAUTH_TOKEN": token}, ""
+
+    credentials = os.path.expanduser("~/.claude/.credentials.json")
+    try:
+        with open(credentials, encoding="utf-8") as handle:
+            oauth = (json.load(handle).get("claudeAiOauth") or {})
+        if str(oauth.get("accessToken") or "").strip() or str(
+                oauth.get("refreshToken") or "").strip():
+            return {}, ""
+    except (OSError, ValueError, TypeError, AttributeError):
+        pass
+    if token_file_error:
+        return {}, token_file_error
+    return {}, (
+        "Claude CLI is not configured for isolated headless authentication. The desktop "
+        "terminal may use an in-memory or keyring login that the harness deliberately cannot "
+        "read. Run `claude setup-token`, then provide its secret either as "
+        "`CLAUDE_CODE_OAUTH_TOKEN` in the Forge worker environment or in the user-only file "
+        "`~/.config/arcanum/claude-oauth-token` (mode 0600). Restart the worker and resume. "
+        "Do not store or paste the token into the repository."
+    )
+
+
+def claude_headless_authentication_error(kind):
+    """Return a setup message when a sandboxed Claude CLI has no usable auth."""
+    return claude_headless_environment(kind)[1]
 
 
 def authoritative_session_id(current, line):
@@ -76,6 +159,9 @@ class AuthorTurnMixin:
             pass
 
     def run_turn(self, prompt, conversation_kind="system", conversation_text=""):
+        auth_environment, auth_error = claude_headless_environment(self.kind)
+        if auth_error:
+            return "authentication-required", auth_error
         ensure_cost_totals(BUILD_DIR, self.build_id)
         prompt = with_codex_patch_safety(self.kind, self.role, prompt)
         self.actual_model = ""
@@ -97,9 +183,12 @@ class AuthorTurnMixin:
                                                      "section": str(cost_unit.get("section") or "")})
         append_conversation(self.build_id, conversation_kind,
                             conversation_text or prompt)
+        child_environment = os.environ.copy()
+        child_environment.update(auth_environment)
         self.child = subprocess.Popen(wrapped, cwd=REPO, stdin=runner_stdin(input_mode),
                                       stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
-                                      text=True, bufsize=1, start_new_session=True)
+                                      text=True, bufsize=1, start_new_session=True,
+                                      env=child_environment)
         if input_mode == "stdin":
             self.child.stdin.write(prompt)
             self.child.stdin.close()

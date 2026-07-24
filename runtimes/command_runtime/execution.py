@@ -13,7 +13,8 @@ from .templates import file_argv, substitute
 
 class ExecutionMixin:
     def project_command(self, project_dir, args=()):
-        argv = (substitute(self.run_cmd, dir=project_dir, entry=self.entry)
+        argv = (substitute(self.run_cmd, dir=project_dir, entry=self.entry,
+                           artifact=self.artifact)
                 if self.run_cmd else file_argv(self.cmd, self.entry))
         safe_args = []
         for argument in args or ():
@@ -30,15 +31,34 @@ class ExecutionMixin:
             return {"ok": False, "output": f"ERROR: {self._exe() or self.NAME} not found.",
                     "commands": []}
         try:
-            if self.build_cmd:
+            build_command = list(self.build_cmd or (
+                self.assessment_commands.get("build") if self.artifact else ()) or [])
+            if build_command:
+                build_command = substitute(
+                    build_command, dir=project_dir, entry=self.entry,
+                    artifact=self.artifact)
                 with common.project_lock:
-                    process = subprocess.run(self.build_cmd, cwd=project_dir, env=env,
+                    process = subprocess.run(build_command, cwd=project_dir, env=env,
                                              capture_output=True, text=True,
                                              timeout=self.build_timeout)
-                return {"ok": process.returncode == 0,
-                        "output": common.join_output(process.stdout, process.stderr)
-                                  or "(build produced no output)",
-                        "exit": process.returncode, "commands": [list(self.build_cmd)]}
+                output = (common.join_output(process.stdout, process.stderr)
+                          or "(build produced no output)")
+                if process.returncode == 0 and self.artifact:
+                    artifact = os.path.join(project_dir, *self.artifact.split("/"))
+                    if not os.path.isfile(artifact):
+                        return {"ok": False,
+                                "output": output + "\nERROR: build did not create "
+                                + self.artifact,
+                                "exit": process.returncode,
+                                "commands": [build_command]}
+                    if not os.access(artifact, os.X_OK):
+                        return {"ok": False,
+                                "output": output + "\nERROR: build artifact is not executable: "
+                                + self.artifact,
+                                "exit": process.returncode,
+                                "commands": [build_command]}
+                return {"ok": process.returncode == 0, "output": output,
+                        "exit": process.returncode, "commands": [build_command]}
             if self.check_cmd:
                 outputs, commands = [], []
                 for relative, _source in self.collect_code(project_dir):

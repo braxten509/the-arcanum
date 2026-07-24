@@ -354,7 +354,8 @@ def reset_tome_to_section(tid, sid):
     shutil.rmtree(transaction, ignore_errors=True)
     for key in keys:
         for section in reset_sections:
-            for suffix in ("handoffs", "course-evidence", "course-failures"):
+            for suffix in ("handoffs", "course-evidence", "course-failures",
+                           "section-findings"):
                 _remove(os.path.join(BUILD_DIR, f"{key}.{suffix}", f"{section}.json"))
         for suffix in TERMINAL_SUFFIXES:
             if suffix != "progress":

@@ -4,13 +4,18 @@ from __future__ import annotations
 import fcntl
 import json
 import os
-import tempfile
 import time
 from datetime import datetime, timezone
 from decimal import Decimal, ROUND_HALF_UP
 
 from .costing import (GPT_MODELS, MODEL_PRICES, PRICED_MODELS, PRICING_SOURCE,
                       PRICING_VERSION)
+from .costing.storage import (
+    atomic_json as _atomic_json,
+    atomic_jsonl as _atomic_jsonl,
+    read_json as _read_json,
+    read_jsonl as _read_jsonl,
+)
 
 
 TURN_LIMIT = 500
@@ -33,64 +38,6 @@ def _state_path(build_dir, build_id):
 
 def _lock_path(build_dir, build_id):
     return os.path.join(build_dir, f"{build_id}.ai-costs.lock")
-
-
-def _read_json(path, default):
-    try:
-        with open(path, encoding="utf-8") as handle:
-            value = json.load(handle)
-        return value if isinstance(value, type(default)) else default
-    except (OSError, ValueError):
-        return default
-
-
-def _atomic_json(path, value):
-    os.makedirs(os.path.dirname(path), exist_ok=True)
-    fd, temporary = tempfile.mkstemp(prefix=".ai-cost-", suffix=".tmp",
-                                     dir=os.path.dirname(path))
-    try:
-        with os.fdopen(fd, "w", encoding="utf-8") as handle:
-            json.dump(value, handle, ensure_ascii=False, separators=(",", ":"))
-            handle.write("\n")
-        os.replace(temporary, path)
-    finally:
-        try:
-            os.remove(temporary)
-        except OSError:
-            pass
-
-
-def _atomic_jsonl(path, rows):
-    os.makedirs(os.path.dirname(path), exist_ok=True)
-    fd, temporary = tempfile.mkstemp(prefix=".ai-cost-", suffix=".tmp",
-                                     dir=os.path.dirname(path))
-    try:
-        with os.fdopen(fd, "w", encoding="utf-8") as handle:
-            for row in rows:
-                handle.write(json.dumps(row, ensure_ascii=False,
-                                        separators=(",", ":")) + "\n")
-        os.replace(temporary, path)
-    finally:
-        try:
-            os.remove(temporary)
-        except OSError:
-            pass
-
-
-def _read_jsonl(path):
-    rows = []
-    try:
-        with open(path, encoding="utf-8") as handle:
-            for line in handle:
-                try:
-                    row = json.loads(line)
-                except ValueError:
-                    continue
-                if isinstance(row, dict):
-                    rows.append(row)
-    except OSError:
-        pass
-    return rows
 
 
 def _usage(value):
@@ -152,6 +99,26 @@ def _cost(model, usage):
         + usage["outputTokens"] * rates["output"]
     ) / 1_000_000
     return round(amount, 9), rates
+
+
+def estimate_api_equivalent_cost(model, usage):
+    """Price one non-API turn as if its reported usage used the matching API.
+
+    Binder and other CLI surfaces use this projection without writing a durable
+    build ledger. Unknown models or absent token usage remain explicitly unpriced.
+    """
+    normalized = _usage(usage)
+    amount, rates = _cost(model, normalized)
+    if amount is None:
+        return None
+    return {
+        "model": str(model or ""),
+        "usd": amount,
+        "usage": normalized,
+        "rates": dict(rates),
+        "pricingVersion": PRICING_VERSION,
+        "pricingSource": PRICING_SOURCE,
+    }
 
 
 def _bucket():

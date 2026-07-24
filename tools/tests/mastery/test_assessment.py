@@ -107,6 +107,21 @@ with tempfile.TemporaryDirectory() as temp:
     assert not failed["independent"]
     assert (workspace / "main.py").read_text() == "print('READY')\n"
 
+    artifact_runtime = CommandRuntime({
+        "name": "artifact-python", "language": "Python",
+        "entryFile": "main.py", "artifactPath": "dist/app",
+        "runCommand": ["{artifact}"],
+        "buildCommand": [
+            "python3", "-c",
+            "import os,pathlib; p=pathlib.Path('dist/app'); "
+            "p.parent.mkdir(exist_ok=True); p.write_text('#!/bin/sh\\nexit 0\\n'); "
+            "os.chmod(p, 0o755)",
+        ],
+    })
+    artifact_result = artifact_runtime.verify_project(str(workspace))
+    assert artifact_result["ok"] and (workspace / "dist" / "app").is_file(), artifact_result
+    assert artifact_runtime.project_command(str(workspace))[0] == "dist/app"
+
     try:
         create_snapshot(str(workspace), limits=SnapshotLimits(max_files=1))
     except SnapshotError:

@@ -20,7 +20,7 @@ from buildlib.workflow.prompts import (MASTERY_DEPTH_FLOORS, START_PACING, TOOLI
 from buildlib.workflow.phase_reset import capture_phase_snapshot
 from buildlib.single_author import full_review
 from buildlib.single_author import AuthorSession, author_prompt, continuation_prompt
-from arcanum.config import OPENROUTER_IDS
+from arcanum.config import OPENROUTER_IDS, tome_opencode_model
 
 
 def _agent(value, allowed, role):
@@ -38,15 +38,17 @@ def _agent(value, allowed, role):
 
 def _author(value):
     value = _agent(value, ("claude-cli", "codex-cli", "opencode-cli"), "author")
-    if value[0] == "opencode-cli" and value[1] not in OPENROUTER_IDS:
-        raise argparse.ArgumentTypeError("author must use an approved OpenRouter model")
+    if value[0] == "opencode-cli" and not tome_opencode_model(value[1]):
+        raise argparse.ArgumentTypeError(
+            "author must use OpenCode Go or an approved OpenRouter model")
     return value
 
 
 def _validator(value):
     value = _agent(value, ("claude-cli", "codex-cli", "opencode-cli"), "validator")
-    if value[0] == "opencode-cli" and value[1] not in OPENROUTER_IDS:
-        raise argparse.ArgumentTypeError("validator must use an approved OpenRouter model")
+    if value[0] == "opencode-cli" and not tome_opencode_model(value[1]):
+        raise argparse.ArgumentTypeError(
+            "validator must use OpenCode Go or an approved OpenRouter model")
     return value
 
 
@@ -100,6 +102,8 @@ def _selftest():
         pass
     approved_router = OPENROUTER_IDS[0]
     assert _author(f"opencode-cli:{approved_router}")[:2] == ("opencode-cli", approved_router)
+    approved_go = "opencode-go/deepseek-v4-pro"
+    assert _author(f"opencode-cli:{approved_go}")[:2] == ("opencode-cli", approved_go)
     review = full_review.prompt("sample", "sample")
     assert "THOROUGH FULL-TOME REVIEW" in review
     assert "READ EVERYTHING" in review and "NO SAMPLING" in review
@@ -111,6 +115,20 @@ def _selftest():
                                             "effort": "high"}})
     assert (session.kind, session.model, session.effort, session.session_id) == (
         "codex-cli", "gpt-5.6-sol", "high", "")
+    routed_opencode = AuthorSession(
+        "sample", "opencode-cli", "openrouter/deepseek/deepseek-v4-pro",
+        "medium", "", "both")
+    routed_opencode.session_id = "same-model-conversation"
+    assert not routed_opencode.apply_author({"author": {
+        "kind": "opencode-cli", "model": "opencode-go/deepseek-v4-pro",
+        "effort": "max"}})
+    assert (routed_opencode.model, routed_opencode.effort,
+            routed_opencode.session_id) == (
+                "opencode-go/deepseek-v4-pro", "max", "same-model-conversation")
+    assert routed_opencode.apply_author({"author": {
+        "kind": "opencode-cli", "model": "opencode-go/glm-5.2",
+        "effort": "medium"}})
+    assert routed_opencode.session_id == ""
     routed = AuthorSession("sample", "claude-cli", "arc", "high", "", "both", 1,
                            phase_authors={"phase12": ("claude-cli", "arc", "high"),
                                           "phase37": ("codex-cli", "sections", "medium"),
@@ -269,6 +287,8 @@ def main():
     parser.add_argument("--concept", default="")
     parser.add_argument("--from-phase", type=int, default=1, choices=range(1, 9))
     parser.add_argument("--resume-session", default="")
+    parser.add_argument("--resumed-build", action="store_true",
+                        help="mark this invocation as a restarted Forge build")
     args = parser.parse_args()
     # Child validators use this stable launch slug for their durable Forge history.
     os.environ["ARCANUM_BUILD_ID"] = args.tome_id
@@ -313,7 +333,8 @@ def main():
     session = AuthorSession(args.tome_id, kind, model, effort, args.concept,
                             json.loads(args.gate_json).get("tooling", "")
                             if args.gate_json else _tooling(plan),
-                            args.from_phase, args.resume_session, args.reviewer, phase_authors)
+                            args.from_phase, args.resume_session, args.reviewer, phase_authors,
+                            resumed_build=args.resumed_build)
     raise SystemExit(session.run())
 
 

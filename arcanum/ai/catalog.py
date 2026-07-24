@@ -50,6 +50,8 @@ def model_census() -> dict:
         providers["codex-cli"] = [row[0] for row in codex_rows]
     opencode_ok = installed["opencode-cli"]
     opencode_rows = opencode_models() if opencode_ok else []
+    go_rows = [row for row in opencode_rows
+               if str(row[0]).startswith("opencode-go/")]
     zen_rows = opencode_zen_models() if opencode_ok else []
     local_rows = ollama_bindery_models() if opencode_ok else []
     router_rows = openrouter_models() if opencode_ok else []
@@ -57,14 +59,17 @@ def model_census() -> dict:
     providers["opencode-cli"] += [row[0] for row in router_rows]
     tome_cli_roles = ["author", "validator", "reviewer"]
     # Tome creation/resume is intentionally narrower than the reader's general AI
-    # catalog. Keep unsupported pools out of the payload so stale browser state cannot
-    # rediscover OpenCode, OpenRouter, Antigravity, Zen, or local models.
+    # catalog. OpenCode Go and the curated OpenRouter route are hosted build providers;
+    # keep Zen/free, Maple, Antigravity, and local models out of this payload.
     output["bindery"] = [
         {"id": "claude-cli", "label": "Claude CLI", "kind": "claude-cli",
          "models": rows(CLI_MODELS["claude-cli"], "claude-cli"),
          "installed": installed["claude-cli"], "roles": tome_cli_roles},
         {"id": "codex-cli", "label": "Codex CLI", "kind": "codex-cli",
          "models": codex_rows, "installed": installed["codex-cli"],
+         "roles": tome_cli_roles},
+        {"id": "opencode-go", "label": "OpenCode Go", "kind": "opencode-cli",
+         "models": go_rows, "installed": installed["opencode-cli"],
          "roles": tome_cli_roles},
         {"id": "openrouter", "label": "OpenRouter · OpenCode CLI", "kind": "opencode-cli",
          "models": router_rows, "installed": installed["opencode-cli"],

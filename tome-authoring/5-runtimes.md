@@ -17,13 +17,14 @@ key of the language TOML (and equally of a tome's `[runtime]` table):
 | key | purpose |
 |---|---|
 | `command` | argv that runs ONE file. **REQUIRED unless `runCommand` is set.** The path is appended, or use a `"{file}"` placeholder for a trailing-flag language: `["odin", "run", "{file}", "-file"]` |
-| `runCommand` | run the whole project, cwd = project dir; `{dir}`/`{entry}` substituted. Default: `command` + `entryFile` |
+| `runCommand` | run the whole project, cwd = project dir; `{dir}`/`{entry}`/`{artifact}` substituted. Default: `command` + `entryFile` |
 | `snippetRunCommand` | run a snippet after `buildCommand` (e.g. dotnet `--no-build`); `{dir}`/`{entry}` substituted, cwd = the snippet scratch dir. Default: `command` + `entryFile`, else `runCommand` |
 | `buildCommand` | whole-project compile/check, cwd = project dir |
 | `checkCommand` | per-FILE syntax check; path appended or `"{file}"`; exit 0 = clean → editor squiggles |
 | `diagRegex` | single-quoted regex, Python named groups `(?P<file>)(?P<line>)(?P<col>)(?P<sev>)(?P<code>)(?P<msg>)` (all optional), matched over check/build output |
 | `scaffoldCommand` | create a project; `{project}`/`{dir}` substituted. Default: write `entryFile` = `starterCode` |
 | `projectFile` | file that marks a scaffolded project; `{project}` substituted (e.g. `"{project}.csproj"`). Default: `entryFile` |
+| `artifactPath` | optional official project-relative executable path. When set, `runCommand` must use `{artifact}`, and mechanical build validation requires this file to exist and be executable |
 | `commandTargetTools` | optional array of task runners whose non-option positional arguments name distinct target/rule mechanisms. Make is inferred automatically from a `Makefile` or direct `make` runtime command |
 | `packageCommand` | install a package; `{dir}`/`{package}` substituted. Default: packages unsupported |
 | `validationDependencies` | **tome-level** array of packages required by authored solutions, starters, or executable samples. This declares what validation needs; keep it out of the reusable language TOML |
@@ -31,6 +32,8 @@ key of the language TOML (and equally of a tome's `[runtime]` table):
 | `validationPackageCommand` | install one environment-scoped validation dependency; `{dir}`/`{package}` substituted. Runs once per package in a content-addressed directory under `.tome-build/validation-envs` |
 | `validationEnv` | environment-name → value table applied to the worker and independent harness gates; `{dir}` and existing environment placeholders such as `{PATH}` are expanded |
 | `validationProjectPackageCommand` | install one dependency into each validator-created scratch project; `{dir}`/`{package}` substituted. Defaults to `packageCommand` when no environment installer is configured |
+| `[assessmentCommands]` | trusted, named CLI argv definitions available to Working verification (for example `tests = ["pytest", "-q"]`). A verification selects a name; authored content never supplies arbitrary shell text |
+| `assessmentReadPaths` / `assessmentEnvironment` | trusted host resources and fixed environment values explicitly exposed to sandboxed assessment commands. Keep these engine/runtime-owned; tome overrides are rejected |
 | `deliveryCreateCommand` | create a fresh final-proof environment; `{env}` substituted |
 | `deliveryResolveCommand` | optional dependency-resolution preflight using `{env}`/`{requirements}` |
 | `deliveryInstallCommand` | install the learner project's exact manifest; `{env}`/`{requirements}` substituted |
@@ -39,7 +42,7 @@ key of the language TOML (and equally of a tome's `[runtime]` table):
 | `entryFile` | the file `command` runs / the scaffold writes (e.g. `"main.py"`) |
 | `starterCode` | the entry file's contents written by the default scaffold |
 | `newFileExt` | default extension for the NEW FILE button |
-| `codeExt` | array of extensions collected for grading/the editor |
+| `codeExt` | primary-language extensions collected for grading/the editor; shared evidence formats (`.md/.txt/.json/.jsonl/.toml/.yaml/.yml/.csv`) and named build files (`Dockerfile/Makefile/Modelfile/Procfile/Justfile`) are always additive |
 | `excludeDirs` | extra dirs skipped while collecting (dot-dirs and `node_modules/__pycache__/venv/bin/obj/build/out/target` are always skipped) |
 | `editorLang` | Monaco language id (any id; an id Monaco doesn't ship gets a generated tokenizer — see `[syntax]`) |
 | `language` | display name, used in grader/oracle prompts |
@@ -281,19 +284,33 @@ toolchain and the build must live in the player's own project instead:
 name = "dotnet"
 externalWorkspace = true   # REQUIRE external mode; the player picks the folder
 ```
-- Runs, diagnostics, and grading operate on the folder the player chose.
+- Runs and diagnostics operate on the folder the player chose. Grading first
+  copies eligible evidence into an immutable snapshot; verification runs against
+  a separate disposable copy of that snapshot.
   `/api/scaffold` **refuses to touch it**, and the engine **never resets it** —
   the player's tools own it entirely.
-- Grading collects at most **400** files, skipping dot-dirs, `node_modules`,
-  `__pycache__`, `venv`, `bin`, `obj`, `build`, `out`, `target`, plus any
-  `[runtime] excludeDirs`. Binary assets are not collected.
+- The snapshot includes at most **2,000 files / 80 MiB** beneath the selected
+  folder. Secret filenames, dependency/cache/output directories, and any
+  `[runtime] excludeDirs` are excluded and disclosed explicitly. Unsafe
+  symlinks, non-regular paths, unreadable files, or an oversized snapshot block
+  judgement rather than silently weakening its evidence.
+- The initial prompt includes excerpts from at most **400** eligible text files,
+  while the CLI grader may inspect every included file in its read-only snapshot.
+  Remote consent content-binds the complete included manifest, the exclusions,
+  rubric, essential gates, and effective verification commands.
+- A Working uses the registered build command as its default required
+  verification when one exists. `[[freestyle.verification]]` may instead select
+  registered `build`, `run`, or `[assessmentCommands]` entries. These commands
+  run without network access in the disposable snapshot, so generated files
+  cannot alter the player's original project.
 
 **The recipe is `externalWorkspace` + `[runtime]` overrides — nothing more.**
-Because this tome's `[runtime]` table overrides every engine key (`runCommand`,
+Because this tome's `[runtime]` table overrides the ordinary toolchain keys (`runCommand`,
 `buildCommand`, `checkCommand`, `diagRegex`, `codeExt`, `excludeDirs`,
 `projectFile`), any toolchain drivable from a CLI works — and GUI-only tools (an
-IDE, a game editor) work too, because grading only **reads** the workspace files;
-the engine never launches the tool.
+IDE, a game editor) work when their deliverable can be judged through registered
+CLI verification. The engine launches only those declared sandboxed checks; it
+never starts the GUI itself.
 
 **Minigames never move into the workspace.** Every `write` lab, hex-defense
 intrusion, and duel snippet still runs in the engine's scratch dir through

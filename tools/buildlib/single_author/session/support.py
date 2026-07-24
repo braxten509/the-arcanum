@@ -77,9 +77,11 @@ assigns clean successors to a fresh session.
 Preserve correct
 work already on disk and honor earlier phase contracts as immutable inputs.
 
-If an exact mechanical command cannot start or crashes before structured `ERROR`/`WARN` findings,
-report `HARNESS_BLOCKED:` once with the raw diagnostic and stop. Do not repair repository tooling.
-The harness reproduces and owns infrastructure failures without charging another author turn.
+If an exact assigned command cannot start or crashes before structured `ERROR`/`WARN` findings,
+report `HARNESS_BLOCKED:` once, followed by `COMMAND: <copy the exact failed command>`, then
+`DIAGNOSTIC:` and the raw diagnostic; stop. Do not repair repository tooling. The harness reruns
+that named command—not a substitute—and owns infrastructure failures without charging another
+author turn.
 
 Continue this checkpoint cycle until the harness ends this unit session or reaches Phase 8.
 Do not spawn another author or reviewer yourself.

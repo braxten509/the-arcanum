@@ -371,6 +371,18 @@ desc = "Built the shell — the front door of the whole operation."
 criterion = "Compiles & runs"
 weight = 25
 desc = "build succeeds; runs without crashing on normal input."
+essential = true        # optional hard gate; the percentage/letter grade is still recorded
+minimumScore = 6        # optional, defaults to 6/10 when essential = true
+
+[[freestyle.verification]]
+id = "project-tests"
+command = "test"        # build | run | a key in the named runtime's [assessmentCommands]
+label = "Project tests"
+required = true         # failure blocks passing but does not erase the letter grade
+args = []
+stdin = ""
+timeout = 120
+expect = { exitCode = 0 }
 ```
 **Every rubric must include one style/craft criterion (weight 10–20)** whose
 `desc` names the language's actual conventions at the student's current level —
@@ -387,9 +399,21 @@ judgments in the language's official style guide (from its own knowledge) and
 to name each breach with the pattern to follow. This row is how students learn
 good coding patterns, not just working code; be strictest about it in the
 first two sections, where habits form.
-The student's whole workspace is sent to the grader AI with `brief` + `rubric` +
-compiler output. **Grade gates:** ≥60 (D) passes the section and unlocks the next
-op; ≥70 (C) also grants the badge; S multiplies the reward. The freestyle unlocks
+The harness first creates an immutable project snapshot. Secret-named files,
+dependency/cache/output directories, and `[runtime] excludeDirs` are omitted and
+shown explicitly to the learner before consent. Declared verification commands
+run against a writable copy of that snapshot inside a no-network Bubblewrap
+sandbox; they never run against or modify the original workbench. The grader
+then receives recursive **read-only** access to the verified copy plus `brief`,
+`rubric`, and the verification output. Symlinks, non-regular paths, unreadable
+files, and snapshot size-limit violations block grading.
+
+The percentage and letter grade are always computed and shown. Passing is a
+separate verdict: the score must be at least 60/D, every `essential = true`
+criterion must reach its `minimumScore`, and every `required = true`
+verification must pass. Thus a Working can receive an A while remaining
+incomplete because one essential safety requirement failed. A passing C (70+)
+also grants the badge; a passing S multiplies the reward. The freestyle unlocks
 after 70% of the section's exercises are solved.
 
 **Themed briefs vs. exact requirements — read this before writing the `<ul>`.**

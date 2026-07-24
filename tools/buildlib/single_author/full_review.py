@@ -60,6 +60,25 @@ Preserve correct work. Do not edit unrelated tomes, runtime configs, engine code
 harness evidence. Do not spawn another reviewer. The harness will independently run strict
 shipping validation and live smoke checks after you stop.
 
+YOU ARE THE PRIMARY DEPTH GATE. Each section received at most a single advisory Validator-AI
+pass before this review — there was no per-section repair loop — so unresolved teaching defects
+reach you here and nowhere else. Do not defer, soft-flag, or merely note a defect: repair it in
+place. Be especially adversarial about the failure classes a per-section pass most often leaves
+behind, and fix each where you find it:
+- CONTINUITY: a lesson that contradicts, silently depends on, or forward-references another
+  lesson, the Working, or the runtime config. Reconcile both sides so the learner route is
+  consistent end to end.
+- PREREQUISITE / FIRST-USE TEACHING: any command, syntax, flag, or mechanism the Working or a
+  later lesson requires but no earlier lesson introduces with purpose, syntax, an observable
+  demonstration, and guided practice. Add the missing instruction before first required use.
+- LEARNER INDEPENDENCE: a required exercise, Working, or check the learner cannot complete from
+  what was actually taught. Add the missing construction practice or correct the requirement.
+- TECHNICAL CORRECTNESS: any claim, command, or expected output that is wrong or unachievable in
+  the taught workspace. Correct it and make the observable result match reality.
+If a stated requirement is genuinely unsatisfiable (for example it demands an external citation
+or artifact that cannot exist), repair it by relaxing the requirement to a taught, verifiable
+route rather than leaving a defect the tome can never resolve.
+
 NON-NEGOTIABLE LEARNER CONSTRUCTION: {LEARNER_CONSTRUCTION_INSTRUCTION} Compare every visible
 starter, code block, exercise solution, and any exceptional artifactStep against the hidden reference project;
 production-ready overlap or a rename-equivalent solution is a blocking finding in every section,

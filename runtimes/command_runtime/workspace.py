@@ -10,7 +10,17 @@ import runtimes.common as common
 from .templates import substitute
 
 MAX_FILES = 400
-EXCLUDE_DIRS = {"node_modules", "__pycache__", "venv", "bin", "obj", "build", "out", "target"}
+EXCLUDE_DIRS = {
+    "node_modules", "__pycache__", "venv", "bin", "obj", "build", "out", "target",
+}
+# Reproducibility and evaluation evidence commonly uses these formats regardless
+# of the project's primary language. A runtime's codeExt remains additive.
+EVIDENCE_EXTENSIONS = {
+    ".md", ".txt", ".json", ".jsonl", ".toml", ".yaml", ".yml", ".csv",
+}
+EVIDENCE_FILENAMES = {
+    "Dockerfile", "Makefile", "Modelfile", "Procfile", "Justfile",
+}
 
 
 class WorkspaceMixin:
@@ -94,21 +104,56 @@ class WorkspaceMixin:
         finally:
             shutil.rmtree(temporary, ignore_errors=True)
 
-    def collect_code(self, project_dir):
+    def collect_code_report(self, project_dir):
         files = []
+        omitted = []
+        unreadable = []
+        unsafe = []
         skip = EXCLUDE_DIRS | self.exclude_dirs
+        extensions = tuple(sorted(set(self.CODE_EXT) | EVIDENCE_EXTENSIONS))
+        root = os.path.realpath(project_dir)
         for dirpath, dirnames, filenames in os.walk(project_dir):
-            dirnames[:] = sorted(name for name in dirnames
-                                  if not name.startswith(".") and name not in skip)
+            kept = []
+            for name in sorted(dirnames):
+                path = os.path.join(dirpath, name)
+                if name.startswith(".") or name in skip:
+                    continue
+                if os.path.islink(path):
+                    unsafe.append(os.path.relpath(path, project_dir) + "/")
+                    continue
+                kept.append(name)
+            dirnames[:] = kept
             for filename in sorted(filenames):
-                if not filename.endswith(self.CODE_EXT):
+                if filename not in EVIDENCE_FILENAMES and not filename.endswith(extensions):
+                    continue
+                path = os.path.join(dirpath, filename)
+                if os.path.islink(path):
+                    unsafe.append(os.path.relpath(path, project_dir))
+                    continue
+                try:
+                    inside = os.path.commonpath((os.path.realpath(path), root)) == root
+                except ValueError:
+                    inside = False
+                if not inside:
+                    unsafe.append(os.path.relpath(path, project_dir))
                     continue
                 if len(files) >= MAX_FILES:
-                    return files
-                path = os.path.join(dirpath, filename)
+                    omitted.append(os.path.relpath(
+                        os.path.join(dirpath, filename), project_dir))
+                    continue
                 try:
                     with open(path, encoding="utf-8", errors="replace") as handle:
                         files.append((os.path.relpath(path, project_dir), handle.read()))
                 except OSError:
-                    pass
-        return files
+                    unreadable.append(os.path.relpath(path, project_dir))
+        return {
+            "files": files,
+            "limit": MAX_FILES,
+            "omitted": omitted,
+            "unreadable": unreadable,
+            "unsafe": unsafe,
+            "complete": not omitted and not unreadable and not unsafe,
+        }
+
+    def collect_code(self, project_dir):
+        return self.collect_code_report(project_dir)["files"]

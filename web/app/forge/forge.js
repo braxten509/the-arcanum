@@ -1,12 +1,12 @@
 /* Commission one complete tome through a persisted, phase-scoped AI author route. */
 import { $, closeModal, esc, modal, paintRange, toast } from "../core/dom.js";
 import { prepareStateReset, resumeStateSaves } from "../core/store.js";
-import { FORGE_PHASE_NAMES } from "./phases.js";
 import { enhanceSelect } from "../ui/menu.js";
 import { showResumeChooser } from "./workings.js";
 import { apiFetch } from "../core/api-client.js";
 import { dispatchCommand } from "../core/commands.js";
-import { fieldHead, restartPoint } from "./modal/helpers.js";
+import { restartPoint } from "./modal/helpers.js";
+import { forgeModalMarkup } from "./modal/template.js";
 
 // Keep the level names aligned with tools/buildlib/workflow/prompts.py PRIOR_LEVELS.
 // The slider is the complete baseline; optional text names concrete experience that can
@@ -46,6 +46,12 @@ export const matchProvider = (pools, saved) => saved && (
     && (item.models || []).some((row) => row[0] === saved.model))
   || (pools || []).find((item) => item.kind === saved.kind));
 
+// A persisted validator is always an explicit user choice. Defaults may change for a
+// new route, but reopening an existing or locally saved route must never migrate it.
+export const chooseValidator = (resumeValidator, storedValidator, recommendedValidator,
+  phase37Author, legacyAuthor) => resumeValidator || storedValidator
+    || recommendedValidator || phase37Author || legacyAuthor;
+
 export function forgeEntry() {
   apiFetch("/api/buildtome/resumable").then((r) => r.json()).then((data) => {
     const workings = data.workings || [];
@@ -55,92 +61,7 @@ export function forgeEntry() {
 
 function showForgeModal(resume) {
   const currentPhase = resume ? Math.max(1, Math.min(8, Number(resume.phase) || 1)) : 0;
-  const resumeField = resume ? `<div class="forge-field forge-resume-field">
-      <label for="fg-resume-phase">RESUME FROM</label>
-      <select id="fg-resume-phase" class="cfg-select" aria-label="Resume or restart phase">
-        <option value="">RESUME FROM CURRENT · PHASE ${currentPhase} · ${esc(FORGE_PHASE_NAMES[currentPhase] || "")}</option>
-        ${Array.from({ length: currentPhase }, (_, index) => index + 1).map((phase) =>
-          `<option value="${phase}">RESTART FROM PHASE ${phase} · ${esc(FORGE_PHASE_NAMES[phase] || "")}</option>`).join("")}
-        ${(currentPhase === 3 ? resume.sections || [] : []).map((section) =>
-          `<option value="3:${esc(section.id)}">RESTART FROM PHASE 3 · SECTION ${esc(String(section.id).toUpperCase())} · ${esc(section.title || "")}</option>`).join("")}
-      </select>
-      <label class="forge-resume-ack hidden" id="fg-resume-ack-wrap"><input type="checkbox" id="fg-resume-ack">
-        <span id="fg-resume-ack-text">I understand this erases authored work from the selected phase onward.</span></label>
-    </div>` : "";
-  modal(`<h2>THE BINDERY</h2>
-    <p class="dim forge-intro">Choose who owns the foundational arc, the main construction,
-      and the final student review. Phase 1–2 may stay warm together; later validated units start
-      fresh while failed units keep their repair session.</p>
-    <div class="forge-field"><label for="fg-concept">COURSE CONCEPT</label>
-      <textarea id="fg-concept" rows="4" placeholder="What should this teach, and what should the learner build?"></textarea></div>
-    <div class="forge-field">${fieldHead("PRIOR KNOWLEDGE (OPTIONAL)", "The slider is the complete starting baseline. Add languages or tools only to account for specific transferable experience; written details never imply nearby skills. Start 1 uses low-density lessons, Start 2 uses moderate density, and Start 3 permits dense related material after prerequisites are secure.")}
-      <input id="fg-prior" type="text" placeholder="Optional: languages or tools you already know">
-      <div class="forge-depth"><input id="fg-prior-level" type="range" min="1" max="10" value="5" aria-label="Prior knowledge level" aria-describedby="fg-prior-level-summary"><span id="fg-prior-level-val" class="forge-depth-val num">5</span></div>
-      <p class="forge-prior-summary" id="fg-prior-level-summary" aria-live="polite" aria-atomic="true"></p></div>
-    <div class="forge-field"><label>TOOLING</label><div class="forge-tooling">
-      <label class="forge-check"><input id="fg-tool-internal" name="fg-tooling" value="internal" type="radio"> Internal <i class="dim">browser workbench</i></label>
-      <label class="forge-check"><input id="fg-tool-external" name="fg-tooling" value="external" type="radio"> External <i class="dim">real tools taught</i></label>
-    </div></div>
-    <div class="forge-dials">
-      <div class="forge-field">${fieldHead("LANGUAGE MASTERY", "How independently and broadly the learner can use the declared implementation language at the end. The project is the cumulative practice and proof vehicle, not the mastery target.")}<div class="forge-depth"><input id="fg-mastery" type="range" min="1" max="5" value="3" aria-label="Language mastery" aria-describedby="fg-mastery-summary"><span id="fg-mastery-val" class="forge-depth-val num">3</span></div><p class="forge-dial-summary" id="fg-mastery-summary" aria-live="polite" aria-atomic="true"></p></div>
-      <div class="forge-field">${fieldHead("LESSON DEPTH", "How far each included mechanism is explained and debugged. Language Mastery enforces a minimum floor.")}<div class="forge-depth"><input id="fg-depth" type="range" min="1" max="10" value="7" aria-label="Lesson depth" aria-describedby="fg-depth-summary"><span id="fg-depth-val" class="forge-depth-val num">7</span></div><p class="forge-dial-summary" id="fg-depth-summary"></p></div>
-      <div class="forge-field">${fieldHead("PROJECT SCOPE", "How large, complete, and polished the finished project should be. It does not reduce language coverage.")}<div class="forge-depth"><input id="fg-project-scope" type="range" min="1" max="5" value="3" aria-label="Project scope" aria-describedby="fg-project-scope-summary"><span id="fg-project-scope-val" class="forge-depth-val num">3</span></div><p class="forge-dial-summary" id="fg-project-scope-summary" aria-live="polite"></p></div>
-      <div class="forge-field">${fieldHead("SECTION HARD STOP", "Pause before another paid Phase 3 repair once a Codex-authored section reaches this API-equivalent cost. Move the slider fully right to disable the cap. Claude-authored sections receive twice the numeric allowance.")}<div class="forge-depth"><input id="fg-section-cost-limit" type="range" min="1" max="10.5" step="0.5" value="2" aria-label="Phase 3 section hard stop" aria-describedby="fg-section-cost-limit-summary"><span id="fg-section-cost-limit-val" class="forge-depth-val forge-cost-depth-val num">$2</span></div><p class="forge-dial-summary" id="fg-section-cost-limit-summary">Per section · Rightmost is no limit · Claude numeric limit is 2×</p></div>
-    </div>
-    ${resumeField}
-    <div class="forge-field forge-author-field">${fieldHead("PHASE AUTHORS", "Choose Claude CLI or Codex CLI. Phase 1 and 2 may share one planning session. From Phase 3 onward, every clean phase or section starts a fresh unit session, while validator failures return to the current unit's warm repair session.")}
-      <div class="forge-author-route">
-        <div class="forge-author-route-label"><b>PHASES 1–2</b><span>ARC + SKELETON</span></div>
-        <div class="forge-ai-row">
-        <div class="forge-ai-choice"><select id="fg-author-prov" class="cfg-select" aria-label="Author agent CLI"><option value="">LOADING CLIS…</option></select></div>
-        <div class="forge-ai-choice"><select id="fg-author-model" class="cfg-select" aria-label="Author model" disabled><option value="">—</option></select></div>
-        <div class="forge-ai-choice"><select id="fg-author-eff" class="cfg-select" aria-label="Author effort" disabled><option value="">DEFAULT</option></select></div>
-        </div>
-      </div>
-      <div class="forge-author-route">
-        <div class="forge-author-route-label"><b>PHASES 3–7</b><span>BUILD + VALIDATE</span></div>
-        <div class="forge-author-route-stack">
-          <div class="forge-ai-row">
-            <div class="forge-ai-choice"><select id="fg-author-37-prov" class="cfg-select" aria-label="Phases 3 through 7 author agent CLI"><option value="">LOADING CLIS…</option></select></div>
-            <div class="forge-ai-choice"><select id="fg-author-37-model" class="cfg-select" aria-label="Phases 3 through 7 author model" disabled><option value="">—</option></select></div>
-            <div class="forge-ai-choice"><select id="fg-author-37-eff" class="cfg-select" aria-label="Phases 3 through 7 author effort" disabled><option value="">DEFAULT</option></select></div>
-          </div>
-          <div class="forge-validator-route">
-            <div class="forge-validator-label"><b>VALIDATOR AI</b><span>MANDATORY · PHASES 1–2 + EVERY SECTION</span>
-              <button type="button" class="forge-help" aria-label="About Validator AI">i<span class="forge-tip">This read-only AI runs after the Phase 1 and Phase 2 mechanical gates, before either transition, then audits teaching completeness, learner independence, and prerequisite completeness after every Phase 3 section clears its mechanical gate. Choose Claude CLI or Codex CLI. Each call receives one bounded, line-citable packet and returns typed defects to the current unit's repair session.</span></button>
-            </div>
-            <div class="forge-ai-row">
-              <div class="forge-ai-choice"><select id="fg-validator-prov" class="cfg-select" aria-label="Validator AI provider"><option value="">LOADING AI…</option></select></div>
-              <div class="forge-ai-choice"><select id="fg-validator-model" class="cfg-select" aria-label="Validator AI model" disabled><option value="">—</option></select></div>
-              <div class="forge-ai-choice"><select id="fg-validator-eff" class="cfg-select" aria-label="Validator AI effort" disabled><option value="">DEFAULT</option></select></div>
-            </div>
-          </div>
-        </div>
-      </div>
-      <div class="forge-author-route">
-        <div class="forge-author-route-label"><b>PHASE 8</b><span>STUDENT REVIEW</span></div>
-        <div class="forge-ai-row">
-          <div class="forge-ai-choice"><select id="fg-author-8-prov" class="cfg-select" aria-label="Phase 8 author agent CLI"><option value="">LOADING CLIS…</option></select></div>
-          <div class="forge-ai-choice"><select id="fg-author-8-model" class="cfg-select" aria-label="Phase 8 author model" disabled><option value="">—</option></select></div>
-          <div class="forge-ai-choice"><select id="fg-author-8-eff" class="cfg-select" aria-label="Phase 8 author effort" disabled><option value="">DEFAULT</option></select></div>
-        </div>
-      </div>
-    </div>
-    <div class="forge-field forge-reviewer-field">
-      <div class="forge-reviewer-head">
-        <span class="forge-reviewer-title">THOROUGH REVIEWER AI</span>
-        <button type="button" class="forge-help" aria-label="About thorough reviewer AI">i<span class="forge-tip">Choose Claude CLI or Codex CLI. After Phase 8 is clean, this independent AI reads every authored file from beginning to end—no sampling—reviews the entire tome, and fixes anything it sees fit. The harness then repeats strict shipping and live-smoke verification.</span></button>
-      </div>
-      <label class="forge-reviewer-toggle" for="fg-review-enabled">
-        <input id="fg-review-enabled" type="checkbox" aria-controls="fg-review-options">
-        <span>ENABLE (OPTIONAL)</span>
-      </label>
-      <div class="forge-ai-row forge-reviewer-options" id="fg-review-options" aria-hidden="true">
-        <div class="forge-ai-choice"><select id="fg-review-prov" class="cfg-select" aria-label="Reviewer agent CLI" disabled><option value="">LOADING CLIS…</option></select></div>
-        <div class="forge-ai-choice"><select id="fg-review-model" class="cfg-select" aria-label="Reviewer model" disabled><option value="">—</option></select></div>
-        <div class="forge-ai-choice"><select id="fg-review-eff" class="cfg-select" aria-label="Reviewer effort" disabled><option value="">DEFAULT</option></select></div>
-      </div>
-    </div>`, [["NOT TODAY", "quiet", null]], { sticky: true });
+  modal(forgeModalMarkup(resume, currentPhase), [["NOT TODAY", "quiet", null]], { sticky: true });
 
   const root = $("#modal-root");
   $(".modal", root).classList.add("forge-modal");
@@ -233,6 +154,9 @@ function showForgeModal(resume) {
         validatorEffort = $("#fg-validator-eff", root),
         prov8 = $("#fg-author-8-prov", root), model8 = $("#fg-author-8-model", root),
         effort8 = $("#fg-author-8-eff", root),
+        sectionAiPass = $("#fg-section-ai-pass", root),
+        sectionAiGate = $("#fg-section-ai-gate", root),
+        validatorRoute = $(".forge-validator-route", root),
         reviewEnabled = $("#fg-review-enabled", root),
         reviewProv = $("#fg-review-prov", root), reviewModel = $("#fg-review-model", root),
         reviewEffort = $("#fg-review-eff", root), reviewOptions = $("#fg-review-options", root),
@@ -246,6 +170,18 @@ function showForgeModal(resume) {
   ];
   const validatorPicker = { prov: validatorProv, model: validatorModel,
     effort: validatorEffort };
+  // Section AI review mode: default "pass"; a resume carries its saved mode, else the last
+  // choice. The two checkboxes are mutually exclusive; neither checked means "off".
+  const restoredMode = resume
+    && Object.prototype.hasOwnProperty.call(resume, "sectionAiReviewMode")
+    ? resume.sectionAiReviewMode
+    : resume && Object.prototype.hasOwnProperty.call(resume, "sectionAiReview")
+      ? (resume.sectionAiReview === false ? "off" : "pass")
+      : localStorage.getItem("binderySectionAiReviewMode") || "pass";
+  sectionAiPass.checked = restoredMode === "pass";
+  sectionAiGate.checked = restoredMode === "gate";
+  const sectionAiMode = () => sectionAiGate.checked ? "gate"
+    : sectionAiPass.checked ? "pass" : "off";
   const requiredPickers = [...authorPickers, validatorPicker];
   [prov, model, effort, prov37, model37, effort37, prov8, model8, effort8,
     validatorProv, validatorModel, validatorEffort,
@@ -323,6 +259,25 @@ function showForgeModal(resume) {
       || !!(resumePhase?.value && !resumeAck?.checked);
   };
   toolingInputs.forEach((input) => input.addEventListener("change", syncBegin));
+  // Section-review mode: the two checkboxes are mutually exclusive, and neither checked grays
+  // the section Validator AI selection. (Phases 1–2 still use the selected validator, so it
+  // stays required — the dimming only signals that no per-section audit runs.)
+  const syncValidatorMode = () => {
+    const on = sectionAiPass.checked || sectionAiGate.checked;
+    validatorRoute.classList.toggle("forge-validator-off", !on);
+    validatorProv.disabled = !on || !providers.length;
+    validatorModel.disabled = !on || !validatorProv.value;
+    validatorEffort.disabled = !on || validatorEffort.options.length <= 1;
+    syncBegin();
+  };
+  sectionAiPass.onchange = () => {
+    if (sectionAiPass.checked) sectionAiGate.checked = false;
+    syncValidatorMode();
+  };
+  sectionAiGate.onchange = () => {
+    if (sectionAiGate.checked) sectionAiPass.checked = false;
+    syncValidatorMode();
+  };
   const syncResumePoint = () => {
     if (!resumePhase) return;
     const { phase, section } = restartPoint(resumePhase.value);
@@ -371,14 +326,9 @@ function showForgeModal(resume) {
       && (item.models || []).some((row) => row[0] === "gpt-5.6-sol"));
     const recommendedValidator = solProvider
       ? { kind: "codex-cli", model: "gpt-5.6-sol", effort: "high" } : null;
-    const priorValidator = resume?.validator || storedValidator;
-    // Luna@medium was the old automatic default, not a reviewer-qualified choice. Migrate
-    // that exact legacy default while preserving deliberate custom model/effort selections.
-    const legacyLunaDefault = priorValidator?.kind === "codex-cli"
-      && priorValidator.model === "gpt-5.6-luna"
-      && priorValidator.effort === "medium";
-    const savedValidator = (!legacyLunaDefault && priorValidator) || recommendedValidator
-      || savedAuthors?.phase37 || legacySaved;
+    const savedValidator = chooseValidator(
+      resume?.validator, storedValidator, recommendedValidator,
+      savedAuthors?.phase37, legacySaved);
     const validatorMatch = findProvider(savedValidator, validatorProviders);
     if (validatorMatch) validatorProv.value = validatorMatch.id;
     fillAuthorModels(validatorPicker);
@@ -397,6 +347,7 @@ function showForgeModal(resume) {
     fillReviewEfforts();
     if (savedReviewer?.effort && [...reviewEffort.options].some((option) => option.value === savedReviewer.effort)) reviewEffort.value = savedReviewer.effort;
     syncReview();
+    syncValidatorMode();
     syncBegin();
   }).catch(() => {
     for (const picker of requiredPickers)
@@ -419,6 +370,8 @@ function showForgeModal(resume) {
     localStorage.setItem(
       "binderySectionCostLimitUsd",
       sectionCostLimitUsd === null ? "unlimited" : String(sectionCostLimitUsd));
+    const sectionAiReviewMode = sectionAiMode();
+    localStorage.setItem("binderySectionAiReviewMode", sectionAiReviewMode);
     localStorage.setItem("binderyAuthors", JSON.stringify(authors));
     localStorage.setItem("binderyAuthor", JSON.stringify(author));
     const validatorProvider = providers.find((item) => item.id === validatorProv.value);
@@ -458,13 +411,14 @@ function showForgeModal(resume) {
       }
     }
     const payload = resume ? { id: resumeId, ...(restartPhase ? { fromPhase: restartPhase } : {}),
-      sectionCostLimitUsd, author, authors, validator, reviewer,
+      sectionCostLimitUsd, sectionAiReviewMode, author, authors, validator, reviewer,
       bindery: { author, authors, validator, reviewer } } : {
       concept: concept.value.trim(), prior_knowledge: $("#fg-prior", root).value.trim(),
       prior_level: $("#fg-prior-level", root).value,
       project_scope: $("#fg-project-scope", root).value,
       depth: $("#fg-depth", root).value, mastery: $("#fg-mastery", root).value,
-      tooling, sectionCostLimitUsd, author, authors, validator, reviewer,
+      tooling, sectionCostLimitUsd, sectionAiReviewMode,
+      author, authors, validator, reviewer,
       bindery: { author, authors, validator, reviewer },
     };
     begin.dataset.busy = "true"; begin.disabled = true; begin.textContent = "OPENING THE SESSION…";

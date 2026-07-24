@@ -29,3 +29,7 @@ class BinderEndpoints:
 
     def resumable(self, request) -> Response:
         return ok(self.services.binder.resumable(request.tome_id()))
+
+    def reviews(self, request) -> Response:
+        return ok(self.services.binder.reviews(
+            request.tome_id(), str(request.value("path") or "")))

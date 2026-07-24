@@ -94,7 +94,8 @@ def check_runtime(m, tome_id, label):
         if (isinstance(value, list) and value
                 and not any(placeholder in arg for arg in value)):
             err(source_label(key), f"[runtime] {key} must contain a {placeholder} placeholder")
-    for key in ("entryFile", "projectFile", "deliveryArtifact", "deliveryRequirements"):
+    for key in ("entryFile", "projectFile", "artifactPath",
+                "deliveryArtifact", "deliveryRequirements"):
         value = merged.get(key)
         if value is None:
             continue
@@ -105,6 +106,12 @@ def check_runtime(m, tome_id, label):
         if normalized.startswith("/") or ".." in normalized.split("/"):
             err(source_label(key), f"[runtime] {key} must stay inside the learner project; "
                                    f"got {value!r}")
+    artifact = merged.get("artifactPath")
+    if artifact:
+        run_command = merged.get("runCommand") or []
+        if not any("{artifact}" in arg for arg in run_command):
+            err(source_label("runCommand"),
+                "[runtime] artifactPath requires runCommand to use the {artifact} placeholder")
     has_delivery_artifact = "deliveryArtifact" in merged
     has_delivery_requirements = "deliveryRequirements" in merged
     if has_delivery_artifact != has_delivery_requirements:

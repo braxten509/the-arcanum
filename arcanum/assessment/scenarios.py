@@ -29,6 +29,10 @@ def evaluate_expectation(expect: dict, result: dict, work_root: str) -> tuple[bo
         problems.append(f"exit code was {result.get('exitCode')}, expected {expect['exitCode']}")
     if "exact" in expect and output.strip() != str(expect["exact"]).strip():
         problems.append("output did not match the declared exact result")
+    if "raw" in expect:
+        raw_output = result.get("stdout", result.get("rawOutput", output))
+        if str(raw_output) != str(expect["raw"]):
+            problems.append("stdout did not exactly match the declared raw result")
     if "regex" in expect:
         try:
             matched = re.search(str(expect["regex"]), output, re.MULTILINE) is not None
@@ -121,7 +125,12 @@ def command_scenario(scenario: Scenario, context: dict) -> dict:
         policy=context.get("sandboxPolicy"), env=context.get("env"),
         home=context.get("home"))
     passed, problems = evaluate_expectation(scenario.expect, result, context["work"])
-    return {**result, "passed": bool(result.get("passed")) and passed, "problems": problems}
+    completed = (result.get("exitCode") is not None
+                 and not result.get("timedOut")
+                 and not result.get("outputClipped"))
+    exit_is_explicit = "exitCode" in scenario.expect
+    process_ok = completed and (exit_is_explicit or bool(result.get("passed")))
+    return {**result, "passed": process_ok and passed, "problems": problems}
 
 
 def guided_scenario(_scenario: Scenario, _context: dict) -> dict:

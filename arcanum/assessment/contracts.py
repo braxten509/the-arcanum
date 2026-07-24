@@ -14,8 +14,8 @@ def _scenario(raw: dict) -> dict:
     kind = str(raw.get("kind") or "")
     expect = dict(raw.get("expect") or {})
     aliases = {
-        "expectRegex": "regex", "expectExact": "exact", "expectJson": "json",
-        "expectFile": "path", "expectFileRegex": "fileRegex",
+        "expectRegex": "regex", "expectExact": "raw", "expectJson": "json",
+        "expectRaw": "raw", "expectFile": "path", "expectFileRegex": "fileRegex",
     }
     for source, target in aliases.items():
         if source in raw:

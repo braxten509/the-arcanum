@@ -5,7 +5,7 @@ import sys
 import tempfile
 from unittest.mock import patch
 
-from validatelib.content import check_exercise, check_freestyle
+from validatelib.content import check_content, check_exercise, check_freestyle
 from validatelib.content.depth import check_economy_totals
 from validatelib.execute import (STARTER_RUN_TIMEOUT, _project_build_result, _run_one_file,
                                  check_snippets, check_starters_run)
@@ -140,6 +140,54 @@ def run_runtime_cases():
     check_freestyle({"title": "t", "brief": "b", "xray": "x",
                      "rubric": [{"criterion": "c", "weight": 100}]}, "L")
     assert any("reward" in msg and lv == "ERROR" for lv, _, msg in findings()), "missing reward not flagged"
+
+    # Legacy Workings may distinguish a quality grade from hard completion gates.
+    valid_working = {
+        "title": "t", "brief": "b", "xray": "x", "reward": 100,
+        "rubric": [{
+            "criterion": "Correctness", "weight": 100, "essential": True,
+            "minimumScore": 7,
+        }],
+        "verification": [{
+            "id": "tests", "command": "tests", "required": True,
+            "expect": {"exitCode": 0, "regex": "passed"},
+        }],
+    }
+    check_freestyle(valid_working, "L")
+    assert not findings(), "valid essential rubric and CLI verification were rejected"
+    invalid_working = {
+        **valid_working,
+        "rubric": [{
+            "criterion": "Correctness", "weight": 100,
+            "minimumScore": 11,
+        }],
+        "verification": [{
+            "id": "tests", "command": "tests",
+            "expect": {"fileRegex": "(", "typo": True},
+        }],
+    }
+    check_freestyle(invalid_working, "L")
+    got = findings()
+    assert any("minimumScore requires essential" in msg for _, _, msg in got), got
+    assert any("minimumScore must be between" in msg for _, _, msg in got), got
+    assert any("unknown keys" in msg and "typo" in msg for _, _, msg in got), got
+    assert any("fileRegex is invalid" in msg for _, _, msg in got), got
+    assert any("fileRegex requires expect.path" in msg for _, _, msg in got), got
+    check_content(
+        {"runtime": {"name": "custom", "assessmentCommands": {
+            "tests": ["python3", "-m", "pytest"],
+        }}},
+        [{"id": "s01", "lessons": [], "freestyle": valid_working}],
+        "fixture", include_manifest=False)
+    got = findings()
+    assert not any("verification command" in msg for _, _, msg in got), got
+    check_content(
+        {"runtime": {"name": "custom"}},
+        [{"id": "s01", "lessons": [], "freestyle": valid_working}],
+        "fixture", include_manifest=False)
+    got = findings()
+    assert any("verification command 'tests' is not registered" in msg
+               for _, _, msg in got), got
 
     # 2e. Economy balance uses finite course rewards as its base. Hex-defense money is
     # real but repeatable, so adding one bounty per tier invents a guaranteed total.

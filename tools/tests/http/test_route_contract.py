@@ -15,7 +15,7 @@ from arcanum.settings import load_settings
 
 
 GET_ROUTES = {
-    "/api/amend/current", "/api/amend/resumable", "/api/amend/status",
+    "/api/amend/current", "/api/amend/resumable", "/api/amend/reviews", "/api/amend/status",
     "/api/assessment/status", "/api/buildtome/active",
     "/api/buildtome/resumable", "/api/buildtome/status", "/api/checkdir",
     "/api/evidence/export", "/api/grade/status", "/api/health",
@@ -27,7 +27,7 @@ POST_ROUTES = {
     "/api/assessment", "/api/buildtome", "/api/buildtome/cancel",
     "/api/buildtome/continue", "/api/buildtome/discard", "/api/buildtome/message",
     "/api/buildtome/pause", "/api/buildtome/reset", "/api/buildtome/resume",
-    "/api/buildtome/runner", "/api/diagnostics", "/api/grade",
+    "/api/buildtome/runner", "/api/diagnostics", "/api/grade", "/api/grade/preview",
     "/api/mastery-lab/retry", "/api/mastery-lab/run", "/api/mastery-lab/workspace",
     "/api/mastery/support",
     "/api/openpath", "/api/oracle", "/api/run", "/api/runcancel",

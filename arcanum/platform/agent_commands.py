@@ -213,7 +213,7 @@ def _replace_flag_value(cmd, flag, value):
     return out
 
 
-def _claude_command(cmd, repo, web_allowed=True):
+def _claude_command(cmd, repo, web_allowed=True, read_paths=()):
     out = _replace_flag_value(cmd, "--permission-mode", "auto")
     if "--safe-mode" not in out:
         # Harness prompts are self-contained. User hooks, project customizations,
@@ -227,9 +227,10 @@ def _claude_command(cmd, repo, web_allowed=True):
         i = out.index("--tools")
         del out[i:i + 2]
     allowed = [
-            f"Read(//{repo.lstrip('/')}/**)", "Bash", "Edit", "Write", "MultiEdit",
-            "NotebookEdit",
-        ]
+        f"Read(//{path.lstrip('/')}/**)"
+        for path in dict.fromkeys((repo, *read_paths))
+    ]
+    allowed += ["Bash", "Edit", "Write", "MultiEdit", "NotebookEdit"]
     if web_allowed:
         allowed += ["WebSearch", "WebFetch(domain:*)"]
     settings = {
@@ -276,9 +277,9 @@ def _opencode_command(cmd):
     return out
 
 
-def _normalized_command(provider, cmd, repo, web_allowed=True):
+def _normalized_command(provider, cmd, repo, web_allowed=True, read_paths=()):
     if provider == "claude":
-        return _claude_command(cmd, repo, web_allowed)
+        return _claude_command(cmd, repo, web_allowed, read_paths)
     if provider == "codex":
         return _codex_command(cmd, web_allowed)
     if provider == "opencode":
@@ -339,7 +340,12 @@ def scoped_runner_command(name, cmd, cwd, writable_paths, repo, readonly_paths=(
                 wrapped.extend(("--bind", path, "/tmp", "--setenv", "TMPDIR", "/tmp"))
             else:
                 wrapped.extend(("--bind", path, path))
-        resolved = resolve_bin(_normalized_command(provider, cmd, repo, web_allowed))
+        declared_reads = [
+            *(permission_paths.get("read") or []),
+            *readonly_paths,
+        ]
+        resolved = resolve_bin(_normalized_command(
+            provider, cmd, repo, web_allowed, declared_reads))
         for path in dict.fromkeys((os.path.dirname(resolved[0]),
                                    os.path.dirname(os.path.realpath(resolved[0])),
                                    os.path.expanduser("~/.local/lib"))):
@@ -420,7 +426,10 @@ def scoped_runner_command(name, cmd, cwd, writable_paths, repo, readonly_paths=(
     for path in memory_dirs:
         wrapped.extend(("--tmpfs", path))
     # Last, so the bytecode mirrors win over any broader repo mount above them.
-    wrapped.extend(_sealed_binds(os.path.realpath(repo)))
+    # Roles with no repository scope (for example a learner-workspace grader)
+    # explicitly opt out rather than gaining these otherwise-unrelated paths.
+    if not strict or permission_paths.get("seal_repo", True):
+        wrapped.extend(_sealed_binds(os.path.realpath(repo)))
     wrapped.extend(("--chdir", cwd))
     return [*wrapped, *(resolved if resolved is not None else resolve_bin(_normalized_command(
         provider, cmd, repo, web_allowed)))]
@@ -432,14 +441,38 @@ def section_runner_command(name, cmd, section_dir, repo, writable_sidecars=()):
                                  [section_dir, *writable_sidecars], repo)
 
 
-def scoped_shell_command(command, cwd):
-    """Read-only project boundary for the explicitly configured custom grader command."""
+def scoped_shell_command(command, cwd, permission_paths=None):
+    """Read-only boundary for an explicitly configured custom grader command."""
     bwrap = shutil.which("bwrap")
     if not bwrap:
         raise RuntimeError("custom AI command requires bubblewrap (bwrap)")
-    wrapped = [bwrap, "--die-with-parent", "--new-session", "--unshare-pid",
-               "--ro-bind", "/", "/", "--proc", "/proc", "--dev-bind", "/dev", "/dev"]
-    for temp_root in ("/tmp", "/temp"):
-        if os.path.isdir(temp_root):
-            wrapped.extend(("--bind", temp_root, temp_root))
+    wrapped = [bwrap, "--die-with-parent", "--new-session", "--unshare-pid"]
+    if permission_paths is None:
+        wrapped.extend(("--ro-bind", "/", "/", "--proc", "/proc",
+                        "--dev-bind", "/dev", "/dev"))
+        for temp_root in ("/tmp", "/temp"):
+            if os.path.isdir(temp_root):
+                wrapped.extend(("--bind", temp_root, temp_root))
+    else:
+        for path in permission_paths.get("system_read") or []:
+            if path == "/proc":
+                wrapped.extend(("--proc", "/proc"))
+            elif os.path.exists(path):
+                wrapped.extend(("--ro-bind", path, path))
+        for path in permission_paths.get("system_both") or []:
+            if path == "/dev":
+                wrapped.extend(("--dev-bind", "/dev", "/dev"))
+            elif path.startswith("/tmp/arcanum/") and os.path.isdir(path):
+                wrapped.extend(("--bind", path, "/tmp", "--setenv", "TMPDIR", "/tmp"))
+            elif os.path.exists(path):
+                wrapped.extend(("--bind", path, path))
+        for path in dict.fromkeys([
+                *(permission_paths.get("read") or []),
+                *(permission_paths.get("execute") or []),
+        ]):
+            if os.path.exists(path):
+                wrapped.extend(("--ro-bind", path, path))
+        for path in permission_paths.get("both") or []:
+            if os.path.exists(path):
+                wrapped.extend(("--bind", path, path))
     return [*wrapped, "--chdir", os.path.realpath(cwd), "/bin/sh", "-lc", command]

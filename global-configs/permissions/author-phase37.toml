@@ -16,11 +16,27 @@ both = ["/tmp/arcanum/{build_id}", "/dev"]
 execute = []
 
 [permissions]
-read = ["AGENTS.md", "CLAUDE.md", "tome-workflow/single-author.md"]
+# These are runtime dependencies of the author-visible mechanical commands below. The
+# validator implementation and prerequisite rubric remain hidden by the later sealed
+# bytecode mounts in arcanum/platform/agent_commands.py.
+read = [
+  "AGENTS.md",
+  "CLAUDE.md",
+  "tome-workflow/single-author.md",
+  "tools/buildlib",
+  "arcanum",
+  "arcanum_core",
+  "runtimes",
+  "global-configs/runtimes",
+  "global-configs/language-mastery.toml",
+  "global-configs/mastery-evidence.toml",
+  "tome_layout.py",
+  "tome_proof.py",
+]
 write = []
 both = [".tome-build/{build_id}.progress"]
 execute = [
-  ["python3", "tools/report_tome_progress.py", "{build_id}", "{phase}", "validating"],
+  ["python3", "tools/workflow/report_tome_progress.py", "{build_id}", "{phase}", "validating"],
   ["python3", "tools/validate_tome.py", "tomes/{tome_id}", "--build-phase", "{phase}", "--phase-only", "--no-run", "--tooling", "{tooling}", "--build-plan", ".tome-build/{build_id}.plan.md"],
 ]
 
@@ -43,7 +59,7 @@ both = [
 ]
 execute = [
   ["python3", "tools/workflow/context/render_section_context.py", "{build_id}", "{section_id}"],
-  ["python3", "tools/report_section_progress.py", "{build_id}", "{section_id}", "{section_index}", "{section_count}", "validating"],
+  ["python3", "tools/workflow/report_section_progress.py", "{build_id}", "{section_id}", "{section_index}", "{section_count}", "validating"],
   ["python3", "tools/validate_section.py", "tomes/{tome_id}", "{section_id}", "--plan", ".tome-build/{build_id}.plan.md", "--tooling", "{tooling}"],
 ]
 

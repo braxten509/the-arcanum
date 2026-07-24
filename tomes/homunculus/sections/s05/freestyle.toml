@@ -1,7 +1,7 @@
 [freestyle]
-requires = ["model-selection", "dataset-curation", "completion-only-loss", "lora-math", "qlora-config", "sft-trainer", "hyperparameter-plan", "rocm-training", "adapter-artifact"]
+requires = ["python-craft", "model-selection", "dataset-curation", "completion-only-loss", "lora-math", "qlora-config", "sft-trainer", "hyperparameter-plan", "rocm-training", "adapter-artifact"]
 title = "THE WORKING: PERFORM THE REAL BIND"
-brief = '''Extend the project with the current <code>train.py</code>, run a genuine NF4 QLoRA fine-tune on the tested ROCm image, and preserve a reloadable adapter.<ul><li>Use the frozen Qwen3-8B id, conversational prompt-completion splits, native processing class, and completion-only loss.</li><li>Use NF4 double quantization, bfloat16 compute, rank 16/alpha 32/dropout 0.05, all-linear targeting, PyTorch AdamW, and gradient checkpointing unless a measured change is documented.</li><li>Run the same command for a one-step dry proof and the full bind.</li><li>Record gfx1201, nonzero trainable parameters, finite loss, evaluation metrics, and allocated/reserved peaks; preserve at least two GiB measured headroom.</li><li>Save, hash, and reload the adapter in a fresh process. Preserve the training and evaluation data hashes.</li></ul>No simulated trainer, copied adapter, or screenshot-only proof satisfies the Working.'''
+brief = '''Extend the project with the current <code>train.py</code>, run a genuine NF4 QLoRA fine-tune on the tested ROCm image, and preserve a reloadable adapter.<ul><li>Use the frozen Qwen3-8B id, conversational prompt-completion splits, native processing class, and completion-only loss.</li><li>Use NF4 double quantization, bfloat16 compute, rank 16/alpha 32/dropout 0.05, all-linear targeting, PyTorch AdamW, and gradient checkpointing unless a measured change is documented.</li><li>Run the same command for a one-step dry proof and the full bind.</li><li>Record gfx1201, nonzero trainable parameters, finite loss, evaluation metrics, and allocated/reserved peaks; preserve at least two GiB measured headroom.</li><li>Save, hash, and reload the adapter in a fresh process. Preserve the training and evaluation data hashes.</li><li>Run <code>python -m compileall -q src tests</code>, <code>python -m homunculus.doctor training</code>, <code>python -m homunculus.train --run-id dry-001 --max-steps 1</code>, and only after that proof passes <code>python -m homunculus.train --run-id bind-001</code>.</li><li>Keep training and artifact code to the Section I Python naming and layout contract.</li></ul>Preserve the first failing traceback and repair its owning boundary before changing any training knob. No simulated trainer, copied adapter, or screenshot-only proof satisfies the Working.'''
 reward = 260
 xray = "Inspect code, metrics, and artifact together. A printout claiming QLoRA is not proof if the model was CPU-bound, the base was unquantized, completion masking was absent, or the adapter cannot reload."
 
@@ -12,15 +12,20 @@ desc = "Awarded for a measured, reloadable QLoRA adapter trained on the target R
 
 [[freestyle.rubric]]
 criterion = "Current training contract"
-weight = 35
+weight = 30
 desc = "Pinned TRL/PEFT/bitsandbytes APIs, data schema, mask, and QLoRA configuration agree."
 
 [[freestyle.rubric]]
 criterion = "Live Radeon run"
-weight = 35
+weight = 30
 desc = "Dry and full paths execute on gfx1201 with finite metrics and the configured headroom."
 
 [[freestyle.rubric]]
 criterion = "Durable adapter"
 weight = 30
 desc = "The exact artifact reloads, matches the base, and carries data/config/environment/file hashes."
+
+[[freestyle.rubric]]
+criterion = "Python craft"
+weight = 10
+desc = "train.py and artifact utilities use snake_case names, UPPER_CASE constants, four-space indentation, grouped imports, and clearly separated top-level functions."

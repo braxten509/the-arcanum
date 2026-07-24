@@ -17,7 +17,8 @@ class CustomCommandProvider:
     def complete(self, request: AiRequest) -> AiResponse:
         if not request.custom_command.strip():
             raise ValueError("no custom AI command is configured")
-        command = scoped_shell_command(request.custom_command, request.workspace)
+        command = scoped_shell_command(
+            request.custom_command, request.workspace, request.permission_paths)
         ensure_command_access(command, request.workspace)
         process = subprocess.run(command, input=request.input, capture_output=True,
                                  text=True, timeout=request.timeout, cwd=request.workspace)

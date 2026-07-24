@@ -1,20 +1,30 @@
 """Pause, resume, message, and author-switch controls for an author session."""
 
+from arcanum.ai.models import session_models_compatible
+
 from ..gate import ensure_unit, label, unit_prompt
 from .support import author_prompt
 
 
 class AuthorControlsMixin:
     def apply_author(self, control):
-        """Adopt a replacement author sent through the control lane. A different CLI (or
-        model) cannot resume the old session, so the switch starts a fresh one."""
+        """Adopt a replacement author and return whether it needs a fresh session."""
         author = control.get("author") or {}
         kind, model = str(author.get("kind") or ""), str(author.get("model") or "")
-        if not kind or not model or (kind, model) == (self.kind, self.model):
+        effort = str(author.get("effort") or "")
+        if not kind or not model:
             return False
-        self.kind, self.model, self.effort = kind, model, str(author.get("effort") or "")
-        self.session_id = ""
-        return True
+        route_changed = (kind, model) != (self.kind, self.model)
+        effort_changed = effort != self.effort
+        if not route_changed and not effort_changed:
+            return False
+        compatible = session_models_compatible(
+            self.kind, self.model, kind, model)
+        self.kind, self.model, self.effort = kind, model, effort
+        fresh_session = route_changed and not compatible
+        if fresh_session:
+            self.session_id = ""
+        return fresh_session
 
     def await_controls(self, retrying=False):
         """Block until stop or a message/resume control. Returns the next
@@ -35,7 +45,7 @@ class AuthorControlsMixin:
                                        unit.get("phase", self.from_phase)) + "\n\n" + prompt
             verb = "Retrying" if retrying else "Resuming"
             text = message or (
-                f"{verb} {label(unit)} with {self.kind} {self.model} in a fresh session."
+                f"Restarting {label(unit)} with {self.kind} {self.model} in a new author session."
                 if switched else f"{verb} {label(unit)}.")
             return prompt, ("user" if message else "harness"), text
 

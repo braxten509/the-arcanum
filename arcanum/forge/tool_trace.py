@@ -5,7 +5,6 @@ available there. Follow the Codex/Claude JSONL, OpenCode SQLite session, or Anti
 full transcript owned by the build process tree and expose a bounded, useful shell history.
 """
 from collections import deque
-from dataclasses import dataclass
 from datetime import datetime
 import json
 import os
@@ -14,164 +13,20 @@ import sqlite3
 import time
 
 from ..config import BUILD_DIR, WEB
-from ..jobs.processes import descendants as _descendants
-from .trace_sources.mounts import host_mount_path
 from .trace_metadata import trace_model, trace_session_id, trace_usage
+# Re-exported so tool_trace stays the stable import surface for callers and tests.
+from .trace_sources.discovery import (  # noqa: F401
+    TraceSource, runner_session, saved_session_source, _descendants,
+    _trace_path_matches_session, _opencode_session_from_processes,
+    _claude_session_from_processes)
 
 TOOL_TRACE_LINES = 80
 TOOL_TRACE_CHARS = 360
 TOOL_TRACE_DIR = os.path.join(WEB, ".forge-trace")
-_CODEX_SESSION_PART = os.sep + ".codex" + os.sep + "sessions" + os.sep
-_CLAUDE_SESSION_PART = os.sep + ".claude" + os.sep + "projects" + os.sep
 _JS_STRING_RE = re.compile(r'(?<![A-Za-z0-9_])["\']?cmd["\']?\s*:\s*("(?:\\.|[^"\\])*")', re.S)
 _JS_TEMPLATE_RE = re.compile(r"(?<![A-Za-z0-9_])[\"']?cmd[\"']?\s*:\s*`((?:\\.|[^`])*)`", re.S)
 _NESTED_TOOL_RE = re.compile(r"\btools\.([A-Za-z_][A-Za-z0-9_]*)\s*\(")
 _PATCH_FILE_RE = re.compile(r"\*\*\*\s+(?:Add|Update|Delete) File:\s*([^\n\\]+)")
-_AGY_CONVERSATION_RE = re.compile(r"^(.*[/\\]antigravity-cli)[/\\]conversations[/\\]([0-9a-f-]+)\.db$")
-
-
-@dataclass(frozen=True)
-class TraceSource:
-    provider: str
-    path: str
-    session_id: str = ""
-
-
-def _trace_path_matches_session(provider, path, session_id):
-    """Keep a discovered transcript bound to the CLI-emitted session id."""
-    if not session_id or provider not in ("codex", "claude"):
-        return True
-    return str(path).endswith(f"{session_id}.jsonl")
-
-
-def runner_session(root_pid, session_id=None):
-    """Find the real session store owned by this build's live worker."""
-    candidates = []
-    pids = _descendants(root_pid)
-    for pid in pids:
-        fd_dir = f"/proc/{pid}/fd"
-        try:
-            fds = os.listdir(fd_dir)
-        except OSError:
-            continue
-        for fd in fds:
-            try:
-                target = os.readlink(os.path.join(fd_dir, fd)).removesuffix(" (deleted)")
-            except OSError:
-                continue
-            provider = None
-            if _CODEX_SESSION_PART in target and target.endswith(".jsonl"):
-                provider = "codex"
-            elif _CLAUDE_SESSION_PART in target and target.endswith(".jsonl"):
-                provider = "claude"
-            else:
-                agy = _AGY_CONVERSATION_RE.match(target)
-                if agy:
-                    transcript = os.path.join(agy.group(1), "brain", agy.group(2),
-                                              ".system_generated", "logs", "transcript_full.jsonl")
-                    if os.path.isfile(transcript):
-                        try:
-                            candidates.append((os.stat(transcript).st_mtime_ns,
-                                               TraceSource("antigravity", transcript,
-                                                           agy.group(2))))
-                        except OSError:
-                            pass
-            if (not provider or not os.path.isfile(target)
-                    or not _trace_path_matches_session(provider, target, session_id)):
-                continue
-            try:
-                stamp = os.stat(target).st_mtime_ns
-            except OSError:
-                continue
-            source_session_id = (os.path.basename(target).removesuffix(".jsonl")
-                                 if provider == "claude" else "")
-            candidates.append((stamp, TraceSource(provider, target, source_session_id)))
-    opencode = _opencode_session_from_processes(pids, session_id=session_id)
-    if opencode:
-        candidates.append(opencode)
-    if not candidates:
-        return _claude_session_from_processes(pids)
-    return max(candidates, key=lambda row: row[0])[1]
-
-
-def _opencode_session_from_processes(pids, proc_root="/proc", session_id=None):
-    """Find the newest OpenCode DB session belonging to a live worker process."""
-    # Empty string remains the explicit "wait for the emitted id" mode for any legacy
-    # caller whose database might be shared. ``None`` permits process-owned discovery;
-    # Forge author workers use it because their database is isolated per unit.
-    if session_id == "":
-        return None
-    candidates = []
-    for pid in pids:
-        pdir = os.path.join(proc_root, str(pid))
-        try:
-            with open(os.path.join(pdir, "cmdline"), "rb") as handle:
-                argv = [part.decode("utf-8", "replace") for part in handle.read().split(b"\0") if part]
-            if not argv or os.path.basename(argv[0]) != "opencode":
-                continue
-            cwd = os.readlink(os.path.join(pdir, "cwd"))
-            started_ms = int(os.stat(pdir).st_ctime * 1000) - 2000
-            db_path = None
-            for fd in os.listdir(os.path.join(pdir, "fd")):
-                try:
-                    target = os.readlink(
-                        os.path.join(pdir, "fd", fd)).removesuffix(" (deleted)")
-                except OSError:
-                    continue
-                if os.path.basename(target) != "opencode.db":
-                    continue
-                # `/proc/<pid>/fd` prints the conventional in-namespace path. Translate
-                # its bind mount back to the host source; opening the conventional path
-                # would expose the shared DB, while SQLite canonicalizes `/proc/pid/root`
-                # and can pair the isolated main file with the wrong WAL.
-                db_path = (host_mount_path(pdir, target, proc_root)
-                           if os.path.isabs(target) else os.path.join(pdir, "fd", fd))
-                if os.path.isfile(db_path):
-                    break
-                db_path = None
-            if not db_path or not os.path.isfile(db_path):
-                continue
-            with sqlite3.connect(f"file:{db_path}?mode=ro", uri=True, timeout=0.2) as db:
-                if session_id is not None:
-                    row = db.execute(
-                        "SELECT id, time_updated FROM session WHERE id=? AND directory=? LIMIT 1",
-                        (session_id, cwd)).fetchone()
-                else:
-                    row = db.execute(
-                        "SELECT id, time_updated FROM session WHERE directory=? AND time_created>=? "
-                        "ORDER BY time_updated DESC LIMIT 1", (cwd, started_ms)).fetchone()
-            if row:
-                candidates.append((int(row[1]) * 1_000_000,
-                                   TraceSource("opencode", db_path, str(row[0]))))
-        except (OSError, sqlite3.Error, StopIteration, ValueError):
-            continue
-    return max(candidates, key=lambda row: row[0]) if candidates else None
-
-
-def _claude_session_from_processes(pids, proc_root="/proc", projects_root=None):
-    """Fallback for Claude versions that append JSONL without holding it open."""
-    projects_root = projects_root or os.path.expanduser("~/.claude/projects")
-    candidates = []
-    for pid in pids:
-        pdir = os.path.join(proc_root, str(pid))
-        try:
-            with open(os.path.join(pdir, "cmdline"), "rb") as handle:
-                argv = [part.decode("utf-8", "replace") for part in handle.read().split(b"\0") if part]
-            if not argv or os.path.basename(argv[0]) != "claude":
-                continue
-            cwd = os.readlink(os.path.join(pdir, "cwd"))
-            project_dir = os.path.join(projects_root, cwd.replace(os.sep, "-"))
-            for name in os.listdir(project_dir):
-                if not name.endswith(".jsonl"):
-                    continue
-                path = os.path.join(project_dir, name)
-                candidates.append((os.stat(path).st_mtime_ns, path))
-        except OSError:
-            continue
-    if not candidates:
-        return None
-    path = max(candidates)[1]
-    return TraceSource("claude", path, os.path.basename(path).removesuffix(".jsonl"))
 
 
 def _literal_command(source, start):
@@ -450,7 +305,10 @@ def mirror_tool_trace(job_id, build_pid, build_id="", interval=0.75):
             # The author process nevertheless owns a private per-unit database, so attach
             # to the live row behind that process rather than leaving Forge blind.
             session_hint = _saved_session_id(build_id) or None
-            current = runner_session(build_pid, session_hint)
+            # A sandboxed Claude author holds no fd on its JSONL and writes it under the unit's
+            # private overlay, so live-process discovery finds nothing; fall back to the saved
+            # session file on disk so its real tool history still streams (paused or not).
+            current = runner_session(build_pid, session_hint) or saved_session_source(build_id)
             if current:
                 missing = 0
                 provider = current.provider

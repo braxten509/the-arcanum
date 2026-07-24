@@ -1,0 +1,304 @@
+[[lessons]]
+id = "s01-l08"
+title = "Prove Initialization in Two Ways"
+teaches = ["language-observable-debugging-and-verification", "native-window-proof", "tool-run-test"]
+introduces = ["deterministic-init-check", "gdb-state-inspection"]
+validationDependencies = []
+researchSources = ["gdb-manual-breakpoints", "sdl2-faq-headless-driver"]
+body = '''
+<p>A window flashing on screen for a moment is not, by itself, something a script — or a person
+skimming quickly — can verify. This lesson teaches two independent ways to turn "it worked" into
+something checkable: a deterministic printed line an automated check can match exactly, and a live
+debugger session that inspects the running program's actual state.</p>
+<p>The first technique is one you have already used without naming it: lesson 7's success path printed
+the exact text <code>WINDOW OK</code> only when every prior step — init, window creation — actually
+succeeded, and only that text. That exactness is deliberate. A checking script does not read English;
+it compares one exact string (or an exit code) against what your program produced, so "probably worked,
+I think" is not a valid output shape — either the exact expected line appears, or it does not, and
+either result is unambiguous. Applying this to window creation specifically means the confirmation
+line must only ever print after <code>SDL_CreateWindow</code> has already returned a non-NULL pointer
+— printing it earlier, or on every path regardless of outcome, defeats the entire point of a
+deterministic proof.</p>
+<p>The second technique inspects a running program directly rather than reading what it chose to print.
+<code>gdb ./signal</code> starts the debugger against a built binary; <code>break SDL_CreateWindow</code>
+sets a breakpoint on that function by name (working because lesson 6's <code>-g -F dwarf</code> flags
+embedded the debug information gdb needs); <code>run</code> starts the program, which pauses the
+instant that breakpoint is hit — before <code>SDL_CreateWindow</code> has even executed. From there,
+<code>print (char*)$rdi</code> reads the current value of a register directly (here, the title string
+argument, exactly as lesson 5's calling convention placed it), and <code>finish</code> runs until the
+current function returns, printing its return value on the way — the window pointer landing in
+<code>rax</code>, visible the moment <code>SDL_CreateWindow</code> hands control back.</p>
+<pre><code data-kind="terminal">gdb ./signal
+(gdb) break SDL_CreateWindow
+(gdb) run
+(gdb) print (char*)$rdi
+(gdb) finish</code></pre>
+<p>These two techniques answer different questions. The printed line answers "did the whole sequence
+reach success," cheaply and repeatably, every time the program runs. The debugger session answers "what
+exact value did this specific call receive or return, right now," at the cost of a live, interactive
+session that only exists for as long as you keep it open. Neither replaces the other — a project this
+size uses both routinely, not just when something has already gone wrong.</p>
+<p>A deterministic check like this one has to run the same way on a machine with no monitor attached —
+inside a script, or a CI job, with no real display for SDL to open a window against. <code>VAR=value
+command</code>, written directly in front of a command with no separating <code>&amp;&amp;</code>,
+sets that one environment variable for that single command's process only, then the variable reverts to
+whatever it was (or was not) beforehand — it never leaks into your shell's later commands. SDL reads one
+particular variable, <code>SDL_VIDEODRIVER</code>, to decide which backend it talks to; setting it to
+<code>dummy</code> selects SDL's built-in headless backend, which accepts <code>SDL_Init(SDL_INIT_VIDEO)</code>
+and <code>SDL_CreateWindow</code> exactly as a real display would — returning success and a valid window
+pointer — but never actually opens anything visible on screen. That is precisely what
+<code>SDL_VIDEODRIVER=dummy ./build/pong</code> gives an automated checker: your program's real init/window
+lifecycle runs and succeeds or fails on its own merits, with no monitor required and no window flashing on
+your desktop.</p>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // BREAKPOINTS ON LIBRARY FUNCTIONS</div>
+<p>Setting a breakpoint on <code>SDL_CreateWindow</code> works even though your own file never defines
+it — gdb resolves the symbol against the shared library loaded at runtime, not just against your own
+object's debug information, provided that library itself was built with symbols (SDL2's is).</p></div>
+'''
+
+[[lessons.concepts]]
+id = "language-observable-debugging-and-verification"
+purpose = "Turning a program's internal success or failure into something a script or a debugger session can check without a human interpreting output by feel."
+anatomy = "Either print one exact, fixed string only on the true success path, or attach a debugger and inspect register/memory state directly at a chosen point."
+example = "The WINDOW OK printed line and the gdb break/run/print/finish session in this lesson's body."
+observable = "A checking script's exact-string match either passes or fails with no ambiguity; a gdb session shows the literal value in a register at the exact instant execution paused."
+failure = "Printing an approximate or varying message ('probably worked', a message with a timestamp) instead of one fixed string breaks exact-match checking entirely."
+practice = "s01-l08-e1"
+
+[[lessons.concepts]]
+id = "native-window-proof"
+purpose = "Applying the deterministic-printed-line technique specifically to prove a native window was actually created, not merely attempted."
+anatomy = "Place the confirmation print strictly after SDL_CreateWindow has returned a non-NULL pointer, never before, and never unconditionally."
+example = "WINDOW OK printing only inside the success branch in lesson 7's body, reused and referenced here."
+observable = "The confirmation line appears if and only if a real window pointer was obtained."
+failure = "Printing a confirmation line before checking SDL_CreateWindow's return value produces a false positive: the line appears even when window creation actually failed."
+practice = "s01-l08-e2"
+
+[[lessons.concepts]]
+id = "tool-run-test"
+purpose = "Routinely running your own compiled binary, and a debugger against it, as a normal verification step rather than an emergency measure."
+anatomy = "Build the binary (lesson 6), run it directly to observe its printed output, then optionally attach gdb for a closer look at specific register or memory state."
+example = "Running ./signal directly, then the gdb session in this lesson's body, against the same binary."
+observable = "The same binary produces consistent printed output on direct execution and consistent register values under gdb inspection of the same code path."
+failure = "Debugging only ever happens after a customer or teammate reports something broken; verifying nothing until first told it's needed misses the entire point of a routine check."
+practice = "s01-l08-e3"
+
+[[lessons.concepts]]
+id = "deterministic-init-check"
+purpose = "The general pattern of producing one exact, unvarying output only on a true success path, so an external process can confirm success without any human judgment, run headlessly with no real display attached."
+anatomy = "Choose one fixed string (or exit code); print or return it only after every prior fallible step has already succeeded; never print it speculatively or on a partial success; run the check with VAR=value prefixed directly onto the command (for example SDL_VIDEODRIVER=dummy ./program) so the one variable that selects a headless backend applies only to that single run."
+example = "The WINDOW OK confirmation text in this lesson's body and lesson 7's, plus the SDL_VIDEODRIVER=dummy prefix this lesson's body explains."
+observable = "Running the program twice in a row, both times with SDL_VIDEODRIVER=dummy set the same way, produces byte-for-byte identical confirmation output both times, whenever the underlying conditions are unchanged — and no window ever appears on screen."
+failure = "A confirmation message that includes anything variable (a pointer address, a timestamp) cannot be matched exactly by an automated checker expecting one fixed string; separately, running the check without SDL_VIDEODRIVER=dummy set on a machine with no real display makes SDL_Init itself fail for a reason that has nothing to do with your program's own logic."
+practice = "s01-l08-e5"
+
+[[lessons.concepts]]
+id = "gdb-state-inspection"
+purpose = "Pausing a running program at a chosen point and reading its actual register or memory state directly, rather than inferring it from printed output."
+anatomy = "gdb <binary> starts the session; break <function-or-label> sets a pause point; run starts execution; print <expr> reads a register or memory value; finish runs until the current function returns."
+example = "The full break/run/print/finish sequence against SDL_CreateWindow in this lesson's body."
+observable = "gdb reports 'Breakpoint 1, ... in SDL_CreateWindow' when the pause hits, then the requested value when print or finish executes."
+failure = "Setting a breakpoint on a binary built without -g -F dwarf (lesson 6) still pauses correctly on library functions with their own symbols, but any of your own labels become unavailable to break on by name."
+practice = "s01-l08-e3"
+
+[[lessons.readings]]
+label = "GDB manual: Breakpoints"
+url = "https://sourceware.org/gdb/current/onlinedocs/gdb.html/Breakpoints.html"
+
+[[lessons.readings]]
+label = "SDL2 wiki FAQ: running without a real display"
+url = "https://wiki.libsdl.org/SDL2/FAQUsingSDL"
+
+[[lessons.exercises]]
+id = "s01-l08-e1"
+type = "mc"
+required = true
+capabilities = ["language-observable-debugging-and-verification"]
+mechanisms = ["deterministic-init-check"]
+cognitiveTask = "predict"
+scaffold = "guided"
+contextFamily = "deterministic-check-shape"
+aidPolicy = "learning"
+points = 15
+prompt = "A program prints 'READY at 14:32:07' (including the current time) only on its success path, intending this as a deterministic proof line for an automated checker. What is wrong with this as a deterministic check?"
+choices = ["Timestamps make output MORE deterministic, since they prove the program actually ran", "Nothing is wrong; any nonempty output on the success path counts as deterministic", "The word READY is too short for a checker to find reliably", "The line is never byte-for-byte identical across runs, so an exact-string checker cannot match it reliably"]
+answer = 3
+whyWrong = "The wrong choices either misunderstand that 'deterministic' specifically means identical every time (not just present, or long, or timestamped), or invert the actual problem entirely."
+hint = "Ask whether running the program twice in a row would print the exact same bytes both times."
+explain = "An exact-match checker compares the produced output against one fixed expected string. A timestamp changes every run, so the two will never match twice in a row, defeating the entire purpose of a deterministic check."
+
+[[lessons.exercises]]
+id = "s01-l08-e2"
+type = "text"
+required = true
+capabilities = ["language-observable-debugging-and-verification"]
+mechanisms = ["deterministic-init-check"]
+cognitiveTask = "debug"
+scaffold = "guided"
+contextFamily = "proof-ordering"
+aidPolicy = "learning"
+points = 20
+prompt = "A teammate moves the 'WINDOW OK' print to right after the call to SDL_CreateWindow, before the cmp/je failure check that follows it, reasoning that it saves a few lines. Explain exactly what false result this produces when SDL_CreateWindow actually fails, and why the ordering (not just the presence of the print) is what makes this a valid proof."
+answer = "A complete answer explains that printing WINDOW OK before the NULL check means the confirmation line appears even when SDL_CreateWindow returned NULL and no window was actually created — a false positive an automated checker would treat as genuine success, and that a deterministic proof is only valid when it is provably placed strictly after the condition it claims to confirm, not merely present somewhere in the success-shaped code."
+hint = "Ask what the program actually prints in the specific case where SDL_CreateWindow fails, given the print now runs unconditionally right after the call."
+
+[[lessons.exercises]]
+id = "s01-l08-e3"
+type = "text"
+required = true
+capabilities = ["language-observable-debugging-and-verification"]
+mechanisms = ["gdb-state-inspection"]
+cognitiveTask = "build"
+scaffold = "guided"
+contextFamily = "gdb-real-practice"
+aidPolicy = "learning"
+points = 25
+prompt = "Build lesson 7's write exercise (or any small NASM+gcc binary you already have that calls an external function) and run gdb against it for real: 'gdb ./yourbinary', then 'break <some-function-name>', 'run', 'print' on an argument register, and 'finish'. Paste the exact gdb output you saw at each step, or, if a step failed, paste the exact error and say which step it was."
+answer = "A complete report shows the 'Breakpoint 1, ...' line when the breakpoint hits, the printed register value from the print command, and the 'Run till exit' / return-value output from finish — or names the exact failing step with gdb's literal error text if something did not work."
+hint = "If gdb reports no debugging symbols found for a chosen function, that specific function's containing binary was not built with -g -F dwarf, or it lives in a library gdb has not loaded symbols for yet — try breaking on a well-known SDL2 function name instead."
+
+[[lessons.exercises]]
+id = "s01-l08-e4"
+type = "fill"
+required = true
+capabilities = ["language-observable-debugging-and-verification"]
+mechanisms = ["gdb-state-inspection"]
+cognitiveTask = "complete"
+scaffold = "completion"
+contextFamily = "gdb-command-recall"
+aidPolicy = "learning"
+points = 20
+prompt = "Complete the gdb command that runs the paused program until the current function returns, showing its return value."
+code = '''(gdb) break SDL_CreateWindow
+(gdb) run
+(gdb) ____'''
+answer = "finish"
+hint = "It is the single gdb command whose entire job is 'run until this function returns, then show me what it returned'."
+
+[[lessons.exercises]]
+id = "s01-l08-e5"
+type = "text"
+required = true
+capabilities = ["language-observable-debugging-and-verification"]
+mechanisms = ["deterministic-init-check"]
+cognitiveTask = "explain"
+scaffold = "guided"
+contextFamily = "headless-deterministic-check"
+aidPolicy = "learning"
+points = 20
+prompt = "A CI machine has no monitor attached at all. Explain what 'SDL_VIDEODRIVER=dummy ./build/pong' does differently from plain './build/pong' on that machine, why SDL_Init and SDL_CreateWindow can still both succeed there, and why the SDL_VIDEODRIVER assignment only affects this one invocation rather than every later command in the same shell session."
+answer = "A complete answer explains that prefixing VAR=value directly onto a command sets that environment variable for only that single process's run, reverting afterward; that SDL_VIDEODRIVER=dummy selects SDL's built-in headless backend instead of a real display driver; and that this dummy backend still accepts SDL_Init(SDL_INIT_VIDEO) and SDL_CreateWindow as a real display would (returning success and a valid window pointer) without ever opening anything visible, which is exactly why the check can run unattended on a monitor-less machine."
+hint = "Separate the two questions: what does the VAR=value prefix scope to, and what does the dummy driver actually let SDL pretend to do."
+
+[[lessons.exercises]]
+id = "s01-l08-d1"
+type = "type"
+required = true
+capabilities = ["language-observable-debugging-and-verification"]
+mechanisms = ["gdb-state-inspection"]
+cognitiveTask = "recall"
+scaffold = "worked"
+contextFamily = "gdb-command-recall"
+aidPolicy = "learning"
+points = 12
+reps = 2
+prompt = "Retype this breakpoint-and-run sequence exactly. (Ctrl+Enter submits.)"
+code = '''break SDL_CreateWindow
+run'''
+
+[[lessons.exercises]]
+id = "s01-l08-w1"
+type = "write"
+required = true
+capabilities = ["language-observable-debugging-and-verification"]
+mechanisms = ["deterministic-init-check"]
+cognitiveTask = "build"
+scaffold = "guided"
+contextFamily = "deterministic-proof-execution"
+aidPolicy = "learning"
+points = 30
+prompt = "Write a complete NASM program (extern SDL_Init, SDL_CreateWindow, SDL_DestroyWindow, SDL_Quit, puts; global main) that initializes SDL_INIT_VIDEO, creates a 200x150 window titled \"PROOF LAB\" at position (0,0), destroys it, quits SDL, and — only after every one of those steps has actually succeeded — prints exactly: PROOF CONFIRMED. On any failure, print SDL_GetError()'s message instead and return a nonzero status, following lesson 7's two-failure-path pattern."
+starter = '''
+section .data
+win_title:  db "PROOF LAB", 0
+; declare proof_msg here, exactly as the prompt specifies
+
+SDL_INIT_VIDEO equ 0x00000020
+
+section .text
+    global main
+    extern SDL_Init
+    extern SDL_CreateWindow
+    extern SDL_GetError
+    extern SDL_DestroyWindow
+    extern SDL_Quit
+    extern puts
+
+; implement init -> create-window (200x150, "PROOF LAB") ->
+; destroy -> quit -> print PROOF CONFIRMED, only on the full success path.
+main:
+    ret
+'''
+expect = '''
+PROOF CONFIRMED'''
+solution = '''
+section .data
+win_title:  db "PROOF LAB", 0
+proof_msg:  db "PROOF CONFIRMED", 0
+
+SDL_INIT_VIDEO equ 0x00000020
+
+section .text
+    global main
+    extern SDL_Init
+    extern SDL_CreateWindow
+    extern SDL_GetError
+    extern SDL_DestroyWindow
+    extern SDL_Quit
+    extern puts
+
+main:
+    sub rsp, 8
+
+    mov rdi, SDL_INIT_VIDEO
+    call SDL_Init
+    cmp eax, 0
+    jne .init_failed
+
+    mov rdi, win_title
+    mov rsi, 0
+    mov rdx, 0
+    mov rcx, 200
+    mov r8, 150
+    mov r9, 0
+    call SDL_CreateWindow
+    cmp rax, 0
+    je .window_failed
+
+    mov rdi, rax
+    call SDL_DestroyWindow
+    call SDL_Quit
+    mov rdi, proof_msg
+    call puts
+    add rsp, 8
+    mov eax, 0
+    ret
+
+.window_failed:
+    call SDL_GetError
+    mov rdi, rax
+    call puts
+    call SDL_Quit
+    add rsp, 8
+    mov eax, 1
+    ret
+
+.init_failed:
+    call SDL_GetError
+    mov rdi, rax
+    call puts
+    add rsp, 8
+    mov eax, 1
+    ret
+'''
+hint = "This is lesson 7's exact structure again; only the title, dimensions, and the final confirmation text change."

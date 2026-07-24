@@ -110,14 +110,17 @@ export async function renderFreestyle(sid) {
               `<h3 style="margin-top:18px">IT MUST</h3><div class="fs-brief">${u}</div>`).join("")}
           <h3 style="margin-top:18px">THE JUDGEMENT CHART <span class="dim" style="letter-spacing:0;font-style:italic">(${esc(persona())} weighs against exactly this)</span></h3>
           <table class="rubric-table">
-            ${sec.freestyle.rubric.map((r) => `<tr><td class="rw num">${r.weight}%</td><td><b>${esc(r.criterion)}</b><span class="rubric-desc">${esc(r.desc)}</span></td></tr>`).join("")}
+            ${sec.freestyle.rubric.map((r) => `<tr><td class="rw num">${r.weight}%</td><td><b>${esc(r.criterion)}</b>${r.essential ? ` <span class="tag warn">ESSENTIAL · ${r.minimumScore || 6}/10</span>` : ""}<span class="rubric-desc">${esc(r.desc)}</span></td></tr>`).join("")}
           </table>
+          ${!evidenceMode && (sec.freestyle.verification || []).length ? `<h3 style="margin-top:18px">HARNESS VERIFICATION</h3>
+            <div class="assessment-standard">${sec.freestyle.verification.map((item) =>
+              `<span><b>${esc(item.label || item.id || item.command)}</b> · ${item.required === false ? "advisory" : "must pass"} · sandboxed command <code>${esc(item.command)}</code></span>`).join("")}</div>` : ""}
           ${evidenceMode ? `<h3 style="margin-top:18px">EVIDENCE STANDARD</h3>
             <div class="assessment-standard"><b>Every essential scenario must pass.</b><span>80/B or better is required. Deterministic build and behavior evidence appears before qualitative feedback.</span><span>A supported result can resolve work, but only an eligible submission counts as independent evidence.</span></div>
             ${performance?.rationaleRequired ? `<label class="rationale-field"><span>RATIONALE / DEFENSE</span><textarea id="fs-rationale" rows="5" placeholder="Explain the decisions and tradeoffs in your implementation."></textarea></label>` : ""}`
             : `<h3 style="margin-top:18px">PAYMENT</h3><div style="font-size:12.5px" class="dim">
               Base <span class="num">${sec.freestyle.reward}</span>${gp()} scaled by the judgement. An S pays <span class="num">${Math.round(sec.freestyle.reward * SRANK_MULT)}</span>${gp()}.
-              A C (70+) presses the <b>${esc(sec.freestyle.badge.name)}</b> sigil. A D (60+) unseals the next chapter.
+              A C (70+) presses the <b>${esc(sec.freestyle.badge.name)}</b> sigil. A D (60+) unseals the next chapter only when every essential rubric and required harness verification also passes.
               Presenting again pays only the improvement over your best.</div>`}
           ${sec.freestyle.xray ? (xrayOn
             ? `<h3 style="margin-top:18px">SCRYING LENS <span class="tag warn">HELD TO THE PAGE</span></h3><p style="font-size:12.5px" class="dim">${sec.freestyle.xray}</p>`

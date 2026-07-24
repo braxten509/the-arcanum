@@ -27,4 +27,5 @@ def resolve(runtime, command_ref, project_dir, args=()):
         if not isinstance(argument, str) or any(ord(char) < 32 for char in argument):
             raise ValueError(f"invalid assessment argument {argument!r}")
         safe_args.append(argument)
-    return [*_sub(argv, dir=project_dir, entry=runtime.entry), *safe_args]
+    return [*_sub(argv, dir=project_dir, entry=runtime.entry,
+                  artifact=runtime.artifact), *safe_args]

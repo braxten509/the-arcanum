@@ -1,0 +1,269 @@
+[[lessons]]
+id = "s01-l06"
+title = "Assemble and Link the Native Binary"
+teaches = ["native-build-pipeline"]
+introduces = ["nasm-elf64-dwarf-object-build", "gcc-sdl2-link-and-make-targets"]
+validationDependencies = []
+researchSources = ["nasm-manual-output-formats"]
+body = '''
+<p>Every lesson so far has assembled ideas on paper. Turning a <code>.asm</code> file into a program
+your Linux machine can actually run is a two-step pipeline: NASM first turns source into an <em>object
+file</em>, then a linker combines that object file with the C runtime (and any libraries it needs,
+later SDL2) into a finished executable. NASM never does the second step itself — that is <code>gcc</code>'s
+job here, used purely as a linker driver, exactly as lesson 1 introduced it.</p>
+<p>The first command chooses NASM's output format and asks for debug information:</p>
+<pre><code data-kind="terminal">nasm -f elf64 -g -F dwarf signal.asm -o signal.o</code></pre>
+<p><code>-f elf64</code> tells NASM to emit a 64-bit ELF object file, the format Linux's linker expects
+on this architecture; without it NASM defaults to a raw flat binary that gcc cannot link at all.
+<code>-g</code> asks NASM to record debug information, and <code>-F dwarf</code> picks DWARF as the
+format that carries it — the same format GDB (a later lesson's tool) reads to map machine addresses
+back to your source lines. Leaving off <code>-g -F dwarf</code> still produces a working object file;
+it just leaves GDB unable to show anything but raw addresses when you later step through it.</p>
+<p>The second command links that object file into a runnable binary:</p>
+<pre><code data-kind="terminal">gcc -no-pie signal.o -o signal</code></pre>
+<p><code>-no-pie</code> matters more than it looks: gcc defaults to producing a position-independent
+executable, but the object file NASM just produced uses ordinary absolute-style relocations that a
+PIE link rejects with a relocation error. <code>-no-pie</code> tells gcc to link a traditional,
+fixed-address executable instead, which is what a NASM object built this way expects. A disposable
+example ties both commands, and a Makefile that runs them, together — reusing lesson 5's
+<code>combine_signals</code>-style call instead of anything from your project. That example needs one
+real, linkable entrypoint to actually assemble and link into something runnable, exactly the
+<code>global main</code> lesson 2 introduced:</p>
+<pre><code data-kind="pseudocode">; signal.asm
+section .data
+signal_msg: db "SIGNAL: 13", 0
+
+section .text
+    global main
+    extern puts
+
+combine_signals:
+    mov rax, rdi
+    add rax, rsi
+    ret
+
+main:
+    sub rsp, 8
+    mov rdi, 4
+    mov rsi, 9
+    call combine_signals    ; rax now holds 13, unused beyond this point
+    mov rdi, signal_msg
+    call puts                ; prints: SIGNAL: 13
+    add rsp, 8
+    mov eax, 0
+    ret</code></pre>
+<pre><code data-kind="pseudocode">CC = gcc
+ASM = nasm
+ASMFLAGS = -f elf64 -g -F dwarf
+
+signal: signal.o
+	$(CC) -no-pie signal.o -o signal
+
+signal.o: signal.asm
+	$(ASM) $(ASMFLAGS) signal.asm -o signal.o
+
+.PHONY: clean
+clean:
+	rm -f signal.o signal</code></pre>
+<p>Running <code>make</code> in the directory containing this Makefile and <code>signal.asm</code>
+reads the <code>signal</code> target, notices <code>signal.o</code> does not exist yet, builds it
+first from the <code>signal.o:</code> rule, then runs the linking recipe — exactly the two commands
+above, just triggered by dependency order instead of typed by hand. <code>make clean</code> removes
+both generated files, leaving only the source you wrote.</p>
+<p>This disposable example links against nothing but the C runtime, so no extra library flags appear.
+The moment your own code calls an SDL2 function (the next lesson's subject), the link command needs
+SDL2's own compiler and linker flags added, and those flags vary by machine — typing them by hand
+would break on a different install. <code>pkg-config --libs sdl2</code>, run directly in a terminal,
+prints exactly the linker flags this machine's SDL2 install needs (something like
+<code>-lSDL2</code>, possibly with extra <code>-l</code> flags alongside it). A Makefile variable can
+capture that command's output automatically using <code>$(shell ...)</code>, a Make function that
+runs the text inside it as a shell command and substitutes its stdout in place, exactly once, when
+make reads the Makefile:</p>
+<pre><code data-kind="pseudocode">LIBS = $(shell pkg-config --libs sdl2)
+
+signal: signal.o
+	$(CC) -no-pie signal.o -o signal $(LIBS)</code></pre>
+<p><code>$(LIBS)</code> then expands to whatever <code>pkg-config --libs sdl2</code> printed on your
+machine, appended to the link command exactly where a hand-typed <code>-lSDL2</code> would have gone.
+If <code>pkg-config</code> cannot find SDL2's metadata (the package is missing, or its <code>.pc</code>
+file is not on <code>pkg-config</code>'s search path), <code>$(shell ...)</code> silently expands to an
+empty string rather than failing the Makefile parse — the link command then runs with no SDL2 flags
+at all, and gcc fails later with "undefined reference" errors naming SDL functions, which is a very
+different symptom from a missing library flag typo and is diagnosed by running
+<code>pkg-config --libs sdl2</code> directly to see whether it actually printed anything.</p>
+'''
+
+[[lessons.concepts]]
+id = "native-build-pipeline"
+purpose = "Turning a .asm source file into a runnable Linux executable through two ordered steps: assembling to an object file, then linking that object file into a binary."
+anatomy = "nasm -f elf64 -g -F dwarf file.asm -o file.o assembles; gcc -no-pie file.o -o file links; a Makefile expresses both steps as targets so 'make' runs them in the right order automatically."
+example = "The nasm/gcc command pair and the signal/signal.o Makefile in this lesson's body."
+observable = "Running 'make' produces an executable file named signal that runs and prints its output when invoked as ./signal."
+failure = "Skipping -no-pie on the gcc step fails at link time with a relocation error naming a PIE object mismatch, not a vague crash — the linker refuses to produce output at all."
+practice = "s01-l06-e1"
+
+[[lessons.concepts]]
+id = "nasm-elf64-dwarf-object-build"
+purpose = "The specific NASM invocation that produces a 64-bit ELF object file carrying DWARF debug information."
+anatomy = "nasm -f elf64 -g -F dwarf <source>.asm -o <output>.o — format flag, debug-info flag, debug-format flag, source, output."
+example = "nasm -f elf64 -g -F dwarf signal.asm -o signal.o in this lesson's body."
+observable = "The resulting .o file exists and, once linked and run, a debugger can later map its instructions back to source lines."
+failure = "Omitting -f elf64 makes NASM default to a flat binary format gcc cannot link, failing at the link step with an unrecognized file format error."
+practice = "s01-l06-e2"
+
+[[lessons.concepts]]
+id = "gcc-sdl2-link-and-make-targets"
+purpose = "Linking a NASM-built object file into an executable with gcc, pulling in SDL2's own flags via $(shell pkg-config --libs sdl2), and expressing that pipeline as Makefile targets so it runs with one command."
+anatomy = "gcc -no-pie <obj> -o <exe> $(LIBS) links, where LIBS = $(shell pkg-config --libs sdl2) captures pkg-config's printed flags into a Makefile variable at parse time; a Makefile target names the exe as its output, the .o as its prerequisite, and the gcc command as its recipe, with a parallel rule building the .o from the .asm source."
+example = "The signal/signal.o Makefile rules and the LIBS = $(shell pkg-config --libs sdl2) line in this lesson's body."
+observable = "make rebuilds only what changed: editing signal.asm and rerunning make re-assembles and re-links; rerunning make again with no changes does nothing at all. echo $(LIBS) (or running pkg-config --libs sdl2 directly) shows the exact flags substituted into the link recipe."
+failure = "Forgetting -no-pie produces 'relocation ... can not be used when making a PIE object' at link time, because the object file's relocations assume a non-PIE, fixed-address executable. If pkg-config cannot find SDL2's metadata, $(shell pkg-config --libs sdl2) silently expands to empty text instead of erroring, and the link fails later with 'undefined reference' errors naming SDL functions."
+practice = "s01-l06-e3"
+
+[[lessons.readings]]
+label = "NASM manual: Output Formats (-f elf64)"
+url = "https://www.nasm.us/doc/nasm09.html"
+
+[[lessons.exercises]]
+id = "s01-l06-e1"
+type = "mc"
+required = true
+capabilities = ["language-observable-debugging-and-verification"]
+mechanisms = ["nasm-elf64-dwarf-object-build", "gcc-sdl2-link-and-make-targets"]
+cognitiveTask = "predict"
+scaffold = "guided"
+contextFamily = "build-pipeline-trace"
+aidPolicy = "learning"
+points = 15
+prompt = "You run 'make' in a directory with the signal/signal.o Makefile from this lesson and a fresh signal.asm, then immediately run 'make' again with no edits in between. What happens the second time?"
+choices = ["make re-assembles and re-links from scratch again", "make reports nothing to do and does not rebuild anything", "make fails, because signal.o already exists", "make deletes signal and signal.o, since they are now considered stale"]
+answer = 1
+whyWrong = "The wrong choices invent behaviors make does not have: it never treats an up-to-date target as an error, never blindly rebuilds without a reason, and clean/delete only ever happens when you explicitly run 'make clean'."
+hint = "make only rebuilds a target when a prerequisite is newer than it. Nothing changed between the two runs."
+explain = "make compares file modification times; since signal.asm and signal.o did not change, and signal is newer than both, make considers every target already up to date and does no work."
+
+[[lessons.exercises]]
+id = "s01-l06-e2"
+type = "text"
+required = true
+capabilities = ["language-status-failure-and-resource-cleanup"]
+mechanisms = ["nasm-elf64-dwarf-object-build"]
+cognitiveTask = "debug"
+scaffold = "guided"
+contextFamily = "build-pipeline-failure"
+aidPolicy = "learning"
+points = 20
+prompt = "In your own workspace, run 'nasm -f elf64 -g -F dwarf src/pong.asm -o src/pong.o' (your empty pong.asm from lesson 2 is fine) followed by 'gcc src/pong.o -o pong' — deliberately WITHOUT -no-pie. Paste the exact error gcc/ld prints, and explain in your own words why adding -no-pie resolves it."
+answer = "A complete answer pastes a linker error naming a relocation problem tied to PIE (e.g. 'relocation R_X86_64_... can not be used when making a PIE object; recompile with -fPIE'), and explains that gcc defaults to building a position-independent executable, but the NASM-produced object uses relocations that assume a fixed, non-PIE address layout, so -no-pie tells gcc to build the kind of executable that object file is actually compatible with."
+hint = "The error names 'PIE' directly — gcc's default output type expects a different kind of relocation than the one NASM's object file contains."
+
+[[lessons.exercises]]
+id = "s01-l06-e3"
+type = "fill"
+required = true
+capabilities = ["language-observable-debugging-and-verification"]
+mechanisms = ["gcc-sdl2-link-and-make-targets"]
+cognitiveTask = "complete"
+scaffold = "completion"
+contextFamily = "makefile-build-target"
+aidPolicy = "learning"
+points = 20
+prompt = "Complete the linking recipe line so this Makefile rule builds the 'signal' executable from signal.o without hitting a PIE relocation error."
+code = '''signal: signal.o
+	gcc ____ signal.o -o signal'''
+answer = "-no-pie"
+hint = "It is the flag that tells gcc to link a traditional, fixed-address executable instead of its position-independent default."
+
+[[lessons.exercises]]
+id = "s01-l06-e4"
+type = "fill"
+required = true
+capabilities = ["language-observable-debugging-and-verification"]
+mechanisms = ["gcc-sdl2-link-and-make-targets"]
+cognitiveTask = "complete"
+scaffold = "completion"
+contextFamily = "makefile-build-target"
+aidPolicy = "learning"
+points = 20
+prompt = "Complete this Makefile variable assignment so LIBS captures pkg-config's own printed SDL2 linker flags at parse time, instead of a hand-typed library name."
+code = 'LIBS = ____ pkg-config --libs sdl2)'
+answer = "$(shell"
+hint = "This is the Make function that runs the text inside it as a shell command and substitutes its stdout in place — it opens with a dollar sign and a parenthesis, followed by its own name."
+
+[[lessons.exercises]]
+id = "s01-l06-d1"
+type = "type"
+required = true
+capabilities = ["language-observable-debugging-and-verification"]
+mechanisms = ["nasm-elf64-dwarf-object-build"]
+cognitiveTask = "recall"
+scaffold = "worked"
+contextFamily = "build-pipeline-trace"
+aidPolicy = "learning"
+points = 12
+reps = 2
+prompt = "Retype this assemble command exactly. (Ctrl+Enter submits.)"
+code = 'nasm -f elf64 -g -F dwarf signal.asm -o signal.o'
+
+[[lessons.exercises]]
+id = "s01-l06-w1"
+type = "write"
+required = true
+capabilities = ["language-observable-debugging-and-verification"]
+mechanisms = ["nasm-elf64-dwarf-object-build", "gcc-sdl2-link-and-make-targets"]
+cognitiveTask = "build"
+scaffold = "guided"
+contextFamily = "build-pipeline-execution"
+aidPolicy = "learning"
+points = 30
+prompt = "Write a complete NASM program, assembled with 'nasm -f elf64 -g -F dwarf' and linked with 'gcc -no-pie', that declares two null-terminated strings 'go_msg: db \"BUILD OK\", 0' and 'halt_msg: db \"BUILD MISMATCH\", 0', extern's puts, defines global main, computes a two-argument add (reusing lesson 5's calling-convention shape) of 18 and 24, compares the sum to 42, prints go_msg via puts if they match and halt_msg otherwise, then returns 0 from main. The program must print exactly: BUILD OK"
+starter = '''
+section .data
+; declare go_msg and halt_msg here, exactly as the prompt specifies
+
+section .text
+    global main
+    extern puts
+
+; write a procedure that adds two integers per the System V calling
+; convention, call it from main with 18 and 24, compare the result to 42,
+; and puts() the matching message. Remember main must realign rsp before
+; any nested call, and restore it before returning.
+main:
+    ret
+'''
+expect = '''
+BUILD OK'''
+solution = '''
+section .data
+go_msg:   db "BUILD OK", 0
+halt_msg: db "BUILD MISMATCH", 0
+
+section .text
+    global main
+    extern puts
+
+add_two:
+    mov rax, rdi
+    add rax, rsi
+    ret
+
+main:
+    sub rsp, 8
+    mov rdi, 18
+    mov rsi, 24
+    call add_two
+    cmp rax, 42
+    jne .mismatch
+    mov rdi, go_msg
+    call puts
+    jmp .done
+.mismatch:
+    mov rdi, halt_msg
+    call puts
+.done:
+    add rsp, 8
+    mov eax, 0
+    ret
+'''
+hint = "18 + 24 is 42, so the correct build always takes the go_msg path — if BUILD MISMATCH prints instead, the add or the compare has a bug, not the build commands."

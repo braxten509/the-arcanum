@@ -1,0 +1,65 @@
+# Hidden deterministic Working assessment. Never served to the learner.
+version = 1
+
+[[scenarios]]
+id = "s01-build-check"
+kind = "build"
+requirementIds = ["native-window-lifecycle-proof", "bounded-init-retry"]
+capabilityIds = ["native-build-pipeline"]
+commandRef = "build"
+args = []
+stdin = ""
+expectFile = "build/pong"
+exitCode = 0
+timeout = 30
+public = true
+
+[[scenarios]]
+id = "s01-proof-success"
+kind = "run"
+requirementIds = ["native-window-lifecycle-proof", "bounded-init-retry"]
+capabilityIds = ["native-window-lifecycle", "native-window-proof", "language-branch-loop-control", "language-status-failure-and-resource-cleanup"]
+commandRef = "check"
+args = []
+stdin = ""
+expectExact = "INIT ATTEMPT 1\nPADDLE_VECTOR_S01_OK\n"
+exitCode = 0
+timeout = 20
+public = true
+
+# commandRef "init-failure" runs exactly:
+# bash -lc 'SDL_VIDEODRIVER=arcanum-invalid exec "./build/pong"'
+# stdout is joined before stderr (never interleaved), so the fixed status
+# line PADDLE_VECTOR_S01_INIT_FAILED (stdout) always precedes the
+# SDL_GetError() reason SDL_Log reports (stderr) in the combined output below.
+[[scenarios]]
+id = "s01-proof-forced-failure"
+kind = "run"
+requirementIds = ["native-window-lifecycle-proof", "bounded-init-retry"]
+capabilityIds = ["native-window-lifecycle", "native-window-proof", "language-branch-loop-control", "language-status-failure-and-resource-cleanup"]
+commandRef = "init-failure"
+args = []
+stdin = ""
+expectRegex = "INIT ATTEMPT 1\\nINIT ATTEMPT 2\\nINIT ATTEMPT 3\\nPADDLE_VECTOR_S01_INIT_FAILED\\n\\n.+"
+exitCode = 1
+timeout = 20
+public = false
+
+# Output alone cannot prove SDL_Quit was never reached on this path (SDL_Quit
+# neither prints nor fails when called without a successful SDL_Init). This
+# scenario names the deterministic gdb inspection lesson 8 taught
+# (break SDL_Quit; run; info breakpoints) as the evidence for that specific
+# claim; kind = "guided-observation" scenarios are declared evidence for
+# review rather than commands the harness executes automatically.
+[[scenarios]]
+id = "s01-proof-forced-failure-no-quit"
+kind = "guided-observation"
+requirementIds = ["bounded-init-retry"]
+capabilityIds = ["language-status-failure-and-resource-cleanup"]
+commandRef = "init-failure"
+args = []
+stdin = ""
+expect = { procedure = "gdb --batch -ex 'break SDL_Quit' -ex run -ex 'info breakpoints' ./build/pong, run with SDL_VIDEODRIVER=arcanum-invalid: 'info breakpoints' must report the SDL_Quit breakpoint with no hit count, confirming the init-failure path never reaches SDL_Quit." }
+exitCode = 1
+timeout = 20
+public = false

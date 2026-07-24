@@ -196,7 +196,7 @@ def _flatten(value):
 
 
 def _check_section(section, where, step_ids, urls, allow_guided=False,
-                   work_orders_only=False):
+                   work_orders_only=False, exact_output=False):
     sid = str(section.get("id") or "section")
     proof = section.get("proof")
     if not isinstance(proof, dict):
@@ -217,8 +217,12 @@ def _check_section(section, where, step_ids, urls, allow_guided=False,
         args = proof.get("runArgs")
         if not isinstance(args, list) or not args or not all(isinstance(a, str) for a in args):
             err(where, f"{sid}: run proof needs a non-empty string runArgs array")
-        if not (_text(proof.get("expect"), 1) or _text(proof.get("expectRegex"), 1)):
-            err(where, f"{sid}: run proof needs exact expect or expectRegex output")
+        if not (_text(proof.get("expect"), 1) or _text(proof.get("expectRegex"), 1)
+                or _text(proof.get("expectRaw"), 1)):
+            err(where, f"{sid}: run proof needs expect, expectRegex, or expectRaw output")
+        if exact_output and not _text(proof.get("expectRaw"), 1):
+            err(where, f"{sid}: hardened run proof must use expectRaw so whitespace and "
+                       "trailing newlines are checked exactly")
         if proof.get("expectRegex"):
             try:
                 re.compile(str(proof["expectRegex"]))
@@ -378,6 +382,8 @@ def check_future_tome_proof(tome_path, manifest, sections, run=False, run_sectio
     runtime_config = manifest.get("runtime")
     allow_guided = (isinstance(runtime_config, dict)
                     and runtime_config.get("externalWorkspace") is True)
+    exact_output = ((manifest.get("mastery") or {})
+                    .get("sourceEvidenceVersion") == 1)
     course_map_build = False
     work_orders_only = False
     if plan_path:
@@ -394,7 +400,7 @@ def check_future_tome_proof(tome_path, manifest, sections, run=False, run_sectio
     for section in proof_sections:
         where = rel(os.path.join(tome_path, "sections", str(section.get("id") or "?")))
         _check_section(section, where, step_ids, urls, allow_guided=allow_guided,
-                       work_orders_only=work_orders_only)
+                       work_orders_only=work_orders_only, exact_output=exact_output)
         for lesson in section.get("lessons") or []:
             for reading in lesson.get("readings") or [] if isinstance(lesson, dict) else []:
                 url = reading.get("url") if isinstance(reading, dict) else None

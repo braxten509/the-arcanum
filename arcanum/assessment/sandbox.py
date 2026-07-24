@@ -71,12 +71,13 @@ def _limits(policy: SandboxPolicy, address_space_limit: bool):
     return apply
 
 
-def _captured_output(handle, limit: int) -> tuple[str, bool]:
+def _captured_output(handle, limit: int) -> tuple[str, str, bool]:
     handle.flush()
     handle.seek(0, os.SEEK_END)
     size = handle.tell()
     handle.seek(max(0, size - limit))
-    return handle.read().decode("utf-8", errors="replace").strip(), size > limit
+    raw = handle.read().decode("utf-8", errors="replace")
+    return raw.strip(), raw, size > limit
 
 
 class SandboxRunner:
@@ -165,15 +166,18 @@ class SandboxRunner:
                     except ProcessLookupError:
                         pass
                     process.communicate()
-                    output, clipped = _captured_output(capture, policy.output_bytes)
+                    output, raw_output, clipped = _captured_output(
+                        capture, policy.output_bytes)
                     return {"passed": False, "argv": list(command), "exitCode": None,
-                            "output": output, "timedOut": True,
+                            "output": output, "rawOutput": raw_output, "timedOut": True,
                             "outputClipped": clipped,
                             "memoryBoundary": "cgroup-v2" if scope
                             else "rlimit-address-space"}
-                output, clipped = _captured_output(capture, policy.output_bytes)
+                output, raw_output, clipped = _captured_output(
+                    capture, policy.output_bytes)
                 return {"passed": process.returncode == 0, "argv": list(command),
                         "exitCode": process.returncode, "output": output,
+                        "rawOutput": raw_output,
                         "timedOut": False, "outputClipped": clipped,
                         "memoryBoundary": "cgroup-v2" if scope
                         else "rlimit-address-space"}

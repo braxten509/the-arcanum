@@ -81,6 +81,24 @@ def _dollars(value) -> Decimal:
         return Decimal("0")
 
 
+def _load_jsonl(path: str) -> list[dict]:
+    rows = []
+    try:
+        with open(path, encoding="utf-8") as handle:
+            for line in handle:
+                if not line.strip():
+                    continue
+                try:
+                    row = json.loads(line)
+                except (ValueError, json.JSONDecodeError):
+                    continue
+                if isinstance(row, dict):
+                    rows.append(row)
+    except OSError:
+        pass
+    return rows
+
+
 def load_gpt_running_cost(build_root: str, build_id: str) -> dict | None:
     """Project cumulative Claude/GPT API-equivalent cost from the durable ledger.
 
@@ -136,6 +154,49 @@ def load_gpt_running_cost(build_root: str, build_id: str) -> dict | None:
     priced_turns = max(0, api_turns - api_unpriced)
     source = next((row for row in phases.values()
                    if row.get("pricingVersion") or row.get("pricingSource")), {})
+    # The totals ledger keeps the running headline exact, while the turn journal
+    # gives the operator an auditable explanation of that amount.  Only expose
+    # the fields the Bindery needs: the journal also contains provider session
+    # and token-counter implementation details that do not belong in the UI.
+    turns = []
+    for row in _load_jsonl(os.path.join(build_root, f"{build_id}.ai-costs.jsonl")):
+        try:
+            phase = int(row.get("phase") or 0)
+            at = float(row.get("at") or 0)
+        except (TypeError, ValueError):
+            continue
+        if row.get("type") != "ai-turn" or phase not in range(1, 9) or at <= 0:
+            continue
+        amount = row.get("apiEquivalentUsd")
+        try:
+            amount = float(amount) if amount is not None else None
+        except (TypeError, ValueError):
+            amount = None
+        turns.append({
+            "at": at,
+            "phase": phase,
+            "section": str(row.get("section") or ""),
+            "model": str(row.get("model") or "Unknown model"),
+            "apiEquivalentUsd": amount,
+            "pricingStatus": str(row.get("pricingStatus") or "unavailable"),
+        })
+    turns.sort(key=lambda row: row["at"])
+    breakdown = []
+    for phase in range(1, 9):
+        if phase == 3 and sections:
+            for row in sections:
+                usd = _dollars(row.get("apiEquivalentUsd")).quantize(
+                    _USD_CENT, rounding=ROUND_HALF_UP)
+                if usd > 0:
+                    breakdown.append({"label": f"Phase 3 section {row.get('section') or '?'}",
+                                       "usd": float(usd)})
+            continue
+        row = phases.get(phase)
+        if not row:
+            continue
+        usd = _dollars(row.get("apiEquivalentUsd")).quantize(_USD_CENT, rounding=ROUND_HALF_UP)
+        if usd > 0:
+            breakdown.append({"label": f"Phase {phase}", "usd": float(usd)})
     return {
         "aiTurnCount": api_turns,
         "aiPricedTurns": priced_turns,
@@ -151,6 +212,8 @@ def load_gpt_running_cost(build_root: str, build_id: str) -> dict | None:
         "displayUsd": float(displayed),
         "pricingVersion": source.get("pricingVersion"),
         "pricingSource": source.get("pricingSource"),
+        "breakdown": breakdown,
+        "turns": turns,
     }
 
 

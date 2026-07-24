@@ -169,6 +169,51 @@ def check_truncated_prefix_does_not_run_final_acceptance():
     acceptance.assert_not_called()
 
 
+def check_hidden_working_scenarios_execute():
+    authored = section()
+    authored["freestyle"]["requirements"] = [{
+        "id": "observable-result", "text": "Print milestone with its newline.",
+        "essential": True, "capabilities": ["define-result"],
+    }]
+    authored["freestyle"]["rubric"] = [{
+        "id": "observable-result", "criterion": "Exact output", "weight": 100,
+        "kind": "deterministic", "assessmentIds": ["exact-run"],
+    }]
+    scoped_manifest = manifest()
+    scoped_manifest["mastery"] = {
+        "evidenceVersion": 1, "sourceEvidenceVersion": 1, "level": 1}
+    assessment = '''version = 1
+[[scenarios]]
+id = "exact-run"
+kind = "run"
+requirementIds = ["observable-result"]
+capabilityIds = ["define-result"]
+commandRef = "run"
+args = ["--arcanum-proof", "s01"]
+stdin = ""
+expectRaw = "milestone\\n"
+exitCode = 0
+timeout = 20
+public = false
+'''
+    with tempfile.TemporaryDirectory() as root:
+        assessment_path = Path(root, "sections", "s01", "assessment.toml")
+        assessment_path.parent.mkdir(parents=True)
+        assessment_path.write_text(assessment, encoding="utf-8")
+        findings.clear()
+        assert proof_runtime.replay(
+            root, scoped_manifest, [authored], persist=False), findings
+        assessment_path.write_text(
+            assessment.replace('expectRaw = "milestone\\n"',
+                               'expectRaw = "milestone"'),
+            encoding="utf-8")
+        findings.clear()
+        assert not proof_runtime.replay(
+            root, scoped_manifest, [authored], persist=False)
+        assert any("hidden scenario 'exact-run' failed" in message
+                   for _level, _label, message in findings), findings
+
+
 def check_split_layout_round_trip():
     with tempfile.TemporaryDirectory() as root:
         sections = Path(root, "sections")
@@ -385,6 +430,18 @@ def main():
     assert any("s01 milestone: active proof s01 failed: output mismatch" in finding[2]
                for finding in replay), replay
 
+    hardened = manifest()
+    hardened["mastery"] = {
+        "evidenceVersion": 1, "sourceEvidenceVersion": 1, "level": 1}
+    hardened_findings = findings_for(section(), manifest_data=hardened)
+    assert any("hardened run proof must use expectRaw" in finding[2]
+               for finding in hardened_findings), hardened_findings
+    exact = section()
+    exact["proof"].pop("expect")
+    exact["proof"]["expectRaw"] = "milestone\n"
+    assert not [finding for finding in findings_for(
+        exact, manifest_data=hardened) if finding[0] == "ERROR"]
+
     bad = section()
     bad["proof"] = {"mode": "guided", "expectedFiles": ["main.py"],
                     "guidedChecks": ["Observe the first deterministic result.",
@@ -414,6 +471,7 @@ def main():
     assert not findings, "legacy tomes must remain outside proof-v1"
     check_section_gate_ignores_future_scaffolds()
     check_truncated_prefix_does_not_run_final_acceptance()
+    check_hidden_working_scenarios_execute()
     check_bundled_media_gate()
     check_harness_owned_review()
     check_split_layout_round_trip()

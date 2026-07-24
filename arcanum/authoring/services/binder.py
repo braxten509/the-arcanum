@@ -7,7 +7,8 @@ import time
 
 from arcanum.config import CLI_EFFORTS
 
-from ..amender import clear_amend_state, load_amend_state, run_amender, save_amend_state
+from ..amender import (clear_amend_state, load_amend_state, review_history,
+                       run_amender, save_amend_state)
 
 
 class BinderService:
@@ -19,12 +20,19 @@ class BinderService:
     def start(self, tome_id: str, body: dict) -> tuple[dict, int]:
         request_text = str(body.get("request") or "").strip()
         iterate, review = bool(body.get("iterate")), bool(body.get("review"))
-        if not request_text and not iterate and not review:
-            return {"ok": False, "error": "an amendment request is required"}, 400
         kind = str(body.get("kind") or "claude-cli")
         model, effort = str(body.get("model") or ""), str(body.get("effort") or "")
-        broad, reset_ok = bool(body.get("broad")) or iterate, bool(body.get("resetOk"))
         review_path = str(body.get("reviewPath") or "")[:200]
+        applying_review = bool(review_path and not review)
+        if applying_review and not review_history(tome_id, review_path).get("content"):
+            return {"ok": False, "error": "the selected review does not belong to this tome"}, 400
+        iterate = iterate and not applying_review
+        broad = applying_review or bool(body.get("broad")) or iterate
+        reset_ok = bool(body.get("resetOk"))
+        update_standard = broad and not review and (
+            applying_review or bool(body.get("updateStandard")))
+        if not request_text and not update_standard and not iterate and not review:
+            return {"ok": False, "error": "an amendment request is required"}, 400
         if effort and effort not in CLI_EFFORTS.get(kind, ()):
             effort = ""
         existing = self.jobs.find_running(kind="binder-amend", tome=tome_id)
@@ -33,17 +41,20 @@ class BinderService:
         started = time.time()
         job_id = self.jobs.create(
             "binder-amend", tome=tome_id, request=request_text[:300], broad=broad,
-            review=review, log=[], startedAt=started)["id"]
+            review=review, providerKind=kind, providerModel=model,
+            log=[], activity=[], startedAt=started)["id"]
         save_amend_state({
             "id": job_id, "tome": tome_id, "request": request_text[:4000],
-            "broad": broad, "iterate": iterate, "resetOk": reset_ok, "review": review,
+            "broad": broad, "updateStandard": update_standard, "iterate": iterate,
+            "resetOk": reset_ok, "review": review,
             "kind": kind, "model": model, "effort": effort, "startedAt": started,
             "status": "running",
         })
         threading.Thread(
             target=run_amender,
             args=(job_id, tome_id, request_text, kind, model, effort, broad, iterate,
-                  reset_ok, review, review_path, self.jobs, self.processes, self.ai),
+                  reset_ok, review, review_path, update_standard,
+                  self.jobs, self.processes, self.ai),
             daemon=True).start()
         return {"ok": True, "jobId": job_id}, 200
 
@@ -68,8 +79,9 @@ class BinderService:
         if job.get("kind") != "binder-amend":
             return {"status": "unknown"}
         output = dict(job)
-        if "log" in output:
-            output["logtail"] = "\n".join(output.pop("log")[-200:])
+        # Raw CLI stdout contains tool results and transport JSON. Keep it in the
+        # server-side job for diagnostics, but never send it to the live Binder UI.
+        output.pop("log", None)
         return output
 
     def current(self, tome_id: str) -> dict:
@@ -89,7 +101,11 @@ class BinderService:
         return {"resumable": {
             "tome": tome_id, "request": state.get("request", ""),
             "broad": bool(state.get("broad")), "iterate": bool(state.get("iterate")),
+            "updateStandard": bool(state.get("updateStandard")),
             "resetOk": bool(state.get("resetOk")), "review": bool(state.get("review")),
             "status": state.get("status", "interrupted"),
             "startedAt": state.get("startedAt"),
         }}
+
+    def reviews(self, tome_id: str, report_path: str = "") -> dict:
+        return review_history(tome_id, report_path)

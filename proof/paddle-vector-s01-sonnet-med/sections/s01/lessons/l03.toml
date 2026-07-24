@@ -1,0 +1,178 @@
+[[lessons]]
+id = "s01-l03"
+title = "Lay Out Integer State"
+teaches = ["language-data-layout-and-integer-state"]
+introduces = ["nasm-integer-data-and-addressed-state", "nasm-static-cstring-pointer-and-sdl-error-output"]
+validationDependencies = []
+researchSources = ["nasm-manual-pseudo-instructions"]
+body = '''
+<p>Every running program is, underneath, a set of numbers sitting at addresses. NASM gives you four
+common pseudo-instructions for declaring initialized integers by width: <code>DB</code> (1 byte),
+<code>DW</code> (2 bytes), <code>DD</code> (4 bytes), and <code>DQ</code> (8 bytes) — the same widths
+you will later recognize as SDL's window coordinates and eventual paddle positions. Their opposite
+number reserves space without giving it a starting value: <code>RESB</code>, <code>RESW</code>,
+<code>RESD</code>, and <code>RESQ</code> each take one operand, the count of units to reserve, and
+belong inside a <code>.bss</code> section rather than <code>.data</code> (uninitialized storage has no
+initial bytes to store in the object file, so it costs no disk space).</p>
+<p>A label attached to a data declaration is not the value — it is the value's address. This
+distinction matters every time you touch that label in code. A disposable example, using a signal
+lamp instead of anything from your project, declares one initialized integer, one uninitialized
+integer slot, and one text string:</p>
+<pre><code data-kind="pseudocode">section .data
+    lantern_count:  dq 3
+    beacon_label:   db "SIGNAL LOCKED", 0
+
+section .bss
+    pulse_counter:  resq 1
+
+section .text
+    global demo_start
+demo_start:
+    mov rax, [lantern_count]     ; loads the 8-byte VALUE stored at lantern_count (3) into rax
+    mov rbx, lantern_count       ; loads the ADDRESS of lantern_count itself into rbx
+    mov qword [pulse_counter], 0 ; stores the value 0 into the reserved 8-byte slot</code></pre>
+<p>Square brackets are the difference between a value and an address: <code>mov rax, [lantern_count]</code>
+dereferences the label and copies the 3 that lives there, while <code>mov rbx, lantern_count</code>
+(no brackets) copies the label's own address — useful when a function needs to know <em>where</em>
+something is rather than what is currently stored there. Confusing the two is a common early mistake;
+NASM will not stop you, but the program will treat a pointer value as if it were the number 3, or
+vice versa, producing nonsense results with no assembler error at all.</p>
+<p>Getting a label's address into a register for later use as a function argument uses a third
+instruction, distinct from both <code>mov</code> forms above: <code>LEA</code> ("load effective
+address"). <code>lea rdi, [beacon_label]</code> looks like a dereferencing <code>mov</code>, brackets
+and all, but it never reads memory — it only computes the address the bracketed expression describes
+and stores that address in <code>rdi</code>. For a bare label like <code>beacon_label</code>,
+<code>lea rdi, [beacon_label]</code> and <code>mov rdi, beacon_label</code> land on the exact same
+value, but <code>LEA</code> is the instruction a later lesson actually uses to hand a string's address
+to a function such as <code>SDL_Log</code>, because unlike a bare-label <code>mov</code>, <code>LEA</code>
+generalizes to addresses built from a base register plus an offset — something you will need once a
+string's location is not a fixed compile-time label. Dropping the brackets on <code>LEA</code>
+(<code>lea rdi, beacon_label</code>, no brackets) is a NASM syntax error, not a silent runtime bug,
+because <code>LEA</code>'s operand syntax always requires the bracketed memory-reference form even
+though it never dereferences it.</p>
+<p><code>beacon_label</code> demonstrates the second concept this lesson introduces: a static C-string.
+The C convention every library your program will eventually call (SDL2, and libc's own <code>printf</code>)
+expects is a null-terminated byte sequence — printable characters followed by exactly one zero byte,
+written here as the trailing <code>, 0</code> after the quoted text. A function that receives such a
+string does not need to be told its length separately; it scans forward until it finds that zero byte.
+This is exactly the shape SDL's own error-reporting function, <code>SDL_GetError()</code>, hands
+back: a pointer to a null-terminated string describing what went wrong. A later lesson will call that
+function for real; this lesson's job is only to make the shape of that returned value — an address
+pointing at bytes that end in a zero — unsurprising when it arrives.</p>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // WHY THE TRAILING ZERO MATTERS</div>
+<p>Forget the ", 0" and the string still assembles — NASM has no idea a C function will read it later.
+The failure shows up only when something calls a C string function against your data and reads past
+the text into whatever bytes happen to follow, often printing garbage characters or crashing. The
+zero byte is a convention enforced by the reader, not by NASM.</p></div>
+'''
+
+[[lessons.concepts]]
+id = "language-data-layout-and-integer-state"
+purpose = "Declaring integers of a known width at known addresses, and understanding the difference between a stored value and the address that stores it."
+anatomy = "Choose a width (DB/DW/DD/DQ for initialized, RESB/RESW/RESD/RESQ for uninitialized), give it a label, then read the value with square brackets [label] or read the address with the bare label."
+example = "The lantern_count/pulse_counter declarations and the two mov forms in this lesson's body."
+observable = "mov rax, [lantern_count] leaves 3 in rax; mov rbx, lantern_count leaves a large address-looking number in rbx instead."
+failure = "Dropping the square brackets when you meant to read a value (or adding them when you meant an address) assembles cleanly but produces the wrong number in the register, with no error to flag it."
+practice = "s01-l03-e1"
+
+[[lessons.concepts]]
+id = "nasm-integer-data-and-addressed-state"
+purpose = "The specific pseudo-instructions that declare integers of each byte width, and how a label attached to them becomes an addressable location."
+anatomy = "DB/DW/DD/DQ <value> in .data for a starting value; RESB/RESW/RESD/RESQ <count> in .bss for reserved-but-empty space; a label immediately before either names that location."
+example = "lantern_count: dq 3 and pulse_counter: resq 1 in this lesson's body."
+observable = "The declared width controls exactly how many bytes the label occupies — dq reserves 8 bytes regardless of how small the stored number is."
+failure = "Using resq (reserve) where you meant dq (declare with a value) leaves the slot's starting contents undefined instead of zero — code that assumes a reserved slot starts at 0 without writing it first reads garbage."
+practice = "s01-l03-e1"
+
+[[lessons.concepts]]
+id = "nasm-static-cstring-pointer-and-sdl-error-output"
+purpose = "Declaring a null-terminated text string in .data and forming its address with LEA so it can later be passed as a C-style string pointer, matching what SDL_GetError() itself returns."
+anatomy = "db \"text\", 0 stores each character as one byte followed by a literal zero byte; lea reg, [label] then loads that label's address into a register without reading memory, producing the pointer a C function expects to receive."
+example = "beacon_label: db \"SIGNAL LOCKED\", 0 declared in .data, then lea rdi, [beacon_label] to form its address, both in this lesson's body."
+observable = "The address LEA produces, passed to any function expecting a C string, reads correctly up to (but not including) the trailing zero byte."
+failure = "Omitting the trailing 0 assembles without complaint; a later function reading the string keeps scanning past your intended text into whatever bytes follow, typically producing garbled or oversized output. Writing LEA without brackets around its source operand is a NASM syntax error, since LEA always expects a memory-reference operand even though it does not dereference it."
+practice = "s01-l03-e2"
+
+[[lessons.readings]]
+label = "NASM manual: pseudo-instructions (DB/DW/DD/DQ, RESB/RESW/RESD/RESQ)"
+url = "https://www.nasm.us/doc/nasm03.html"
+
+[[lessons.exercises]]
+id = "s01-l03-e1"
+type = "mc"
+required = true
+capabilities = ["language-data-layout-and-integer-state"]
+mechanisms = ["nasm-integer-data-and-addressed-state"]
+cognitiveTask = "predict"
+scaffold = "guided"
+contextFamily = "data-addressing"
+aidPolicy = "learning"
+points = 15
+prompt = "Given 'tally: dq 7' in .data, what ends up in rcx after 'mov rcx, tally' (no brackets)?"
+choices = ["The number 0, since tally was never dereferenced", "The number 7 itself", "The address where the value 7 is stored", "An assembler error, because dq values require brackets to read"]
+answer = 2
+whyWrong = "The wrong choices assume brackets are optional decoration, invent a default-zero behavior NASM has no reason to apply, and invent an error NASM does not raise — a bare label is always its address, brackets or not."
+hint = "Square brackets are what make NASM dereference a label. Without them, you always get the address."
+explain = "tally is a label; by itself it always means 'the address of this location'. [tally] is the separate operation that reads the 8 bytes stored there."
+
+[[lessons.exercises]]
+id = "s01-l03-e2"
+type = "text"
+required = true
+capabilities = ["language-data-layout-and-integer-state"]
+mechanisms = ["nasm-static-cstring-pointer-and-sdl-error-output"]
+cognitiveTask = "debug"
+scaffold = "guided"
+contextFamily = "cstring-shape"
+aidPolicy = "learning"
+points = 20
+prompt = "A teammate declares a status message as \"door_msg: db 'DOOR OPEN'\" (no trailing 0) and later passes door_msg to a function that expects a C string. Explain, in your own words, what will actually go wrong when that function runs, and why NASM did not warn them at assembly time."
+answer = "A complete answer explains that the function keeps reading bytes past 'DOOR OPEN' looking for a terminating zero, so it prints or processes whatever bytes happen to follow in memory (often garbage or a crash), and that NASM has no concept of the C-string convention — it just assembled the bytes exactly as declared, so nothing at assembly time could catch the missing terminator."
+hint = "NASM does not know what a C string is; it only ever assembles the exact bytes you wrote. The missing zero is a problem for whatever reads the data later, not for the assembler."
+
+[[lessons.exercises]]
+id = "s01-l03-e3"
+type = "fill"
+required = true
+capabilities = ["language-data-layout-and-integer-state"]
+mechanisms = ["nasm-integer-data-and-addressed-state"]
+cognitiveTask = "complete"
+scaffold = "completion"
+contextFamily = "data-declaration"
+aidPolicy = "learning"
+points = 20
+prompt = "Complete the declaration that reserves (uninitialized) 8 bytes for a label named score_slot inside .bss."
+code = 'score_slot: ____ 1'
+answer = "resq"
+hint = "8 bytes is a quadword; the reserve (not declare-with-value) pseudo-instruction for that width starts with 'res'."
+
+[[lessons.exercises]]
+id = "s01-l03-e4"
+type = "fill"
+required = true
+capabilities = ["language-data-layout-and-integer-state"]
+mechanisms = ["nasm-static-cstring-pointer-and-sdl-error-output"]
+cognitiveTask = "complete"
+scaffold = "completion"
+contextFamily = "lea-addressing"
+aidPolicy = "learning"
+points = 20
+prompt = "Complete the instruction that loads beacon_label's address into rdi without reading the bytes stored there."
+code = '____ rdi, [beacon_label]'
+answer = "lea"
+hint = "This is the instruction that computes an address from a bracketed operand instead of dereferencing it — distinct from mov, which would read the memory the brackets point at."
+
+[[lessons.exercises]]
+id = "s01-l03-d1"
+type = "type"
+required = true
+capabilities = ["language-data-layout-and-integer-state"]
+mechanisms = ["nasm-static-cstring-pointer-and-sdl-error-output"]
+cognitiveTask = "recall"
+scaffold = "worked"
+contextFamily = "cstring-shape"
+aidPolicy = "learning"
+points = 12
+reps = 2
+prompt = "Retype this C-string declaration exactly, including the trailing comma and zero. (Ctrl+Enter submits.)"
+code = 'beacon_label: db "SIGNAL LOCKED", 0'

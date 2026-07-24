@@ -16,6 +16,10 @@ class LegacyGradingEndpoints:
     def status(self, request) -> Response:
         return ok(self.services.legacy_grading.status(request.value("id")))
 
+    def preview(self, request) -> Response:
+        return ok(self.services.legacy_grading.preview(
+            request.tome_id(), request.json()))
+
     def oracle(self, request) -> Response:
         body = request.json()
         return ok(self.services.legacy_grading.oracle(request.tome_id(), body))

@@ -1,0 +1,291 @@
+[freestyle]
+title = "Working: Open the First Native Window"
+brief = '''
+<p>Build the very first version of Paddle Vector from your empty workspace: <code>src/pong.asm</code>
+and a root <code>Makefile</code> that together produce one native SDL2 window that opens and closes
+cleanly, plus a deterministic check target a script can run without a display.</p>
+<p><strong>Outcome.</strong> <code>make build</code> assembles and links a <code>build/pong</code>
+executable from <code>src/pong.asm</code> using the two-step pipeline from lesson 6
+(<code>nasm -f elf64 -g -F dwarf</code> then <code>gcc -no-pie</code>), with a <code>clean</code> target.
+The program takes no command-line arguments. Every launch follows lesson 7's exact SDL_Init &#8594;
+SDL_CreateWindow lifecycle: it checks every fallible call, destroys the window and quits SDL in that
+order on success, and never calls SDL_Quit on an init failure while it does call SDL_Quit on a
+window-creation failure, exactly as lesson 7 taught.</p>
+<p><strong>Exact contract — this is what an automated check compares.</strong> Attempt SDL_Init in a
+bounded retry loop of <strong>exactly 3 attempts</strong> (lesson 4's CMP/Jcc/loop control), printing
+<code>INIT ATTEMPT &lt;n&gt;</code> (n = 1, 2, 3) via <code>puts</code> immediately before each attempt.
+On the attempt that succeeds: create a window (any title, position, and size you choose), destroy it,
+quit SDL, then print exactly <code>PADDLE_VECTOR_S01_OK</code> and exit 0. If all 3 attempts fail: report
+SDL_GetError()'s message through <code>SDL_Log</code> (lesson 7's diagnostic call, format-string address
+formed with LEA, AL zeroed before the call), then print exactly
+<code>PADDLE_VECTOR_S01_INIT_FAILED</code>, and exit with a nonzero status — following lesson 7's rule,
+do not call SDL_Quit on this path, since SDL_Init never succeeded. If SDL_Init succeeds but
+SDL_CreateWindow itself returns NULL, report SDL_GetError()'s message the same way through SDL_Log, then
+print exactly <code>PADDLE_VECTOR_S01_WINDOW_FAILED</code>, call SDL_Quit (lesson 7's asymmetric cleanup
+rule), and exit nonzero. The program never inspects its own argv and never touches environment
+variables itself — whatever video driver the caller's environment selects is the one SDL_Init sees.</p>
+<p><strong>Your implementation choices.</strong> Window title, position, width, and height; internal
+label and procedure names; how you split the retry loop across procedures (one procedure or several, as
+long as the System V ABI discipline from lesson 5 is followed at every call); and exactly which
+register-to-register plumbing you use to reach each SDL argument, as long as the calling convention
+itself is correct.</p>
+<p><strong>Constraints.</strong> Use only mechanisms this chapter has taught: SECTION/GLOBAL/EXTERN and
+DB/RESQ-style data (lessons 2-3), CMP/Jcc/JMP/INC/DEC control flow (lesson 4), System V ABI-correct
+procedures with 16-byte stack alignment before every CALL (lesson 5), the exact
+<code>nasm -f elf64 -g -F dwarf</code> then <code>gcc -no-pie</code> pipeline plus a <code>$(shell
+pkg-config --libs sdl2)</code>-driven link (lesson 6), and the checked
+SDL_Init/SDL_CreateWindow/SDL_GetError/SDL_DestroyWindow/SDL_Quit/SDL_Log lifecycle with lesson 7's two
+distinct failure paths. Do not skip a status check on any of those five SDL calls you use, and never
+call SDL_Quit on the init-failure path.</p>
+<p><strong>Commands.</strong> <code>make build</code> builds; <code>make check-s01</code> (aliased by
+<code>make check</code>) runs <code>build/pong</code> once with <code>SDL_VIDEODRIVER=dummy</code> set so
+the same init/window/cleanup lifecycle above runs deterministically without a real display, exactly the
+lesson 8 <code>deterministic-init-check</code> target; <code>./build/pong</code> launches ordinarily
+against whatever real display is available; <code>make clean</code> removes build products;
+<code>gdb ./build/pong</code> with <code>break SDL_CreateWindow</code> lets you inspect the live call as
+lesson 8 showed.</p>
+<p><strong>Diagnostics.</strong> SDL_GetError() always reports the most recent SDL failure's reason —
+report it through SDL_Log before your own fixed status line on every failure path, never on the success
+path.</p>
+<p><strong>Observable acceptance.</strong> <code>make build</code> exits 0 and produces
+<code>build/pong</code>; <code>make check-s01</code> prints exactly <code>INIT ATTEMPT 1</code> then
+<code>PADDLE_VECTOR_S01_OK</code> and exits 0; run with <code>SDL_VIDEODRIVER</code> forced to an invalid
+driver, the same binary prints <code>INIT ATTEMPT 1</code>, <code>INIT ATTEMPT 2</code>,
+<code>INIT ATTEMPT 3</code>, then <code>PADDLE_VECTOR_S01_INIT_FAILED</code>, and exits nonzero — with
+the SDL_GetError() reason reported separately through SDL_Log. SDL_Log writes to standard error while
+every fixed status line above writes to standard output, and a checking script that captures both
+streams separately joins all of standard output first, then standard error, so the SDL_Log reason
+always appears after <code>PADDLE_VECTOR_S01_INIT_FAILED</code> in that combined view, not before it.</p>
+<ul>
+<li>Every launch follows lesson 7's exact status-check/cleanup shape, with no path calling SDL_Quit
+before an SDL_Init it never passed.</li>
+<li>The bounded retry loop attempts SDL_Init exactly 3 times before giving up, using real branch/loop
+control rather than three copy-pasted blocks.</li>
+</ul>
+'''
+requires = ["external-toolchain-ready", "tool-install", "tool-diagnose", "tool-create-open", "tool-navigate", "tool-edit-save", "tool-run-test", "assembly-workspace-authorship", "language-data-layout-and-integer-state", "language-branch-loop-control", "language-abi-procedures-and-register-discipline", "native-build-pipeline", "language-status-failure-and-resource-cleanup", "native-window-lifecycle", "language-observable-debugging-and-verification", "native-window-proof"]
+mechanisms = ["debian-toolchain-install", "toolchain-version-diagnostics", "workspace-directory-creation", "tool-edit-save", "nasm-source-layout", "makefile-authorship", "nasm-integer-data-and-addressed-state", "nasm-static-cstring-pointer-and-sdl-error-output", "nasm-compare-branch-loop-control", "sysv-abi-procedure-discipline", "nasm-elf64-dwarf-object-build", "gcc-sdl2-link-and-make-targets", "sdl-init-status-observation", "sdl-init-failure-branch", "sdl-init-error-diagnostic", "sdl-init-failure-cleanup", "sdl-window-status-observation", "sdl-window-failure-branch", "sdl-window-error-diagnostic", "sdl-window-failure-cleanup", "sdl-window-normal-cleanup", "deterministic-init-check", "gdb-state-inspection"]
+validationDependencies = []
+masteryPerformances = []
+reward = 150
+xray = "Dock hard for a missing status check on any of the five SDL calls, for calling SDL_Quit on the init-failure path (or omitting it on the window-failure path), for a retry bound that is not exactly 3, for any check-target output line that is not byte-exact, and for any argv or environment-variable inspection inside the program itself (the video driver must come only from the caller's environment). Reward correct ABI stack alignment around every CALL, a genuine CMP/Jcc-driven retry loop (not unrolled copies), and an SDL_Log diagnostic call built exactly as lesson 7 taught."
+
+[[freestyle.requirements]]
+id = "native-window-lifecycle-proof"
+text = "make build produces the build/pong executable, which under make check-s01's SDL_VIDEODRIVER=dummy environment calls SDL_Init, and on success creates then immediately destroys exactly one window before quitting SDL, printing exactly PADDLE_VECTOR_S01_OK and exiting 0 — and never prints that line when SDL_Init or SDL_CreateWindow actually failed."
+essential = true
+capabilities = ["native-window-lifecycle", "native-window-proof", "language-status-failure-and-resource-cleanup"]
+
+[[freestyle.requirements]]
+id = "bounded-init-retry"
+text = "The program retries a failing SDL_Init up to a fixed bound of exactly 3 attempts using real branch/loop control, printing INIT ATTEMPT <n> before each attempt, and only after all 3 attempts fail does it report SDL_GetError()'s message through SDL_Log followed by exactly PADDLE_VECTOR_S01_INIT_FAILED and exit nonzero, without calling SDL_Quit on that path."
+essential = true
+capabilities = ["language-branch-loop-control", "language-status-failure-and-resource-cleanup"]
+
+[[freestyle.referenceSteps]]
+id = "s01-freestyle-reference-source"
+path = "src/pong.asm"
+mode = "rewrite"
+preserves = "all-active"
+mechanisms = ["workspace-directory-creation", "tool-edit-save", "nasm-source-layout", "nasm-integer-data-and-addressed-state", "nasm-static-cstring-pointer-and-sdl-error-output", "nasm-compare-branch-loop-control", "sysv-abi-procedure-discipline", "sdl-init-status-observation", "sdl-init-failure-branch", "sdl-init-error-diagnostic", "sdl-init-failure-cleanup", "sdl-window-status-observation", "sdl-window-failure-branch", "sdl-window-error-diagnostic", "sdl-window-failure-cleanup", "sdl-window-normal-cleanup"]
+instruction = "Write the complete NASM source implementing the bounded-retry, checked SDL_Init/SDL_CreateWindow lifecycle described in the Working brief, in one file at src/pong.asm. The program takes no arguments and never touches environment variables itself."
+content = '''
+section .data
+win_title:        db "Paddle Vector", 0
+err_fmt:          db "%s", 0
+attempt1_msg:     db "INIT ATTEMPT 1", 0
+attempt2_msg:     db "INIT ATTEMPT 2", 0
+attempt3_msg:     db "INIT ATTEMPT 3", 0
+ok_msg:           db "PADDLE_VECTOR_S01_OK", 0
+init_fail_msg:    db "PADDLE_VECTOR_S01_INIT_FAILED", 0
+window_fail_msg:  db "PADDLE_VECTOR_S01_WINDOW_FAILED", 0
+
+SDL_INIT_VIDEO equ 0x00000020
+MAX_INIT_ATTEMPTS equ 3
+
+section .bss
+attempt_count:    resq 1
+window_store:     resq 1
+
+section .text
+    global main
+    extern SDL_Init
+    extern SDL_CreateWindow
+    extern SDL_GetError
+    extern SDL_DestroyWindow
+    extern SDL_Quit
+    extern SDL_Log
+    extern puts
+
+print_attempt:
+    sub rsp, 8
+    cmp rdi, 1
+    jne .try2
+    mov rdi, attempt1_msg
+    jmp .doprint
+.try2:
+    cmp rdi, 2
+    jne .try3
+    mov rdi, attempt2_msg
+    jmp .doprint
+.try3:
+    mov rdi, attempt3_msg
+.doprint:
+    call puts
+    add rsp, 8
+    ret
+
+main:
+    sub rsp, 8
+    mov qword [attempt_count], 1
+.retry_loop:
+    mov rdi, [attempt_count]
+    call print_attempt
+    mov rdi, SDL_INIT_VIDEO
+    call SDL_Init
+    cmp eax, 0
+    je .init_ok
+    mov rax, [attempt_count]
+    cmp rax, MAX_INIT_ATTEMPTS
+    jge .init_failed
+    inc qword [attempt_count]
+    jmp .retry_loop
+
+.init_ok:
+    mov rdi, win_title
+    mov rsi, 0
+    mov rdx, 0
+    mov rcx, 400
+    mov r8, 300
+    mov r9, 0
+    call SDL_CreateWindow
+    cmp rax, 0
+    je .window_failed
+    mov [window_store], rax
+
+    mov rdi, [window_store]
+    call SDL_DestroyWindow
+    call SDL_Quit
+    mov rdi, ok_msg
+    call puts
+    add rsp, 8
+    mov eax, 0
+    ret
+
+.window_failed:
+    call SDL_GetError
+    mov rsi, rax
+    lea rdi, [err_fmt]
+    xor eax, eax
+    call SDL_Log
+    mov rdi, window_fail_msg
+    call puts
+    call SDL_Quit
+    add rsp, 8
+    mov eax, 1
+    ret
+
+.init_failed:
+    call SDL_GetError
+    mov rsi, rax
+    lea rdi, [err_fmt]
+    xor eax, eax
+    call SDL_Log
+    mov rdi, init_fail_msg
+    call puts
+    add rsp, 8
+    mov eax, 1
+    ret
+'''
+
+[[freestyle.referenceSteps]]
+id = "s01-freestyle-reference-makefile"
+path = "Makefile"
+mode = "write"
+preserves = "all-active"
+mechanisms = ["makefile-authorship", "nasm-elf64-dwarf-object-build", "gcc-sdl2-link-and-make-targets", "deterministic-init-check"]
+instruction = "Write the root Makefile driving the two-step nasm/gcc pipeline from lesson 6, adapted to link against SDL2 and produce the build/pong executable from src/pong.asm behind a 'build' target, plus a check-s01 target (aliased by check) that runs the built binary once with a headless-safe video driver."
+content = '''
+CC = gcc
+ASM = nasm
+ASMFLAGS = -f elf64 -g -F dwarf
+LIBS = $(shell pkg-config --libs sdl2)
+
+.PHONY: build clean check check-s01
+build: build/pong
+
+build/pong: src/pong.o
+	mkdir -p build
+	$(CC) -no-pie src/pong.o -o build/pong $(LIBS)
+
+src/pong.o: src/pong.asm
+	$(ASM) $(ASMFLAGS) src/pong.asm -o src/pong.o
+
+check-s01: build/pong
+	@SDL_VIDEODRIVER=dummy ./build/pong
+
+check: check-s01
+
+clean:
+	rm -f src/pong.o
+	rm -rf build
+'''
+
+[freestyle.badge]
+id = "badge-s01"
+name = "FIRST LIGHT"
+desc = "Opened and closed Paddle Vector's first native window from an empty folder, with a deterministic proof to show for it."
+
+[[freestyle.rubric]]
+id = "build-evidence"
+criterion = "Compiles & runs"
+weight = 30
+kind = "deterministic"
+mechanisms = ["nasm-elf64-dwarf-object-build", "gcc-sdl2-link-and-make-targets"]
+assessmentIds = ["s01-build-check"]
+desc = "make build exits 0 and produces the build/pong executable from src/pong.asm with no manual link flags typed by hand."
+
+[[freestyle.rubric]]
+id = "proof-success-evidence"
+criterion = "Deterministic success proof"
+weight = 30
+kind = "deterministic"
+mechanisms = ["sdl-init-status-observation", "sdl-window-status-observation", "sdl-window-normal-cleanup", "deterministic-init-check"]
+assessmentIds = ["s01-proof-success"]
+desc = "make check-s01 prints exactly INIT ATTEMPT 1 then PADDLE_VECTOR_S01_OK and exits 0."
+
+[[freestyle.rubric]]
+id = "proof-failure-evidence"
+criterion = "Bounded-retry failure proof"
+weight = 25
+kind = "deterministic"
+mechanisms = ["nasm-compare-branch-loop-control", "sdl-init-failure-branch", "sdl-init-error-diagnostic", "sdl-init-failure-cleanup"]
+assessmentIds = ["s01-proof-forced-failure"]
+desc = "build/pong run with SDL_VIDEODRIVER forced to an invalid driver retries exactly 3 times, prints exactly PADDLE_VECTOR_S01_INIT_FAILED, and separately reports SDL_GetError()'s reason through SDL_Log, before exiting nonzero."
+
+[[freestyle.rubric]]
+id = "proof-failure-no-quit-evidence"
+criterion = "Init-failure never calls SDL_Quit"
+weight = 5
+kind = "deterministic"
+mechanisms = ["sdl-init-failure-cleanup"]
+assessmentIds = ["s01-proof-forced-failure-no-quit"]
+desc = "Under the same forced-invalid-driver run, a gdb breakpoint on SDL_Quit (lesson 8's break/run/info-breakpoints technique) records zero hits, confirming the init-failure path never calls SDL_Quit even though output and exit code alone cannot show that."
+
+[[freestyle.rubric]]
+id = "design-quality"
+criterion = "Clean style"
+weight = 5
+kind = "qualitative"
+mechanisms = []
+assessmentIds = []
+desc = "NASM sections stay in conventional .data/.bss/.text order, labels are descriptive, recipe lines use real tabs, and the two SDL failure paths stay visibly asymmetric (no shared cleanup label that calls SDL_Quit unconditionally)."
+
+[[freestyle.rubric]]
+id = "learner-choice-evidence"
+criterion = "Own implementation choices"
+weight = 5
+kind = "qualitative"
+mechanisms = ["sysv-abi-procedure-discipline"]
+assessmentIds = []
+desc = "The submission makes and consistently follows its own concrete choices where the brief leaves them open: a specific window title, position, width, and height distinct from the lesson's worked examples, and its own decomposition of the retry loop into one or more procedures with its own register-to-register plumbing to reach each SDL argument — not a verbatim copy of a lesson's or the hidden reference's naming and structure."

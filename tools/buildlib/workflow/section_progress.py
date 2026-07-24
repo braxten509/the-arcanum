@@ -37,7 +37,8 @@ def clear_section_progress(tid):
 
 
 def section_progress_shell_command(tid, sid, index, total, state, batch, batches):
-    argv = ["python3", os.path.join(REPO, "tools", "report_section_progress.py"),
+    argv = ["python3", os.path.join(
+        REPO, "tools", "workflow", "report_section_progress.py"),
             tid, sid, str(index), str(total), state,
             "--batch", str(batch), "--batches", str(batches)]
     return shlex.join(argv)

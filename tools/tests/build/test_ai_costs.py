@@ -51,6 +51,11 @@ with tempfile.TemporaryDirectory() as folder:
     running = load_gpt_running_cost(folder, "claude-priced")
     assert running["aiTurnCount"] == 1 and running["claudeTurnCount"] == 1
     assert running["displayUsd"] == 1.47
+    assert running["turns"] == [{
+        "at": 900.0, "phase": 3, "section": "s01",
+        "model": "claude-sonnet-5", "apiEquivalentUsd": 1.47,
+        "pricingStatus": "priced",
+    }]
 
 
 with tempfile.TemporaryDirectory() as folder:
@@ -146,6 +151,13 @@ with tempfile.TemporaryDirectory() as folder:
     assert running["displayUsd"] == 2.2
     assert running["apiEquivalentUsd"] == 2.2
     assert running["gptTurnCount"] == 3 and running["gptPricedTurns"] == 3
+    assert [(turn["phase"], turn["model"], turn["apiEquivalentUsd"])
+            for turn in running["turns"]] == [
+                (3, "gpt-5.6-luna", 1.0),
+                (3, "gpt-5.6-luna", 0.6),
+                (3, "claude-future", None),
+                (1, "gpt-5.6-luna", 0.6),
+            ]
 
 with tempfile.TemporaryDirectory() as folder:
     build = "resume-model-switch"
@@ -292,7 +304,8 @@ original_retry_delays = prerequisite_review.TRANSIENT_VALIDATOR_RETRY_DELAYS
 try:
     prerequisite_review.author_runner = lambda spec, context: (
         spec, ["codex", "exec", "-"], "stdin")
-    prerequisite_review.scoped_runner_command = lambda display, command, *args: command
+    prerequisite_review.scoped_runner_command = (
+        lambda display, command, *args, **kwargs: command)
     # (returncode, stdout, stalled) — the validator is watched for stalls now, so this
     # stands in for a CLI that answered and exited cleanly.
     prerequisite_review.run_watched = lambda command, **kwargs: (0, "\n".join((

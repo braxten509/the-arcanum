@@ -5,57 +5,14 @@ import { $, esc, mdLite, modal, toast } from "../core/dom.js";
 import { prepareStateReset, resumeStateSaves } from "../core/store.js";
 import { enhanceSelect } from "../ui/menu.js";
 import { apiFetch } from "../core/api-client.js";
+import {
+  binderActivity, binderCost, binderTemplate, reviewDate,
+} from "./binder/view.js";
 
 let binderPoll = null;   // one watcher at a time, even across bench visits
 
 export function showBinder() {
-  modal(`<h2>THE BINDER</h2>
-    <p class="dim" id="binder-desc">Name one small flaw in this tome — a typo, a wrong color, a price, a missing line —
-    and the Binder's spirit will re-ink the page. It edits the course itself, so be specific. Ask a question instead and it will just answer, with no edits made.</p>
-    <div id="binder-inputs">
-    <textarea id="binder-q" rows="3" style="width:100%" placeholder="e.g. the s02-l03 hint has a typo · make the signature theme's accent more copper · rename the SLAG SHIELD to CINDER WARD"></textarea>
-    <div style="display:flex;align-items:center;gap:20px;margin-top:10px;flex-wrap:wrap">
-      <label class="forge-check" style="margin:0"><input type="checkbox" id="bd-broad"> Broad change</label>
-      <label class="forge-check" style="margin:0" title="The Binder reads the tome without changing it and writes its findings to the reviews/ ledger."><input type="checkbox" id="bd-review"> Review</label>
-      <label class="forge-check hidden" id="bd-iterate-wrap" style="margin:0"><input type="checkbox" id="bd-iterate"> Iterate</label>
-      <label class="forge-check hidden" id="bd-reset-wrap" style="margin:0" title="Lets the Binder add, remove, reorder, or rename chapters and lessons — restructuring the tome. This RESETS all player progress for this tome."><input type="checkbox" id="bd-reset"> Okay to reset progress?</label>
-    </div>
-    <p class="hidden" id="bd-reset-warn" style="color:var(--bad,#c66);font-size:11.5px;margin:6px 0 0">⚠ The Binder may restructure this tome — every artificer's progress on it will be reset.</p>
-    <div class="forge-field" style="margin-top:10px"><label>THE BINDER'S HAND</label>
-      <div class="forge-ai-row">
-        <div class="forge-ai-choice"><select id="bd-prov" class="cfg-select" aria-label="Binder agent CLI"><option value="">PICK A MODEL</option></select></div>
-        <div class="forge-ai-choice"><select id="bd-model" class="cfg-select" aria-label="Binder model" disabled><option value="">—</option></select></div>
-        <div class="forge-ai-choice"><select id="bd-eff" class="cfg-select" aria-label="Binder effort" disabled><option value="">—</option></select></div>
-      </div></div>
-    <details class="binder-rebuild" id="bd-rebuild">
-      <summary><span>RESET THE BUILD TO A PHASE</span><b>DESTRUCTIVE</b></summary>
-      <div class="binder-rebuild-body">
-        <div class="binder-rebuild-pick">
-          <label for="bd-phase">START THE REBUILD AT</label>
-          <select id="bd-phase" class="cfg-select">
-            <option value="">CHOOSE PHASE</option>
-            <option value="1">1 · CONCEPT &amp; ARC</option>
-            <option value="2">2 · SKELETON &amp; VOICE</option>
-            <option value="3">3 · SECTIONS</option>
-            <option value="4">4 · MINIGAMES</option>
-            <option value="5">5 · ECONOMY</option>
-            <option value="6">6 · COSMETICS</option>
-            <option value="7">7 · VALIDATE</option>
-            <option value="8">8 · STUDENT REVIEW</option>
-          </select>
-        </div>
-        <div class="binder-rebuild-consequence hidden" id="bd-phase-warn" aria-live="polite"></div>
-        <label class="binder-rebuild-ack hidden" id="bd-phase-ack-wrap">
-          <input type="checkbox" id="bd-phase-ack">
-          <span>I understand that learner progress and later tome work will be erased.</span>
-        </label>
-        <button class="btn danger binder-rebuild-go" id="bd-phase-go" type="button" disabled>RESET AND REBUILD</button>
-        <div class="binder-rebuild-error hidden" id="bd-phase-error" role="alert"></div>
-      </div>
-    </details>
-    </div>
-    <div id="binder-a" class="hidden" style="margin-top:12px;padding:12px;border:1px solid var(--line-hi);border-left:2px solid var(--ac-dim);border-radius:3px;font-size:12.5px;white-space:pre-wrap;max-height:45vh;overflow-y:auto"></div>`,
-    [["LEAVE THE BENCH", "quiet"]]);
+  modal(binderTemplate(), [["LEAVE THE BENCH", "quiet"]]);
   const root = $("#modal-root");
   $(".modal", root).classList.add("wide");   // room for the validator's report and the button row
   const k = { prov: $("#bd-prov", root), model: $("#bd-model", root), eff: $("#bd-eff", root) };
@@ -82,7 +39,7 @@ export function showBinder() {
   let restoring = false;
   const persist = () => {
     if (restoring) return;
-    try { localStorage.setItem(BD_SAVE, JSON.stringify({ prov: k.prov.value, model: k.model.value, eff: k.eff.value, broad: $("#bd-broad").checked, iterate: $("#bd-iterate").checked, reset: $("#bd-reset").checked, review: $("#bd-review").checked })); } catch (e) { /* private mode */ }
+    try { localStorage.setItem(BD_SAVE, JSON.stringify({ prov: k.prov.value, model: k.model.value, eff: k.eff.value, broad: $("#bd-broad").checked, updateStandard: $("#bd-standard").checked, iterate: $("#bd-iterate").checked, reset: $("#bd-reset").checked, review: $("#bd-review").checked })); } catch (e) { /* private mode */ }
   };
   k.prov.addEventListener("change", fillModels);
   k.model.addEventListener("change", fillEffort);
@@ -94,16 +51,19 @@ export function showBinder() {
   const DESC_BROAD = "Describe a larger rework — recast a chapter, add lessons, retune the economy — and the Binder's spirit will re-ink the tome, editing as many pages as it takes. Say what you want; you can send it back to iterate. Ask a question instead and it will just answer, with no edits made.";
   const DESC_ITERATE = "The Binder surveys the whole tome against its improvement guide and reworks the weak spots on its own — untaught concepts, thin duel banks, lessons with no readings, shallow answer feedback, flat lessons. It may add new lessons or append new chapters where the material needs them (additions never touch your progress). Leave the box below empty, or name what to focus on.";
   const DESC_REVIEW = "The Binder reads the whole tome without inking a single page and sets its findings down in the reviews/ ledger. Name what to look for below — or leave it blank for a full survey — and afterwards you may commission the changes it suggests.";
+  const REVIEW_FIX_REQUEST = "Implement the selected review's complete Recommendation and implementation order. Address every material remediation that is in scope, in dependency-aware order; do not substitute minor cleanup for critical work. Preserve existing progress-keyed IDs unless Okay to reset progress is selected. Run the required validator and report any genuinely out-of-scope release or migration work.";
   const qBox = $("#binder-q", root);
   const qPlaceholder = qBox.placeholder;   // restore when Iterate is switched off
   const bd = $("#bd-broad", root), it = $("#bd-iterate", root), itWrap = $("#bd-iterate-wrap", root);
+  const standard = $("#bd-standard", root), standardWrap = $("#bd-standard-wrap", root);
   const rs = $("#bd-reset", root), rsWarn = $("#bd-reset-warn", root), rsWrap = $("#bd-reset-wrap", root);
   const rv = $("#bd-review", root);
   const syncReset = () => { rsWarn.classList.toggle("hidden", !rs.checked); };
   const syncDesc = () => {
+    standardWrap.classList.toggle("hidden", !bd.checked);
     itWrap.classList.toggle("hidden", !bd.checked);
     rsWrap.classList.toggle("hidden", !bd.checked);  // reset only means anything on a broad rework
-    if (!bd.checked) { it.checked = false; rs.checked = false; }  // Iterate/reset only exist inside Broad
+    if (!bd.checked) { standard.checked = false; it.checked = false; rs.checked = false; }  // broad-only options
     bd.parentElement.classList.toggle("hidden", rv.checked);  // Broad and Review are mutually exclusive
     rv.parentElement.classList.toggle("hidden", bd.checked);
     syncReset();
@@ -111,6 +71,7 @@ export function showBinder() {
     qBox.placeholder = it.checked || rv.checked ? "(optional)" : qPlaceholder;
   };
   bd.addEventListener("change", () => { if (bd.checked) rv.checked = false; persist(); syncDesc(); });
+  standard.addEventListener("change", persist);
   it.addEventListener("change", () => { persist(); syncDesc(); });
   rv.addEventListener("change", () => { if (rv.checked) bd.checked = false; persist(); syncDesc(); });
   rs.addEventListener("change", () => { persist(); syncReset(); });
@@ -128,6 +89,7 @@ export function showBinder() {
       if (s.eff && has(k.eff, s.eff)) { k.eff.value = s.eff; k.eff.dispatchEvent(new Event("change")); }
     }
     if (s.broad) bd.checked = true;
+    if (s.updateStandard && bd.checked) standard.checked = true;
     if (s.iterate) it.checked = true;
     if (s.reset) rs.checked = true;
     if (s.review && !bd.checked) rv.checked = true;  // Broad and Review are mutually exclusive
@@ -148,8 +110,89 @@ export function showBinder() {
   loadModels();
   const actions = $("#modal-root .modal-actions");
   const out = $("#binder-a", root);
+  let lastReview = "";   // selected survey fed to the next commissioned change
   const sendBtn = document.createElement("button");
   sendBtn.className = "btn"; sendBtn.textContent = "SEND TO THE BINDER";
+  const historyBtn = document.createElement("button");
+  historyBtn.className = "btn quiet"; historyBtn.textContent = "PAST REVIEWS";
+
+  const setReviewApplication = (on) => {
+    root.classList.toggle("binder-review-application-mode", on);
+    if (on) {
+      bd.checked = true;
+      standard.checked = true;
+      it.checked = false;
+      rv.checked = false;
+    }
+    bd.disabled = on;
+    standard.disabled = on;
+    syncDesc(); persist();
+  };
+
+  const showReview = async (path) => {
+    out.classList.remove("hidden");
+    out.classList.add("binder-review-mode");
+    root.classList.add("binder-past-review-mode");
+    out.innerHTML = `<div class="binder-activity-empty">Opening the review ledger…</div>`;
+    try {
+      const response = await apiFetch("/api/amend/reviews?path=" + encodeURIComponent(path));
+      const review = await response.json();
+      if (!response.ok || !review.content) throw new Error("that review could not be read");
+      lastReview = review.path;
+      setReviewApplication(true);
+      if (!qBox.value.trim()) qBox.value = REVIEW_FIX_REQUEST;
+      out.innerHTML = `<div class="binder-review-selected">
+          <div><span>PAST REVIEW SELECTED</span><b>${esc(reviewDate(review.createdAt))}</b></div>
+          <p>The next Binder request will consult this report. Describe the fixes above; Broad change governs how far the quill reaches.</p>
+          <button class="btn quiet binder-review-back" type="button">BACK TO REVIEWS</button>
+        </div>
+        <div class="binder-review-document">${mdLite(review.content)}</div>
+        ${binderCost(review.apiCostEstimate)
+          || `<div class="binder-cost-unavailable">API-equivalent cost unavailable for this older review.</div>`}`;
+      $(".binder-review-back", out).onclick = () => showReviewHistory();
+      out.scrollTop = 0;
+      qBox.focus();
+    } catch (error) {
+      out.innerHTML = `<div class="binder-review-empty">Could not open that review: ${esc(String(error.message || error))}</div>`;
+    }
+  };
+
+  const showReviewHistory = async () => {
+    out.classList.remove("hidden");
+    out.classList.add("binder-review-mode");
+    root.classList.add("binder-past-review-mode");
+    setReviewApplication(false);
+    rv.checked = false;
+    it.checked = false;
+    syncDesc(); persist();
+    out.innerHTML = `<div class="binder-activity-empty">Reading the review ledger…</div>`;
+    try {
+      const response = await apiFetch("/api/amend/reviews");
+      const payload = await response.json();
+      if (!response.ok) throw new Error("the review ledger could not be read");
+      const reviews = Array.isArray(payload.reviews) ? payload.reviews : [];
+      out.innerHTML = reviews.length
+        ? `<div class="binder-review-list-head"><span>PAST REVIEWS</span><b>${reviews.length} REPORT${reviews.length === 1 ? "" : "S"}</b></div>
+          <div class="binder-review-list">${reviews.map((review) => {
+            const usd = Number(review.apiCostEstimate?.usd);
+            const cost = Number.isFinite(usd)
+              ? `$${usd > 0 && usd < .01 ? usd.toFixed(4) : usd.toFixed(2)} EST.`
+              : "COST UNAVAILABLE";
+            return `<button class="binder-review-row" type="button" data-review-path="${esc(review.path)}">
+              <span><b>${esc(reviewDate(review.createdAt))}</b><small>${esc(review.providerModel || "MODEL NOT RECORDED")}</small></span>
+              <em>${esc(cost)}</em>
+            </button>`;
+          }).join("")}</div>`
+        : `<div class="binder-review-empty"><b>NO PAST REVIEWS</b><span>Run Review once and its report will appear here.</span></div>`;
+      out.querySelectorAll(".binder-review-row").forEach((button) => {
+        button.onclick = () => showReview(button.dataset.reviewPath);
+      });
+      out.scrollTop = 0;
+    } catch (error) {
+      out.innerHTML = `<div class="binder-review-empty">Could not read past reviews: ${esc(String(error.message || error))}</div>`;
+    }
+  };
+  historyBtn.onclick = showReviewHistory;
   const phaseReset = $("#bd-phase", root), phaseAck = $("#bd-phase-ack", root),
         phaseAckWrap = $("#bd-phase-ack-wrap", root), phaseWarn = $("#bd-phase-warn", root),
         phaseGo = $("#bd-phase-go", root), phaseError = $("#bd-phase-error", root);
@@ -232,6 +275,7 @@ export function showBinder() {
   const idle = () => {
     lock(false);
     sendBtn.disabled = false; sendBtn.textContent = "SEND TO THE BINDER";
+    historyBtn.disabled = false;
     $("#binder-q").disabled = false;
     actions.querySelectorAll(".binder-cancel").forEach((b) => b.remove());
   };
@@ -320,6 +364,7 @@ export function showBinder() {
       onPick: (prov, model, eff) => {
         $("#binder-q").value = st.request || "";
         bd.checked = !!(st.broad || st.iterate); it.checked = !!st.iterate; rv.checked = !!st.review; syncDesc();
+        standard.checked = !!st.updateStandard;
         rs.checked = !!st.resetOk; syncReset();
         runWithHand(prov, model, eff);
       },
@@ -330,8 +375,12 @@ export function showBinder() {
   // never stops the Binder; reopening reattaches via /api/amend/current.
   const watch = (jobId, isBroad) => {
     lock(true);
+    setReviewApplication(false);
+    out.classList.remove("binder-review-mode");
+    root.classList.remove("binder-past-review-mode");
     root.querySelector(".runner-death")?.remove();
     sendBtn.disabled = true; sendBtn.textContent = "THE BINDER WORKS...";
+    historyBtn.disabled = true;
     $("#binder-q").disabled = true;
     out.classList.remove("hidden");
     actions.querySelectorAll(".binder-extra, .binder-cancel").forEach((b) => b.remove());
@@ -353,22 +402,27 @@ export function showBinder() {
     binderPoll = setInterval(async () => {
       let st;
       try { st = await (await apiFetch("/api/amend/status?id=" + encodeURIComponent(jobId))).json(); } catch { return; }
-      if (isBroad && st.logtail != null) { out.innerHTML = mdLite(st.logtail || "the binder works…"); out.scrollTop = out.scrollHeight; }
+      if (st.activity != null) {
+        out.innerHTML = binderActivity(st.activity);
+        out.scrollTop = out.scrollHeight;
+      }
       if (st.status === "running") return;
       clearInterval(binderPoll);
       idle();
       if (st.status === "done") {
         if (st.review) {  // a survey, not an edit — show the findings and ask what to commission
           lastReview = st.reportPath || "";
-          rv.checked = false; syncDesc(); persist();
+          setReviewApplication(true);
           out.innerHTML = mdLite((st.summary || "(the binder said nothing)")
             + `\n\n── THE SURVEY IS COMPLETE ──\nThe full report is inked at ${st.reportPath || "the reviews/ ledger"}.`
-            + "\nWould you have changes made? Describe them above and SEND — the Binder will read its own report first, and the Broad change box governs how far the quill reaches.");
-          qBox.value = ""; qBox.focus();
+            + "\nWould you have changes made? Describe them above and SEND — the Binder will read its own report first, and the Broad change box governs how far the quill reaches.")
+            + binderCost(st.apiCostEstimate);
+          qBox.value = REVIEW_FIX_REQUEST; qBox.focus();
           return;
         }
         out.innerHTML = mdLite((st.summary || "(the binder said nothing)")
-          + (st.validatorOk === false ? "\n\n⚠ THE CANDLE FINDS FLAWS:\n" + (st.validator || "") : ""));
+          + (st.validatorOk === false ? "\n\n⚠ THE CANDLE FINDS FLAWS:\n" + (st.validator || "") : ""))
+          + binderCost(st.apiCostEstimate);
         const rb = document.createElement("button");
         rb.className = "btn binder-extra"; rb.textContent = "RE-OPEN THE TOME";
         rb.onclick = () => location.reload();
@@ -385,16 +439,16 @@ export function showBinder() {
       } else if (st.status === "cancelled") {
         out.textContent = "THE QUILL IS STAYED — the amendment was cancelled. A half-inked edit may remain; ask the Binder again if the page looks wrong.";
       } else {  // error / unknown — a real failure or timeout
-        const msg = st.error || st.logtail || "unknown error";
+        const msg = st.error || "unknown error";
         if (isBroad) binderDeath(msg);              // forge-style: pick a new hand and retry
         else out.textContent = "THE QUILL SNAPPED — " + msg;
       }
     }, 2500);
   };
-  let lastReview = "";   // reviews/ path of the survey this bench just ran — fed to the next change
   sendBtn.onclick = async () => {
-    const q = $("#binder-q").value.trim();
-    if (!q && !it.checked && !rv.checked) return;   // Iterate/Review need no request; the guide drives them
+    const typedRequest = $("#binder-q").value.trim();
+    const q = typedRequest || (lastReview ? REVIEW_FIX_REQUEST : "");
+    if (!q && !standard.checked && !it.checked && !rv.checked) return;   // these modes need no typed request
     const p = BINDERY.find((x) => x.id === k.prov.value);
     if (!p || !k.model.value) { toast("Pick the Binder's <b>model</b> first.", "warn"); return; }
     const isBroad = bd.checked || it.checked || rv.checked;
@@ -403,7 +457,7 @@ export function showBinder() {
     try {
       const r = await (await apiFetch("/api/amend", {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ request: q, kind: p.kind, model: k.model.value, effort: k.eff.value || undefined, broad: bd.checked, iterate: it.checked, resetOk: rs.checked, review: rv.checked, reviewPath: (!rv.checked && lastReview) || undefined }),
+        body: JSON.stringify({ request: q, kind: p.kind, model: k.model.value, effort: k.eff.value || undefined, broad: bd.checked, updateStandard: standard.checked, iterate: it.checked, resetOk: rs.checked, review: rv.checked, reviewPath: (!rv.checked && lastReview) || undefined }),
       })).json();
       if (!r.ok) throw new Error(r.error || "the binder did not answer");
       watch(r.jobId, isBroad);
@@ -411,7 +465,7 @@ export function showBinder() {
       out.textContent = "server error: " + err;
     }
   };
-  actions.prepend(sendBtn);
+  actions.prepend(sendBtn, historyBtn);
   // On open: reattach to a job still inking in this server, else offer to resume one a lost
   // server/runner cut short. Runs after the model list loads so the resume card has hands to pick.
   function reattachOrResume() {

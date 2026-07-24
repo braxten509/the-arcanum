@@ -1,0 +1,172 @@
+[[lessons]]
+id = "s01-l01"
+title = "Provision the Assembly Bench"
+teaches = ["external-toolchain-ready", "tool-install", "tool-diagnose"]
+introduces = ["debian-toolchain-install", "toolchain-version-diagnostics"]
+validationDependencies = []
+researchSources = ["debian-nasm-package", "debian-libsdl2-dev-package"]
+body = '''
+<p>Paddle Vector is not a browser exercise. Every file you build in this course runs on your own
+Linux machine, assembled by a real assembler and linked by a real linker. Before any of that can
+happen, five programs must already exist on disk: <code>nasm</code> (the assembler that turns your
+source into machine code), <code>gcc</code> (used here only as the linker driver that produces a
+runnable binary), <code>make</code> (the build runner you will script in a later lesson),
+<code>gdb</code> (the debugger you will use to inspect a running program), and the SDL2 development
+files that let your assembly call into a real windowing library. None of these are part of a
+default Debian or Ubuntu install. Confirming they exist, and confirming which exact versions
+you have, is the first real skill this course teaches — everything else assumes a bench that
+already works.</p>
+<p>On Debian and Ubuntu, a single package manager command installs all five pieces at once. <code>apt</code>
+first refreshes its list of available packages, then fetches and configures the ones you name:</p>
+<pre><code data-kind="terminal">sudo apt update
+sudo apt install nasm gcc make gdb libsdl2-dev pkg-config</code></pre>
+<p><code>libsdl2-dev</code> is the package name that matters here: SDL2 itself may already be present as a
+runtime library, but only the <code>-dev</code> package ships the header-equivalent metadata a build
+needs to link against it. <code>pkg-config</code> is the tool that actually reads that metadata: given
+a library name like <code>sdl2</code>, it prints the exact compiler and linker flags (include paths,
+library paths, the library name itself) that name needs, so a later Makefile can ask
+<code>pkg-config --libs sdl2</code> instead of hand-guessing where SDL2's files live on your particular
+machine. Confirming <code>pkg-config</code> itself answers a version query is therefore not optional
+busywork — the link step in a later lesson depends on it being present and working. Typing the assembler's name wrong —
+<code>nasm2</code>, <code>nasm-x86</code> — makes <code>apt</code> answer with <code>Unable to locate
+package</code> rather than installing anything silently wrong; read that message literally and fix the
+spelling, then rerun <code>apt install</code>.</p>
+<p>Installing is not the same as confirming. A tool can be installed yet still not be the one your
+shell finds first, and versions genuinely differ between machines and matter for later lessons (a
+debug-info flag introduced in one NASM release, for example, may not exist in another). Every one of
+these five tools answers a version query on its own command line:</p>
+<pre><code data-kind="terminal">nasm -v
+gcc --version
+make --version
+gdb --version
+pkg-config --modversion sdl2</code></pre>
+<p>A working tool prints one or more lines naming itself and a version number, then returns you to the
+prompt. A missing tool instead prints something like <code>nasm: command not found</code> — the shell
+searched every directory on your <code>PATH</code> and found nothing by that name. That single line is
+the entire diagnosis: either the install did not run, it targeted the wrong package name, or you are
+in a shell session opened before the install finished (a fresh terminal picks up a freshly installed
+tool; an old one may not). Re-running the <code>apt install</code> line and opening a new terminal
+resolves the great majority of first-run failures.</p>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // WHY VERSION-CHECK FIRST</div>
+<p>A course that starts by having you type assembly before confirming the assembler exists invites a
+failure with no useful error message: you would not know whether your syntax was wrong or your tool
+was simply missing. Checking versions first turns "nothing happens" into "here is exactly which tool
+is absent," which is the entire point of a diagnostic step.</p></div>
+'''
+
+[[lessons.concepts]]
+id = "external-toolchain-ready"
+purpose = "Describes the state your machine must reach before any project file is written: nasm, gcc, make, gdb, and the SDL2 development files are all installed and each answers a version query."
+anatomy = "1) install every named package with one apt command, 2) open a fresh terminal, 3) run each tool's version flag and confirm it prints, not errors."
+example = "The apt install line and the five version-check commands in this lesson's body."
+observable = "Every one of nasm -v, gcc --version, make --version, gdb --version, and pkg-config --modversion sdl2 prints a version line instead of an error."
+failure = "Any one of the five commands prints 'command not found', meaning that tool never installed or your shell has not refreshed its PATH."
+practice = "s01-l01-e1"
+
+[[lessons.concepts]]
+id = "tool-install"
+purpose = "Using the Debian/Ubuntu package manager (apt) to fetch and configure named software packages onto your machine."
+anatomy = "sudo apt update (refresh the package index) followed by sudo apt install <package names...> (fetch and configure each one)."
+example = "sudo apt update && sudo apt install nasm gcc make gdb libsdl2-dev, shown in this lesson's body."
+observable = "apt prints 'Setting up <package> ...' for each package and returns to the prompt with no error."
+failure = "'Unable to locate package <name>' means that exact package name does not exist in your apt sources — check the spelling against the exact names this lesson gives."
+practice = "s01-l01-e1"
+
+[[lessons.concepts]]
+id = "tool-diagnose"
+purpose = "Confirming an installed tool is reachable and identifying its exact version by invoking its version flag."
+anatomy = "Run the tool's name followed by its version flag (-v, --version, or a tool-specific query like pkg-config --modversion sdl2); read the first line of output."
+example = "The five diagnostic commands shown in this lesson's body."
+observable = "A version string naming the tool and a number, e.g. 'NASM version 2.16.01'."
+failure = "'command not found' means the shell's PATH does not contain that tool; reopen your terminal after installing, then retry."
+practice = "s01-l01-e1"
+
+[[lessons.concepts]]
+id = "debian-toolchain-install"
+purpose = "The exact apt invocation that installs all five tools this course depends on in a single step."
+anatomy = "sudo apt update refreshes the local package index; sudo apt install nasm gcc make gdb libsdl2-dev fetches and configures each named package in one pass."
+example = "The two-line terminal block early in this lesson's body."
+observable = "Each package name is followed by a 'Setting up' line in the apt output."
+failure = "A misspelled package name stops only that package; apt still installs the correctly spelled ones and reports the bad name separately."
+practice = "s01-l01-e1"
+
+[[lessons.concepts]]
+id = "toolchain-version-diagnostics"
+purpose = "A fixed sequence of five version queries that proves the whole bench is ready before any project file exists."
+anatomy = "nasm -v; gcc --version; make --version; gdb --version; pkg-config --modversion sdl2 — run in that order, checking each result before moving to the next."
+example = "The five-line diagnostic block in this lesson's body."
+observable = "Five separate version lines, one per tool, with no 'not found' errors among them."
+failure = "If pkg-config itself is missing, 'command not found' appears for that line specifically; the apt install line in this lesson names pkg-config explicitly for exactly this reason, so re-running it resolves the gap."
+practice = "s01-l01-e1"
+
+[[lessons.readings]]
+label = "Debian package search: nasm"
+url = "https://packages.debian.org/search?keywords=nasm"
+
+[[lessons.readings]]
+label = "Debian package page: libsdl2-dev"
+url = "https://packages.debian.org/stable/libsdl2-dev"
+
+[[lessons.exercises]]
+id = "s01-l01-e1"
+type = "mc"
+required = true
+capabilities = ["language-observable-debugging-and-verification"]
+mechanisms = ["debian-toolchain-install", "toolchain-version-diagnostics"]
+cognitiveTask = "predict"
+scaffold = "guided"
+contextFamily = "toolchain-diagnosis"
+aidPolicy = "learning"
+points = 15
+prompt = "You open a brand-new terminal tab moments after 'sudo apt install nasm gcc make gdb libsdl2-dev' finished with no errors, and immediately run 'gdb --version'. What do you expect to see?"
+choices = ["A version line naming GNU gdb and a version number", "'gdb: command not found', because gdb needs a separate reboot to register", "An empty prompt with no output at all", "A prompt asking you to accept a license before gdb will run"]
+answer = 0
+whyWrong = "The three wrong choices each invent a barrier apt install does not actually leave: a reboot requirement, silent success with no output, or an interactive license gate. A successfully installed CLI tool answers its version flag immediately in a fresh shell."
+hint = "apt reported 'Setting up gdb ...' with no error — that line is the install succeeding, not a partial state waiting on something else."
+explain = "Once apt reports a package configured with no error, the binary is on PATH for any new shell. --version is the fastest way to convert 'I think it installed' into a printed, checkable fact."
+
+[[lessons.exercises]]
+id = "s01-l01-e2"
+type = "text"
+required = true
+capabilities = ["language-observable-debugging-and-verification"]
+mechanisms = ["toolchain-version-diagnostics"]
+cognitiveTask = "debug"
+scaffold = "guided"
+contextFamily = "toolchain-diagnosis"
+aidPolicy = "learning"
+points = 25
+prompt = "In your own terminal, run all five diagnostic commands from this lesson (nasm -v, gcc --version, make --version, gdb --version, pkg-config --modversion sdl2). Report exactly what happened: paste the version line each tool printed, or, if any command failed, paste the exact error line and say which tool it was."
+answer = "A complete report names all five tools and either shows a real version string for each or names the exact failing tool with its literal error line (e.g. 'nasm: command not found')."
+hint = "If one command fails, still run the remaining four — a diagnostic report is only useful when it covers every tool, not just the first one that broke."
+
+[[lessons.exercises]]
+id = "s01-l01-e3"
+type = "fill"
+required = true
+capabilities = ["language-observable-debugging-and-verification"]
+mechanisms = ["debian-toolchain-install"]
+cognitiveTask = "complete"
+scaffold = "completion"
+contextFamily = "toolchain-install"
+aidPolicy = "learning"
+points = 20
+prompt = "Complete the single command that installs every tool this course needs in one pass."
+code = 'sudo apt update && sudo apt install ____ gcc make gdb libsdl2-dev pkg-config'
+answer = "nasm"
+hint = "It is the name of the assembler itself — the one program in this list that turns .asm source into machine code."
+
+[[lessons.exercises]]
+id = "s01-l01-d1"
+type = "type"
+required = true
+capabilities = ["language-observable-debugging-and-verification"]
+mechanisms = ["toolchain-version-diagnostics"]
+cognitiveTask = "recall"
+scaffold = "worked"
+contextFamily = "toolchain-diagnosis"
+aidPolicy = "learning"
+points = 12
+reps = 2
+prompt = "Retype this diagnostic command exactly. (Ctrl+Enter submits.)"
+code = 'pkg-config --modversion sdl2'

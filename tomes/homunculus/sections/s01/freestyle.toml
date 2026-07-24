@@ -1,7 +1,7 @@
 [freestyle]
-requires = ["tool-install", "tool-create-open", "tool-navigate", "tool-edit-save", "tool-run-test", "tool-diagnose", "project-doctor"]
+requires = ["tool-install", "tool-create-open", "tool-navigate", "tool-edit-save", "python-craft", "tool-run-test", "tool-diagnose", "project-doctor"]
 title = "THE WORKING: KINDLE THE REAL BENCH"
-brief = '''Create and keep the external <code>Homunculus/</code> project that every later Working will extend. Submit the project tree, its pinned <code>pyproject.toml</code>, <code>src/homunculus/doctor.py</code>, <code>tests/test_doctor.py</code>, and <code>reports/doctor.txt</code>.<ul><li>Show that you opened the project root in your editor, edited and saved the visible source, and ran commands from that same root.</li><li>Use AMD's tested Python 3.12 ROCm container without replacing its PyTorch build.</li><li>Prove HIP, the Radeon name, <code>gfx1201</code>, and the result of a real GPU tensor operation.</li><li>Prove the pinned application imports, the llama.cpp build, and the host Ollama version endpoint.</li><li>Run the pytest check and the doctor; the saved report must end in <code>READY</code>.</li><li>Add <code>reports/recovery.md</code> naming the owner and narrow recovery for a host-device failure, container-mapping failure, wrong import path, and Ollama failure.</li></ul>Do not submit screenshots without command output, a copied report from another machine, an HSA target override, or files outside the one evolving project.'''
+brief = '''Create and keep the external <code>Homunculus/</code> project that every later Working will extend. Submit the project tree, its pinned <code>pyproject.toml</code>, <code>src/homunculus/doctor.py</code>, <code>tests/test_doctor.py</code>, and <code>reports/doctor.txt</code>.<ul><li>Show that you opened the project root in your editor, edited and saved the visible source, and ran commands from that same root.</li><li>Use AMD's tested Python 3.12 ROCm container without replacing its PyTorch build.</li><li>Prove HIP, the Radeon name, <code>gfx1201</code>, and the result of a real GPU tensor operation.</li><li>Prove the pinned application imports, the llama.cpp build, and the host Ollama version endpoint.</li><li>From the project root run <code>python -m compileall -q src tests</code>, <code>pytest -q</code>, and <code>python -m homunculus.doctor all</code>; the saved doctor report must end in <code>READY</code>.</li><li>Add <code>reports/recovery.md</code> naming the owner and narrow recovery for a host-device failure, container-mapping failure, wrong import path, and Ollama failure.</li><li>Keep Python names and layout to the Section I craft contract: snake_case functions and variables, UPPER_CASE constants, four-space indentation, grouped top-of-file imports, and separated top-level definitions.</li></ul>Do not submit screenshots without command output, a copied report from another machine, an HSA target override, or files outside the one evolving project. If a command fails, preserve its output and repair the first failed owner boundary before rerunning the full chain.'''
 reward = 180
 xray = "A passing-looking report is insufficient if the script never performs its claimed checks. Inspect the code and evidence together. The GPU proof must execute a device tensor, package versions must be read from the environment, and Ollama must answer its live endpoint."
 
@@ -22,10 +22,15 @@ desc = "The tested image reports HIP, the Radeon, gfx1201, and a correct GPU ten
 
 [[freestyle.rubric]]
 criterion = "Toolchain and tests"
-weight = 30
+weight = 20
 desc = "Pinned imports, pytest, llama.cpp, and live Ollama are verified by commands whose saved output matches the implementation."
 
 [[freestyle.rubric]]
 criterion = "Diagnosis and recovery"
 weight = 15
 desc = "Recovery notes assign each failure to the correct layer and preserve learner-owned data and artifacts."
+
+[[freestyle.rubric]]
+criterion = "Python craft"
+weight = 10
+desc = "Python uses snake_case functions and variables, UPPER_CASE constants, four-space indentation, grouped top-of-file imports, and blank lines between top-level definitions."

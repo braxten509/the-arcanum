@@ -180,6 +180,32 @@ claims = ["print writes the requested observable result to standard output."]
                    or item.code.startswith("mastery.assessment.varied")
                    for item in findings), [item.to_dict() for item in findings]
 
+    duplicate_input = ASSESSMENT + '''
+[[scenarios]]
+id = "runs-again"
+kind = "run"
+requirementIds = ["observable-result"]
+capabilityIds = ["language-data"]
+commandRef = "run"
+args = []
+stdin = ""
+expectRegex = "DIFFERENT"
+exitCode = 0
+timeout = 20
+public = false
+'''
+    duplicate_section = copy.deepcopy(hardened_section)
+    duplicate_section["freestyle"]["rubric"][0]["assessmentIds"].append("runs-again")
+    (tome / "sections" / "s01" / "assessment.toml").write_text(
+        duplicate_input, encoding="utf-8")
+    duplicate_findings = validate_mastery_evidence(
+        str(tome), hardened_manifest, [duplicate_section], include_variants=False)
+    assert any(item.code == "mastery.assessment.redundant-evidence"
+               for item in duplicate_findings), [
+                   item.to_dict() for item in duplicate_findings]
+    (tome / "sections" / "s01" / "assessment.toml").write_text(
+        ASSESSMENT, encoding="utf-8")
+
     hardened_section["lessons"][0]["researchSources"] = ["invented-source"]
     findings = validate_mastery_evidence(str(tome), hardened_manifest, [hardened_section],
                                          include_variants=False)

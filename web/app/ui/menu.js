@@ -25,22 +25,28 @@ export function closePop(instant) {
   setTimeout(() => el.remove(), el.childElementCount * 22 + 400); // in case animations are disabled
 }
 // pixel disintegration: each row sheds a few themed squares as it dissolves (staggered like line-out)
-function shedPixels(el) {
-  const rows = [...el.children];
+export function shedPixels(el, clipTo = null) {
+  const clip = clipTo?.getBoundingClientRect?.();
+  const rows = [...el.children].map((row) => {
+    const r = row.getBoundingClientRect();
+    const left = Math.max(r.left, clip?.left ?? r.left);
+    const right = Math.min(r.right, clip?.right ?? r.right);
+    const top = Math.max(r.top, clip?.top ?? r.top);
+    const bottom = Math.min(r.bottom, clip?.bottom ?? r.bottom);
+    return { left, top, width: right - left, height: bottom - top };
+  }).filter((row) => row.width > 0 && row.height > 0);
   const cs = getComputedStyle(document.body);
   const cols = ["--ac", "--tx", "--line-hi"].map((v) => cs.getPropertyValue(v).trim());
   rows.forEach((row, i) => {
-    const r = row.getBoundingClientRect();
-    if (!r.width) return;
     const delay = (rows.length - 1 - i) * 30; // bottom rows disintegrate first
-    const count = Math.min(8, Math.max(3, Math.round(r.width / 34)));
+    const count = Math.min(8, Math.max(3, Math.round(row.width / 34)));
     for (let k = 0; k < count; k++) {
       const px = document.createElement("div");
       px.className = "pop-particle";
       const sz = 2 + Math.round(Math.random() * 2);
       // opacity:0 until its animation begins — rows dissolve bottom-up, and a top-row
       // particle otherwise sits visible-but-frozen through its whole stagger delay
-      px.style.cssText = `left:${r.left + Math.random() * r.width}px;top:${r.top + Math.random() * r.height}px;width:${sz}px;height:${sz}px;background:${cols[k % cols.length]};opacity:0`;
+      px.style.cssText = `left:${row.left + Math.random() * row.width}px;top:${row.top + Math.random() * row.height}px;width:${sz}px;height:${sz}px;background:${cols[k % cols.length]};opacity:0`;
       document.body.appendChild(px);
       const dx = (Math.random() - 0.25) * 44; // biased right — the wipe travels left→right
       const dy = (Math.random() - 0.65) * 38; // biased up
