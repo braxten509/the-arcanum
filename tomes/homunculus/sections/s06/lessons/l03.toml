@@ -3,37 +3,33 @@ id = "s06-l03"
 teaches = ["regression-suite"]
 title = "Check What the New Voice Broke"
 body = '''
-<p>LoRA's low-rank constraint reduces trainable capacity; it does not guarantee preservation of facts or reasoning. Build <code>data/eval/capability.jsonl</code> before reading adapted results. Include at least fifteen stable cases across concise Python, factual explanation, instruction following, structured output, uncertainty, and long-context summarization. Each row needs an id, prompt, and observable pass criteria. Run the frozen base first and retain only cases whose criteria the base actually meets; you cannot call an adapter response “forgotten” when the base already failed.</p>
+<p>LoRA's low-rank constraint reduces trainable capacity; it does not guarantee preservation of facts or reasoning. Build <code>private/eval/capability.jsonl</code> before reading adapted results. Include at least fifteen stable cases across concise Python, factual explanation, instruction following, structured output, uncertainty, and long-context summarization. Each row needs an id, prompt, and observable pass criteria. Run the frozen base first and retain only cases whose criteria the base actually meets; you cannot call an adapter response “forgotten” when the base already failed.</p>
 <p>Use the same paired evaluator and deterministic settings. Score criteria rather than exact wording. A Python case can execute tests in an isolated test directory; a JSON case can parse and check keys; a factual case can use a short human checklist. Never run generated shell or Python against personal files. The evaluation harness owns a disposable directory and a timeout.</p>
 <p>Also add a memorization probe: prompts that resemble a category but not a training row, plus a scan for unusually long substrings shared with completions in <code>train.jsonl</code>. A common phrase is not evidence of memorization, but a distinctive multi-sentence match should stop the merge until reviewed. Privacy leaks are critical failures regardless of the aggregate average.</p>
-<p>Write <code>reports/regression-bind-001.json</code> with base passes, adapted passes, newly failed ids, newly fixed ids, and critical flags. A useful starting gate is no more than one newly failed noncritical case out of fifteen and zero privacy/memorization criticals. Record that threshold before revealing outputs; if your use case needs a stricter gate, make it stricter. Do not explain a regression away as “just style” without checking the stated criterion.</p>
+<p>Write the private regression report with base passes, adapted passes, newly failed ids, newly fixed ids, and critical flags. “No more than one newly failed noncritical case out of fifteen” is a predeclared starter policy, not a statistically established universal threshold: one case moves that rate by 6.7 points. Report category denominators and exact failures, calibrate tolerance with repeated base runs, and keep zero privacy/memorization criticals regardless of aggregate score.</p>
 <div class="field-notes"><div class="fn-head">FIELD NOTES // REGRESSION HAS A BASELINE CONDITION</div>
 <p>A failed adapter case is a newly introduced regression only when the frozen base passed the same case. If both fail, the adapter did not create that deficit; it merely failed to repair it. Report both categories so ship decisions do not punish the adapter for inherited behavior or hide genuinely new damage inside an average.</p></div>
 '''
 
 [[lessons.readings]]
 label = "PEFT methods and limitations"
-url = "https://huggingface.co/docs/peft/index"
+url = "https://huggingface.co/docs/peft/v0.19.1/index"
 
 [[lessons.exercises]]
 id = "s06-l03-e1"
 type = "mc"
 points = 20
 prompt = "When is a case eligible to measure newly introduced regression?"
-choices = ["When the frozen base passes its criteria", "Whenever the prompt is short", "Only when the adapter refuses", "When it appears in training"]
-answer = 0
+choices = [
+  "Whenever the prompt is short",
+  "When the frozen base passes its criteria",
+  "Only when the adapter refuses",
+  "When it appears in training",
+]
+answer = 1
 whyWrong = "Length and refusal alone are insufficient, and training examples are not held out."
 explain = "Regression is loss relative to a capability the starting model demonstrated."
 hint = "There must be something proven to preserve."
-
-[[lessons.exercises]]
-id = "s06-l03-e2"
-type = "text"
-points = 15
-prompt = "How many privacy or memorization critical failures may pass the merge gate?"
-answer = "0"
-accept = ["zero", "0", "none"]
-hint = "Critical means it blocks regardless of average score."
 
 [[lessons.exercises]]
 id = "s06-l03-e3"
@@ -64,3 +60,12 @@ print("REGRESSED " + ", ".join(regressed))
 '''
 expect = "REGRESSED cap-02"
 hint = "Keep ids that passed in base and failed in adapted."
+
+[[lessons.exercises]]
+id = "s06-l03-e2"
+type = "text"
+points = 15
+prompt = "How many privacy or memorization critical failures may pass the merge gate?"
+answer = "0"
+accept = ["zero", "0", "none"]
+hint = "Critical means it blocks regardless of average score."

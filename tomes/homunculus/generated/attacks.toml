@@ -7,6 +7,31 @@
 [[tiers]]
 
 [[tiers.pool]]
+t = "THE TOOLCHAIN BIND"
+starter = '''
+base_vram = 16
+tool = "Ollama"
+# The Distiller demands proof of the toolchain.
+'''
+
+[[tiers.pool.stages]]
+brief = "Invoke the tool's name. Print exactly: «TOOL Ollama»"
+expect = "TOOL Ollama"
+
+[[tiers.pool.stages]]
+brief = "Declare the VRAM limit. Append: «LIMIT 16 GB»"
+expect = '''
+TOOL Ollama
+LIMIT 16 GB'''
+
+[[tiers.pool.stages]]
+brief = "State the RDNA4 target. Append: «TARGET gfx1201»"
+expect = '''
+TOOL Ollama
+LIMIT 16 GB
+TARGET gfx1201'''
+
+[[tiers.pool]]
 t = "THE READINESS LEDGER"
 starter = '''
 checks = {"rocm": True, "torch": True, "ollama": False}
@@ -31,28 +56,29 @@ PASSED 2
 FAILED ollama'''
 
 [[tiers.pool]]
-t = "THE BASELINE PROMPTS"
+t = "THE ARCHITECTURE RUN"
 starter = '''
-cases = ["voice-01", "format-01", "privacy-01", "rag-01"]
-# Inventory the frozen judgment set.
+arch = 1200
+revision = 1
+# Form the vessel's architecture code.
 '''
 
 [[tiers.pool.stages]]
-brief = "Count the cases. Print exactly: «CASES 4»"
-expect = "CASES 4"
+brief = "Sum the components. Print exactly: «CODE 1201»"
+expect = "CODE 1201"
 
 [[tiers.pool.stages]]
-brief = "Print the first identifier. Append: «FIRST voice-01»"
+brief = "Prefix with 'gfx'. Append: «ARCH gfx1201»"
 expect = '''
-CASES 4
-FIRST voice-01'''
+CODE 1201
+ARCH gfx1201'''
 
 [[tiers.pool.stages]]
-brief = "Count identifiers ending in -01. Append: «VERSIONED 4»"
+brief = "Confirm PyTorch target. Append: «TORCH_ROCM_ARCH=gfx1201»"
 expect = '''
-CASES 4
-FIRST voice-01
-VERSIONED 4'''
+CODE 1201
+ARCH gfx1201
+TORCH_ROCM_ARCH=gfx1201'''
 
 [[tiers.pool]]
 t = "THE FIRST RECKONING"
@@ -103,57 +129,32 @@ SEEN 4
 KEPT 3
 VRAM 28'''
 
-[[tiers.pool]]
-t = "THE MAP READ ALOUD"
-starter = '''
-config = {"base": "Qwen3-8B", "rank": 16}
-# Read the map, then forge a name from its parts.
-'''
-
-[[tiers.pool.stages]]
-brief = "Read the base. Print exactly: «BASE Qwen3-8B»"
-expect = "BASE Qwen3-8B"
-
-[[tiers.pool.stages]]
-brief = "Read the rank. Append: «RANK 16»"
-expect = '''
-BASE Qwen3-8B
-RANK 16'''
-
-[[tiers.pool.stages]]
-brief = "Forge the adapter path. Append: «PATH adapters/Qwen3-8B_rank-16»"
-expect = '''
-BASE Qwen3-8B
-RANK 16
-PATH adapters/Qwen3-8B_rank-16'''
-
 # ---- difficulty 2
 [[tiers]]
 
 [[tiers.pool]]
-t = "THE TOOLCHAIN BIND"
+t = "THE BASELINE PROMPTS"
 starter = '''
-base_vram = 16
-tool = "Ollama"
-# The Distiller demands proof of the toolchain.
+cases = ["voice-01", "format-01", "privacy-01", "rag-01"]
+# Inventory the frozen judgment set.
 '''
 
 [[tiers.pool.stages]]
-brief = "Invoke the tool's name. Print exactly: «TOOL Ollama»"
-expect = "TOOL Ollama"
+brief = "Count the cases. Print exactly: «CASES 4»"
+expect = "CASES 4"
 
 [[tiers.pool.stages]]
-brief = "Declare the VRAM limit. Append: «LIMIT 16 GB»"
+brief = "Print the first identifier. Append: «FIRST voice-01»"
 expect = '''
-TOOL Ollama
-LIMIT 16 GB'''
+CASES 4
+FIRST voice-01'''
 
 [[tiers.pool.stages]]
-brief = "State the RDNA4 target. Append: «TARGET gfx1201»"
+brief = "Count identifiers ending in -01. Append: «VERSIONED 4»"
 expect = '''
-TOOL Ollama
-LIMIT 16 GB
-TARGET gfx1201'''
+CASES 4
+FIRST voice-01
+VERSIONED 4'''
 
 [[tiers.pool]]
 t = "THE FROZEN BASELINE"
@@ -183,7 +184,7 @@ IDS voice-01,format-01
 HASHED True'''
 
 [[tiers.pool]]
-t = "THE DETERMINISTIC SAMPLE"
+t = "THE GREEDY SAMPLE"
 starter = '''
 settings = {"temperature": 0, "seed": 42, "num_predict": 128}
 # Describe the reproducible baseline call.
@@ -200,11 +201,11 @@ TEMPERATURE 0
 SEED 42'''
 
 [[tiers.pool.stages]]
-brief = "Confirm deterministic sampling. Append: «DETERMINISTIC True»"
+brief = "Confirm stochastic sampling is disabled. Append: «GREEDY True»"
 expect = '''
 TEMPERATURE 0
 SEED 42
-DETERMINISTIC True'''
+GREEDY True'''
 
 [[tiers.pool]]
 t = "THE TENSOR SLICE"
@@ -231,29 +232,28 @@ DIM 8
 VOLUME 64'''
 
 [[tiers.pool]]
-t = "THE ARCHITECTURE RUN"
+t = "THE MAP READ ALOUD"
 starter = '''
-arch = 1200
-revision = 1
-# Form the vessel's architecture code.
+config = {"base": "Qwen3-8B", "rank": 16}
+# Read the map, then forge a name from its parts.
 '''
 
 [[tiers.pool.stages]]
-brief = "Sum the components. Print exactly: «CODE 1201»"
-expect = "CODE 1201"
+brief = "Read the base. Print exactly: «BASE Qwen3-8B»"
+expect = "BASE Qwen3-8B"
 
 [[tiers.pool.stages]]
-brief = "Prefix with 'gfx'. Append: «ARCH gfx1201»"
+brief = "Read the rank. Append: «RANK 16»"
 expect = '''
-CODE 1201
-ARCH gfx1201'''
+BASE Qwen3-8B
+RANK 16'''
 
 [[tiers.pool.stages]]
-brief = "Confirm PyTorch target. Append: «TORCH_ROCM_ARCH=gfx1201»"
+brief = "Forge the adapter path. Append: «PATH adapters/Qwen3-8B_rank-16»"
 expect = '''
-CODE 1201
-ARCH gfx1201
-TORCH_ROCM_ARCH=gfx1201'''
+BASE Qwen3-8B
+RANK 16
+PATH adapters/Qwen3-8B_rank-16'''
 
 # ---- difficulty 3
 [[tiers]]
@@ -334,29 +334,28 @@ KV 1.0 GB
 TOTAL 8.0 GB'''
 
 [[tiers.pool]]
-t = "THE BITS-PER-WEIGHT"
+t = "THE MEASURED ARTIFACT"
 starter = '''
-params_billion = 7
-bits = 4
-# Calculate the compressed vessel's size.
+artifact_bytes = 5239497728
+master_bytes = 16900000000
 '''
 
 [[tiers.pool.stages]]
-brief = "Calculate total bits. Print exactly: «BITS 28 BILLION»"
-expect = "BITS 28 BILLION"
+brief = "Convert measured bytes to GiB. Print exactly: «SIZE 4.88 GiB»"
+expect = "SIZE 4.88 GiB"
 
 [[tiers.pool.stages]]
-brief = "Convert to bytes (divide by 8). Append: «BYTES 3.5 BILLION»"
+brief = "Compute the child/master ratio. Append: «RATIO 0.31»"
 expect = '''
-BITS 28 BILLION
-BYTES 3.5 BILLION'''
+SIZE 4.88 GiB
+RATIO 0.31'''
 
 [[tiers.pool.stages]]
-brief = "State the GB requirement. Append: «VRAM 3.5 GB»"
+brief = "Confirm the result came from bytes. Append: «MEASURED True»"
 expect = '''
-BITS 28 BILLION
-BYTES 3.5 BILLION
-VRAM 3.5 GB'''
+SIZE 4.88 GiB
+RATIO 0.31
+MEASURED True'''
 
 [[tiers.pool]]
 t = "THE FULL FINETUNE TOLL"
@@ -414,53 +413,52 @@ SOURCES 2
 LEAKAGE False'''
 
 [[tiers.pool]]
-t = "THE ONE-STEP WITNESS"
+t = "THE SANITIZED LEDGER"
 starter = '''
-result = {"steps": 1, "peak_gb": 13.2, "adapter_saved": True}
-# Decide whether the dry run is evidence.
+rejections = {"pii": 3, "duplicate": 2, "no-consent": 1}
+# Count reasons without retaining rejected text.
 '''
 
 [[tiers.pool.stages]]
-brief = "Print completed steps. Print exactly: «STEPS 1»"
-expect = "STEPS 1"
+brief = "Count rejection categories. Print exactly: «CATEGORIES 3»"
+expect = "CATEGORIES 3"
 
 [[tiers.pool.stages]]
-brief = "Print peak memory. Append: «PEAK 13.2 GB»"
+brief = "Count rejected rows. Append: «REJECTED 6»"
 expect = '''
-STEPS 1
-PEAK 13.2 GB'''
+CATEGORIES 3
+REJECTED 6'''
 
 [[tiers.pool.stages]]
-brief = "Require one step, saved adapter, and peak below 15 GB. Append: «DRY PASS»"
+brief = "Confirm the ledger contains counts only. Append: «SANITIZED True»"
 expect = '''
-STEPS 1
-PEAK 13.2 GB
-DRY PASS'''
+CATEGORIES 3
+REJECTED 6
+SANITIZED True'''
 
 [[tiers.pool]]
-t = "THE ADAPTER SEAM"
+t = "THE TEMPLATE IDENTITY"
 starter = '''
-rank = 16
-scaling_factor = 2
-# The bind requires proper hyperparameters.
+files = {"config": True, "tokenizer": True, "template": True}
+# The curation contract must freeze every template owner.
 '''
 
 [[tiers.pool.stages]]
-brief = "State the rank. Print exactly: «RANK 16»"
-expect = "RANK 16"
+brief = "Count identity files. Print exactly: «FILES 3»"
+expect = "FILES 3"
 
 [[tiers.pool.stages]]
-brief = "Calculate the required alpha (rank * scaling_factor). Append: «ALPHA 32»"
+brief = "Count present hashes. Append: «HASHED 3»"
 expect = '''
-RANK 16
-ALPHA 32'''
+FILES 3
+HASHED 3'''
 
 [[tiers.pool.stages]]
-brief = "State the ratio (alpha / rank). Append: «RATIO 2.0»"
+brief = "Judge the template identity. Append: «TEMPLATE PASS»"
 expect = '''
-RANK 16
-ALPHA 32
-RATIO 2.0'''
+FILES 3
+HASHED 3
+TEMPLATE PASS'''
 
 [[tiers.pool]]
 t = "THE MASK DIAGNOSTIC"
@@ -487,285 +485,277 @@ SUPERVISED 3
 BOUNDARY True'''
 
 [[tiers.pool]]
-t = "THE PARAMETER COUNT"
+t = "THE DELETION MAP"
 starter = '''
-modules = 4
-rank = 8
-dim = 4096
-# Calculate the low-rank delta parameters.
+derivatives = ["curated", "adapter", "gguf", "ollama"]
+covered = {"curated", "adapter", "gguf", "ollama"}
+# A source deletion must propagate through every derivative.
 '''
 
 [[tiers.pool.stages]]
-brief = "Calculate parameters per module (2 * rank * dim). Print exactly: «PER_MODULE 65536»"
-expect = "PER_MODULE 65536"
+brief = "Count derivative classes. Print exactly: «DERIVATIVES 4»"
+expect = "DERIVATIVES 4"
 
 [[tiers.pool.stages]]
-brief = "Calculate total adapter parameters. Append: «TOTAL 262144»"
+brief = "Count covered classes. Append: «COVERED 4»"
 expect = '''
-PER_MODULE 65536
-TOTAL 262144'''
+DERIVATIVES 4
+COVERED 4'''
 
 [[tiers.pool.stages]]
-brief = "State the megabytes (2 bytes per param). Append: «SIZE 0.52 MB»"
+brief = "Judge the deletion map. Append: «DELETION PASS»"
 expect = '''
-PER_MODULE 65536
-TOTAL 262144
-SIZE 0.52 MB'''
+DERIVATIVES 4
+COVERED 4
+DELETION PASS'''
 
 # ---- difficulty 5
 [[tiers]]
 
 [[tiers.pool]]
-t = "THE DOCUMENT QUERY"
+t = "THE TARGET GRAPH"
 starter = '''
-api_calls = ["encode_document", "encode_document", "encode_query"]
-# Verify asymmetric embedding intent.
+layers = 36
+projections = 7
+# Count every all-linear target, not one illustrative layer.
 '''
 
 [[tiers.pool.stages]]
-brief = "Count all calls. Print exactly: «CALLS 3»"
-expect = "CALLS 3"
+brief = "Print transformer layers. Print exactly: «LAYERS 36»"
+expect = "LAYERS 36"
 
 [[tiers.pool.stages]]
-brief = "Count document encodes. Append: «DOCUMENTS 2»"
+brief = "Print projections per layer. Append: «PROJECTIONS 7»"
 expect = '''
-CALLS 3
-DOCUMENTS 2'''
+LAYERS 36
+PROJECTIONS 7'''
 
 [[tiers.pool.stages]]
-brief = "Count query encodes. Append: «QUERIES 1»"
+brief = "Compute targeted modules. Append: «TARGETS 252»"
 expect = '''
-CALLS 3
-DOCUMENTS 2
-QUERIES 1'''
+LAYERS 36
+PROJECTIONS 7
+TARGETS 252'''
 
 [[tiers.pool]]
-t = "THE CITED RETURN"
+t = "THE TRAINABLE COUNT"
 starter = '''
-results = [
-    {"score": 0.82, "source": "typography.md"},
-    {"score": 0.71, "source": "notes.md"},
-]
-# Preserve ranking and provenance.
+rank = 16
+per_layer = 1212416
+# Scale the measured graph-wide LoRA count.
 '''
 
 [[tiers.pool.stages]]
-brief = "Print the top score. Print exactly: «TOP 0.82»"
-expect = "TOP 0.82"
+brief = "Print the rank. Print exactly: «RANK 16»"
+expect = "RANK 16"
 
 [[tiers.pool.stages]]
-brief = "Print the top source. Append: «SOURCE typography.md»"
+brief = "Print one-layer parameters. Append: «PER_LAYER 1212416»"
 expect = '''
-TOP 0.82
-SOURCE typography.md'''
+RANK 16
+PER_LAYER 1212416'''
 
 [[tiers.pool.stages]]
-brief = "Confirm every result is citeable. Append: «CITEABLE True»"
+brief = "Compute 36-layer parameters. Append: «TOTAL 43646976»"
 expect = '''
-TOP 0.82
-SOURCE typography.md
-CITEABLE True'''
+RANK 16
+PER_LAYER 1212416
+TOTAL 43646976'''
 
 [[tiers.pool]]
-t = "THE ORTHOGONAL WARD"
+t = "THE CONTROLLED SWEEP"
 starter = '''
-vec_a = [1, 0]
-vec_b = [0, 1]
-# A rival challenges the similarity of two thoughts.
+trials = [{"id": "A", "critical": 0, "score": 1.5},
+          {"id": "B", "critical": 0, "score": 1.7},
+          {"id": "C", "critical": 1, "score": 1.9}]
 '''
 
 [[tiers.pool.stages]]
-brief = "Calculate the dot product. Print exactly: «DOT 0»"
-expect = "DOT 0"
+brief = "Count trials. Print exactly: «TRIALS 3»"
+expect = "TRIALS 3"
 
 [[tiers.pool.stages]]
-brief = "Since both are normalized, dot product is cosine similarity. Append: «COSINE 0»"
+brief = "Count zero-critical trials. Append: «SAFE 2»"
 expect = '''
-DOT 0
-COSINE 0'''
+TRIALS 3
+SAFE 2'''
 
 [[tiers.pool.stages]]
-brief = "Are they orthogonal? Append: «ORTHOGONAL True»"
+brief = "Choose the safe score at least 1.6. Append: «SELECT B»"
 expect = '''
-DOT 0
-COSINE 0
-ORTHOGONAL True'''
+TRIALS 3
+SAFE 2
+SELECT B'''
 
 [[tiers.pool]]
-t = "THE CHUNK STRIDE"
+t = "THE DRY HEADROOM"
 starter = '''
-chunk_size = 200
-overlap = 30
-total_tokens = 500
-# The Distiller commands you to portion the quintessence.
+physical_gib = 16.0
+reserved_gib = 13.4
+required_gib = 2.0
 '''
 
 [[tiers.pool.stages]]
-brief = "Calculate the effective stride (size - overlap). Print exactly: «STRIDE 170»"
-expect = "STRIDE 170"
+brief = "Compute free memory. Print exactly: «FREE 2.6 GiB»"
+expect = "FREE 2.6 GiB"
 
 [[tiers.pool.stages]]
-brief = "Calculate the start of the second chunk. Append: «CHUNK_2_START 170»"
+brief = "Print the required headroom. Append: «REQUIRED 2.0 GiB»"
 expect = '''
-STRIDE 170
-CHUNK_2_START 170'''
+FREE 2.6 GiB
+REQUIRED 2.0 GiB'''
 
 [[tiers.pool.stages]]
-brief = "Calculate the start of the third chunk. Append: «CHUNK_3_START 340»"
+brief = "Judge the dry step. Append: «DRY PASS»"
 expect = '''
-STRIDE 170
-CHUNK_2_START 170
-CHUNK_3_START 340'''
+FREE 2.6 GiB
+REQUIRED 2.0 GiB
+DRY PASS'''
 
 [[tiers.pool]]
-t = "THE PRECISION RITE"
+t = "THE RELOAD SEAL"
 starter = '''
-retrieved = ["A", "B", "C", "D"]
-relevant = ["B", "E"]
-# Measure the truth in the grimoire's return.
+files = {"config": True, "weights": True, "manifest": True}
+fresh_reload = True
 '''
 
 [[tiers.pool.stages]]
-brief = "Count the retrieved items. Print exactly: «RETRIEVED 4»"
-expect = "RETRIEVED 4"
+brief = "Count required files. Print exactly: «FILES 3»"
+expect = "FILES 3"
 
 [[tiers.pool.stages]]
-brief = "Count the relevant items in the retrieved set. Append: «MATCHES 1»"
+brief = "Count present files. Append: «PRESENT 3»"
 expect = '''
-RETRIEVED 4
-MATCHES 1'''
+FILES 3
+PRESENT 3'''
 
 [[tiers.pool.stages]]
-brief = "Calculate Precision@4 (Matches / Retrieved). Append: «PRECISION 0.25»"
+brief = "Require all files and a fresh reload. Append: «ADAPTER PASS»"
 expect = '''
-RETRIEVED 4
-MATCHES 1
-PRECISION 0.25'''
+FILES 3
+PRESENT 3
+ADAPTER PASS'''
 
 # ---- difficulty 6
 [[tiers]]
 
 [[tiers.pool]]
-t = "THE SERVED REGRESSION"
+t = "THE PAIRED DIFFERENCE"
 starter = '''
-stages = {"adapter": True, "merged": True, "served": False}
-# Find the first boundary that changed behavior.
+settings = {"base_digest": "a1", "prompt_hash": "b2", "adapter_only": True}
 '''
 
 [[tiers.pool.stages]]
-brief = "Count stages. Print exactly: «STAGES 3»"
-expect = "STAGES 3"
+brief = "Count frozen identities. Print exactly: «IDENTITIES 3»"
+expect = "IDENTITIES 3"
 
 [[tiers.pool.stages]]
-brief = "Count passing stages. Append: «PASSED 2»"
+brief = "Count matching fixed values. Append: «FROZEN 3»"
 expect = '''
-STAGES 3
-PASSED 2'''
+IDENTITIES 3
+FROZEN 3'''
 
 [[tiers.pool.stages]]
-brief = "Print the failing boundary. Append: «FAILED served»"
+brief = "Confirm only adapter state changes. Append: «PAIRED True»"
 expect = '''
-STAGES 3
-PASSED 2
-FAILED served'''
+IDENTITIES 3
+FROZEN 3
+PAIRED True'''
 
 [[tiers.pool]]
-t = "THE REBUILD MANIFEST"
+t = "THE BLIND ORDER"
 starter = '''
-expected = {"adapter": "a1", "rag": "b2", "policy": "c3"}
-rebuilt = {"adapter": "a1", "rag": "b2", "policy": "c3"}
-# Compare immutable identities.
+labels = ["B", "A", "B", "A"]
+reveal_key_saved = True
 '''
 
 [[tiers.pool.stages]]
-brief = "Count expected components. Print exactly: «COMPONENTS 3»"
-expect = "COMPONENTS 3"
+brief = "Count presentations. Print exactly: «CASES 4»"
+expect = "CASES 4"
 
 [[tiers.pool.stages]]
-brief = "Count matching hashes. Append: «MATCHES 3»"
+brief = "Count A labels. Append: «A_COUNT 2»"
 expect = '''
-COMPONENTS 3
-MATCHES 3'''
+CASES 4
+A_COUNT 2'''
 
 [[tiers.pool.stages]]
-brief = "Declare the fresh rebuild verdict. Append: «REBUILD PASS»"
+brief = "Confirm the reveal key stayed separate. Append: «BLIND True»"
 expect = '''
-COMPONENTS 3
-MATCHES 3
-REBUILD PASS'''
+CASES 4
+A_COUNT 2
+BLIND True'''
 
 [[tiers.pool]]
-t = "THE ALIGNMENT SEAL"
+t = "THE REGRESSION GATE"
 starter = '''
-base_model = "Qwen3-8B"
-adapter_path = "artifacts/adapter"
-# The artificer must merge the final vessel.
+base = [True, True, False, True]
+adapted = [True, False, True, True]
 '''
 
 [[tiers.pool.stages]]
-brief = "Print the base model name. Print exactly: «BASE Qwen3-8B»"
-expect = "BASE Qwen3-8B"
+brief = "Count base-qualified cases. Print exactly: «QUALIFIED 3»"
+expect = "QUALIFIED 3"
 
 [[tiers.pool.stages]]
-brief = "Print the adapter path. Append: «ADAPTER artifacts/adapter»"
+brief = "Count newly failed cases. Append: «REGRESSIONS 1»"
 expect = '''
-BASE Qwen3-8B
-ADAPTER artifacts/adapter'''
+QUALIFIED 3
+REGRESSIONS 1'''
 
 [[tiers.pool.stages]]
-brief = "State the merged identifier. Append: «MERGED Qwen3-8B+artifacts/adapter»"
+brief = "Apply the starter policy of at most one. Append: «GATE PASS»"
 expect = '''
-BASE Qwen3-8B
-ADAPTER artifacts/adapter
-MERGED Qwen3-8B+artifacts/adapter'''
+QUALIFIED 3
+REGRESSIONS 1
+GATE PASS'''
 
 [[tiers.pool]]
-t = "THE QUANTIZATION COMPROMISE"
+t = "THE CRITICAL WARD"
 starter = '''
-fp16_size = 16.0
-target_format = "Q4_K_M"
-# Prepare the vessel for serving.
+critical_flags = [False, False, False]
+aggregate_score = 1.8
 '''
 
 [[tiers.pool.stages]]
-brief = "State the original size. Print exactly: «ORIGINAL 16.0 GB»"
-expect = "ORIGINAL 16.0 GB"
+brief = "Count critical cases. Print exactly: «CRITICALS 3»"
+expect = "CRITICALS 3"
 
 [[tiers.pool.stages]]
-brief = "State the target format. Append: «FORMAT Q4_K_M»"
+brief = "Count failures. Append: «FAILURES 0»"
 expect = '''
-ORIGINAL 16.0 GB
-FORMAT Q4_K_M'''
+CRITICALS 3
+FAILURES 0'''
 
 [[tiers.pool.stages]]
-brief = "Estimate 4-bit size as one quarter of F16. Append: «SERVED 4.0 GB»"
+brief = "Apply the zero-tolerance ward. Append: «WARD PASS»"
 expect = '''
-ORIGINAL 16.0 GB
-FORMAT Q4_K_M
-SERVED 4.0 GB'''
+CRITICALS 3
+FAILURES 0
+WARD PASS'''
 
 [[tiers.pool]]
-t = "THE OLLAMA MODIFICATION"
+t = "THE MERGE PERMIT"
 starter = '''
-gguf_path = "homunculus-q4_k_m.gguf"
-temperature = 0.2
-# Keep the GGUF's embedded Qwen template.
+verdict = "MERGE"
+permitted_hash = "a1b2"
+adapter_hash = "a1b2"
 '''
 
 [[tiers.pool.stages]]
-brief = "State the FROM directive. Print exactly: «FROM homunculus-q4_k_m.gguf»"
-expect = "FROM homunculus-q4_k_m.gguf"
+brief = "Print the verdict. Print exactly: «VERDICT MERGE»"
+expect = "VERDICT MERGE"
 
 [[tiers.pool.stages]]
-brief = "State the sampling parameter. Append: «PARAMETER temperature 0.2»"
+brief = "Confirm the hashes match. Append: «HASH_MATCH True»"
 expect = '''
-FROM homunculus-q4_k_m.gguf
-PARAMETER temperature 0.2'''
+VERDICT MERGE
+HASH_MATCH True'''
 
 [[tiers.pool.stages]]
-brief = "Confirm no guessed template was added. Append: «NATIVE_TEMPLATE True»"
+brief = "Judge authorization. Append: «PERMIT PASS»"
 expect = '''
-FROM homunculus-q4_k_m.gguf
-PARAMETER temperature 0.2
-NATIVE_TEMPLATE True'''
+VERDICT MERGE
+HASH_MATCH True
+PERMIT PASS'''
 

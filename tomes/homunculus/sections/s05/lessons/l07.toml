@@ -1,0 +1,113 @@
+[[lessons]]
+id = "s05-l07"
+teaches = ["adapter-artifact"]
+title = "Prove and Fingerprint the Adapter"
+body = '''
+<p>The successful bind produces <code>artifacts/adapters/bind-001/</code>, not a second copy of Qwen. The directory must contain <code>adapter_config.json</code>, adapter weights such as <code>adapter_model.safetensors</code>, and tokenizer/template files saved by the course command. Open the config and confirm <code>base_model_name_or_path</code> identifies <code>Qwen/Qwen3-8B</code>, rank and alpha match the run, and the weight file is nonempty.</p>
+<p>Now make the artifact accountable. Hash every file with SHA-256 and write <code>runs/bind-001/artifact-manifest.json</code> containing the run id, base id, curated train/eval hashes, training configuration, package versions, metrics path, and adapter-file hashes. A directory name like <code>r16-final-final</code> is not provenance. The manifest is how the merge stage proves it is sealing the adapter that passed evaluation.</p>
+<pre><code>import hashlib
+import json
+from pathlib import Path
+
+def sha256(path):
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+adapter_dir = Path("artifacts/adapters/bind-001")
+files = {str(path.relative_to(adapter_dir)): sha256(path)
+         for path in sorted(adapter_dir.rglob("*")) if path.is_file()}
+manifest = {
+    "run_id": "bind-001",
+    "base_id": "Qwen/Qwen3-8B",
+    "adapter_files": files,
+}
+Path("runs/bind-001/artifact-manifest.json").write_text(
+    json.dumps(manifest, indent=2) + "\n", encoding="utf-8")</code></pre>
+<p>Reload the adapter onto the same quantized base in a fresh process and run one held-out prompt. The purpose is not to declare quality from one answer; it is to prove that the saved artifact is loadable and changes inference without relying on the in-memory trainer. Keep the standalone adapter even after merging. Section IX loads a fresh full-precision base on CPU, attaches this proved adapter, and merges a copy. It must not merge the four-bit training object and assume a full-precision model appeared.</p>
+<div class="callout">Exit bar: saved config and safetensors, base identity match, fresh-process reload, manifest hashes, finite metrics, and no evaluation prompt copied into training.</div>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // RELOAD BREAKS HIDDEN DEPENDENCIES</div>
+<p>Testing inside the trainer process can accidentally rely on in-memory state, an unsaved tokenizer, or a modified model object. Exit, start a fresh process, load the pinned base and only the saved adapter directory, then run a known prompt. That procedure defines what the artifact actually contains and what a later merge can reproduce.</p></div>
+'''
+
+[[lessons.readings]]
+label = "PEFT checkpoint format"
+url = "https://huggingface.co/docs/peft/v0.19.1/developer_guides/checkpoint"
+
+[[lessons.exercises]]
+id = "s05-l07-e1"
+type = "mc"
+points = 20
+prompt = "What does the adapter directory deliberately omit?"
+choices = [
+  "adapter_config.json",
+  "A full duplicate of the frozen 8B base weights",
+  "adapter_model.safetensors",
+  "tokenizer configuration",
+]
+answer = 1
+whyWrong = "The configuration and learned adapter weights are the artifact; only the unchanged multi-gigabyte base is referenced rather than duplicated."
+explain = "PEFT stores the learned delta and the information needed to attach it."
+hint = "Which part never changed during training?"
+
+[[lessons.exercises]]
+id = "s05-l07-e2"
+type = "text"
+points = 15
+prompt = "Which hash algorithm fingerprints the adapter files?"
+answer = "SHA-256"
+accept = ["sha256", "sha-256"]
+hint = "It is the hashlib function in the manifest snippet."
+
+[[lessons.exercises]]
+id = "s05-l07-e3"
+type = "fill"
+points = 20
+prompt = "Complete the required base identity in the manifest."
+code = '''manifest = {
+    "base_id": "____",
+}'''
+answer = "Qwen/Qwen3-8B"
+hint = "An adapter must attach to the exact base used for training."
+
+[[lessons.exercises]]
+id = "s05-l07-e4"
+type = "mc"
+points = 20
+prompt = "Why reload in a fresh process?"
+choices = [
+  "It increases LoRA rank",
+  "It moves eval rows into train",
+  "It proves the on-disk adapter is sufficient and not accidentally relying on trainer memory",
+  "It quantizes to GGUF",
+]
+answer = 2
+whyWrong = "Reload verification does not change configuration, data splits, or serving format."
+explain = "A persisted artifact must survive process boundaries before downstream stages trust it."
+hint = "The thing being tested is persistence."
+
+[[lessons.exercises]]
+id = "s05-l07-e5"
+type = "write"
+points = 35
+prompt = "Select nonempty required files and print exactly: VERIFIED 2"
+starter = '''sizes = {
+    "adapter_config.json": 912,
+    "adapter_model.safetensors": 42_000_000,
+    "README.md": 0,
+}
+required = {"adapter_config.json", "adapter_model.safetensors"}
+
+verified = []
+print(f"VERIFIED {len(verified)}")
+'''
+solution = '''sizes = {
+    "adapter_config.json": 912,
+    "adapter_model.safetensors": 42_000_000,
+    "README.md": 0,
+}
+required = {"adapter_config.json", "adapter_model.safetensors"}
+
+verified = [name for name in required if sizes.get(name, 0) > 0]
+print(f"VERIFIED {len(verified)}")
+'''
+expect = "VERIFIED 2"
+hint = "Keep required names whose recorded size is greater than zero."

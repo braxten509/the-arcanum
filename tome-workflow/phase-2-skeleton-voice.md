@@ -246,7 +246,7 @@ For course-map version 6, preserve and complete the language-neutral `mechanismC
 Capabilities state broad outcomes; mechanisms name the concrete required keyword, syntax form,
 operator, API, tool action, or technical term. Give each mechanism a stable kebab-case `id`, a
 plain `label`, a language-neutral kebab-case `kind` (for example `syntax-form`, `api`, or
-`tool-action`), and exactly one lesson `owner`. Every lesson node includes `introduces = []` and
+`tool-action`), exactly one lesson `owner`, and a `detect` array. Every lesson node includes `introduces = []` and
 lists exactly the mechanisms it first teaches. Every Working node includes `mechanisms = []` and
 lists every mechanism its eventual learner-visible brief, rubric, proof, or hidden replay will
 unavoidably require. An owner must occur no later than any use. The Phase-3 author repeats these
@@ -256,8 +256,18 @@ also materially support its own section's Working or an unavoidable immediate pr
 that Working. Do not introduce the next catalog item without a milestone need, teach a prerequisite
 after its dependent use, or create a near-duplicate label for the same mechanism later.
 
+`detect` lists the literal spellings a learner would have to type for that mechanism, exactly as
+they appear in code — `["print("]`, `["import "]`, `["#"]`, `["=>", "->"]`. Keep significant
+whitespace; it is matched verbatim, never inside a longer identifier. This is the whole
+teach-before-use rule made checkable: the harness scans every authored example, starter, solution,
+reference step, proof, and code span for these spellings and blocks any that appear before their
+owner lesson, so a construct you can spell is caught in seconds instead of by a paid audit.
+Give `detect` the empty array only when the mechanism genuinely has no fixed spelling — a
+technical term like `iterable-collection`. A missing spelling is not a loophole; it just moves
+that mechanism back onto the slow, expensive path.
+
 Use this shape (with course-specific values):
-`"mechanismContract":{"version":1,"coverageStart":"s01","mechanisms":[{"id":"...","label":"...","kind":"syntax-form","owner":"s01.l01"}]}`.
+`"mechanismContract":{"version":1,"coverageStart":"s01","mechanisms":[{"id":"...","label":"...","kind":"syntax-form","owner":"s01.l01","detect":["..."]}]}`.
 Lesson nodes carry `"introduces":["..."]`; Working nodes carry
 `"mechanisms":["..."]`. Empty arrays are explicit.
 

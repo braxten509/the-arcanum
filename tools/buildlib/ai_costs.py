@@ -10,6 +10,14 @@ from decimal import Decimal, ROUND_HALF_UP
 
 from .costing import (GPT_MODELS, MODEL_PRICES, PRICED_MODELS, PRICING_SOURCE,
                       PRICING_VERSION)
+from .costing.counters import (
+    USAGE_KEYS,
+    counter_key as _counter_key,
+    delta as _delta,
+    implausible_delta,
+    normalize as _usage,
+    previous_counter as _previous_counter,
+)
 from .costing.storage import (
     atomic_json as _atomic_json,
     atomic_jsonl as _atomic_jsonl,
@@ -19,8 +27,6 @@ from .costing.storage import (
 
 
 TURN_LIMIT = 500
-USAGE_KEYS = ("inputTokens", "freshInputTokens", "cachedInputTokens",
-              "cacheWriteTokens", "outputTokens", "reasoningTokens", "totalTokens")
 USD_CENT = Decimal("0.01")
 
 
@@ -38,54 +44,6 @@ def _state_path(build_dir, build_id):
 
 def _lock_path(build_dir, build_id):
     return os.path.join(build_dir, f"{build_id}.ai-costs.lock")
-
-
-def _usage(value):
-    if not isinstance(value, dict):
-        return None
-    normalized = {key: max(0, int(value.get(key) or 0)) for key in USAGE_KEYS}
-    if not value.get("freshInputTokens") and normalized["inputTokens"]:
-        normalized["freshInputTokens"] = max(
-            0, normalized["inputTokens"] - normalized["cachedInputTokens"]
-            - normalized["cacheWriteTokens"])
-    if not normalized["totalTokens"]:
-        normalized["totalTokens"] = (normalized["inputTokens"]
-                                      + normalized["outputTokens"])
-    return normalized
-
-
-def _delta(current, previous):
-    if not previous:
-        return current
-    # A counter decrease means a provider-side session/reset boundary.
-    if any(current[key] < int(previous.get(key) or 0) for key in USAGE_KEYS):
-        return current
-    return {key: current[key] - int(previous.get(key) or 0) for key in USAGE_KEYS}
-
-
-def _counter_key(role, kind, session_id):
-    return "|".join((str(role), str(kind), str(session_id)))
-
-
-def _previous_counter(counters, role, kind, model, session_id):
-    """Read new session-scoped counters and migrate the former model-scoped key.
-
-    Codex can resume one cumulative-usage session with a different model. The model
-    must select the rate for the new delta, but it must not reset the token counter.
-    """
-    key = _counter_key(role, kind, session_id)
-    if key in counters:
-        return key, counters[key]
-    legacy = "|".join((str(role), str(kind), str(model), str(session_id)))
-    if legacy in counters:
-        return key, counters[legacy]
-    prefix, suffix = f"{role}|{kind}|", f"|{session_id}"
-    candidates = [value for name, value in counters.items()
-                  if str(name).startswith(prefix) and str(name).endswith(suffix)
-                  and isinstance(value, dict)]
-    previous = max(candidates, key=lambda value: int(value.get("totalTokens") or 0),
-                   default=None)
-    return key, previous
 
 
 def _cost(model, usage):
@@ -271,6 +229,17 @@ def record_ai_turn(build_dir, build_id, *, phase, role, stage, kind, model,
                 previous = _usage(usage_baseline)
             turn_usage = _delta(current_usage, previous)
             counters[counter_key] = current_usage
+        rejected = implausible_delta(
+            turn_usage, ended_at - started_at) if usage_mode == "cumulative" else ""
+        rejected_usage = None
+        if rejected:
+            # Charging this would both misreport the run and trip the section
+            # budget pause on money nobody spent. Drop it from every total, keep
+            # the whole delta on the row, and let the refreshed counter above
+            # make the next turn's baseline correct.
+            print(f"AI COST WARNING › rejected an implausible turn delta › {rejected}",
+                  flush=True)
+            rejected_usage, turn_usage = turn_usage, None
         equivalent, rates = _cost(model, turn_usage)
         tracked_model = str(model or "") in PRICED_MODELS
         claude_model = str(model or "").startswith("claude-")
@@ -300,7 +269,10 @@ def record_ai_turn(build_dir, build_id, *, phase, role, stage, kind, model,
             "counterBaseline": (_usage(usage_baseline)
                                 if usage_mode == "cumulative"
                                 and usage_baseline is not None else None),
-            "pricingStatus": ("priced" if equivalent is not None
+            **({"rejectedUsage": rejected_usage, "rejectedReason": rejected}
+               if rejected else {}),
+            "pricingStatus": ("implausible-counter-delta" if rejected
+                              else "priced" if equivalent is not None
                               else "usage-unavailable" if not turn_usage else "model-unpriced"),
             "pricingVersion": PRICING_VERSION, "pricingSource": PRICING_SOURCE,
             "ratesPerMillion": rates, "apiEquivalentUsd": equivalent,

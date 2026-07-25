@@ -12,12 +12,21 @@ from ..workflow.prompts import LEARNER_CONSTRUCTION_INSTRUCTION
 
 
 def inventory(tid):
-    """Return every authored tome file plus the selected shared runtime config."""
+    """Return every authored file the reviewer must read and may repair.
+
+    Continuity handoffs belong here even though they sit outside the tome folder.
+    They are author-owned prose about how each section leaves the project, they are
+    graded by the same strict gate the reviewer is graded by, and a repair the
+    reviewer cannot cite as a finding is a repair it will not make.
+    """
+    from ..continuity import handoff_dir
     root = os.path.join(REPO, "tomes", tid)
     paths = []
-    if os.path.isdir(root):
-        for dirpath, dirs, names in os.walk(root):
-            dirs[:] = sorted(name for name in dirs if name != "save")
+    for base, skip_save in ((root, True), (handoff_dir(tid), False)):
+        if not os.path.isdir(base):
+            continue
+        for dirpath, dirs, names in os.walk(base):
+            dirs[:] = sorted(name for name in dirs if not (skip_save and name == "save"))
             for name in sorted(names):
                 path = os.path.join(dirpath, name)
                 if os.path.isfile(path):
@@ -55,10 +64,14 @@ claims. Review the entire tome as both a first-time learner and an adversarial t
 Check teaching completeness, correctness, continuity, cumulative code, exercises, hints,
 rubrics, runtime agreement, acceptance behavior, accessibility, delivery, and learner-facing
 clarity. Open the reconstructed learner project and proof evidence when the tome references
-them. Fix anything you see fit directly in the authored tome or its selected runtime config.
-Preserve correct work. Do not edit unrelated tomes, runtime configs, engine code, validators, or
-harness evidence. Do not spawn another reviewer. The harness will independently run strict
-shipping validation and live smoke checks after you stop.
+them. Fix anything you see fit directly in the authored tome, its continuity handoffs, or its
+selected runtime config. Preserve correct work. Do not edit unrelated tomes, runtime configs,
+engine code, validators, or harness evidence beyond those files. Do not spawn another reviewer.
+After you stop, the harness independently runs strict shipping validation, EVERY SECTION'S OWN
+validator gate, and live smoke checks. The per-section gate catches what a tome-wide pass averages
+away — most often an answer-position spread that clusters inside one section while the pooled bank
+looks even — so check each section's question bank on its own terms, not the tome's.
+A handoff carries only what its schema already defines — fill blank fields, invent no keys.
 
 YOU ARE THE PRIMARY DEPTH GATE. Each section received at most a single advisory Validator-AI
 pass before this review — there was no per-section repair loop — so unresolved teaching defects
@@ -75,6 +88,13 @@ behind, and fix each where you find it:
   what was actually taught. Add the missing construction practice or correct the requirement.
 - TECHNICAL CORRECTNESS: any claim, command, or expected output that is wrong or unachievable in
   the taught workspace. Correct it and make the observable result match reality.
+- EMPTY CONTINUITY HANDOFF: an inventory handoff whose `artifact_state` is blank. The harness
+  creates that file but cannot know what it should say. Read the section, then write what the
+  learner's project actually looks like once that section ends — which artifacts now exist, what
+  runs, what the next section inherits. Change nothing else in the file.
+- STRAY LAYOUT: a file or section folder the validator reports as outside the layout contract,
+  including a section folder absent from `[content].sections`. Delete the debris, or list the
+  section in the manifest if it is genuinely meant to ship.
 If a stated requirement is genuinely unsatisfiable (for example it demands an external citation
 or artifact that cannot exist), repair it by relaxing the requirement to a taught, verifiable
 route rather than leaving a defect the tome can never resolve.
@@ -121,16 +141,22 @@ def validate_report(build_id, tid):
             or report.get("reviewMode") != "thorough-full-tome"
             or report.get("sampling") is not False):
         return False, "reviewMode must be thorough-full-tome and sampling must be false"
-    if report.get("filesReviewed") != expected:
-        missing = [path for path in expected if path not in (report.get("filesReviewed") or [])]
-        extra = [path for path in (report.get("filesReviewed") or []) if path not in expected]
-        detail = []
-        if missing:
-            detail.append("missing: " + ", ".join(missing))
-        if extra:
-            detail.append("unexpected: " + ", ".join(extra))
-        return False, "the reviewer did not attest to the exact full inventory" + (
-            " (" + "; ".join(detail) + ")" if detail else "")
+    reviewed = report.get("filesReviewed")
+    if not isinstance(reviewed, list) or any(not isinstance(item, str) for item in reviewed):
+        return False, "filesReviewed must be an array of inventory paths"
+    # The inventory is recomputed here, after the review, so deleting stray layout
+    # debris -- which the reviewer is told to do -- moves a path off it. Attesting a
+    # path that no longer exists is that deletion, and is allowed. Attesting one that
+    # still exists but was never in the inventory is a fabrication, and is not.
+    missing = [path for path in expected if path not in reviewed]
+    extra = [path for path in reviewed
+             if path not in expected and os.path.exists(os.path.join(REPO, path))]
+    if missing or extra:
+        detail = ([("missing: " + ", ".join(missing))] if missing else []) + (
+            [("unexpected: " + ", ".join(extra))] if extra else [])
+        return False, ("the reviewer did not attest to the exact full inventory ("
+                       + "; ".join(detail) + ")")
+    expected = set(expected) | set(reviewed)
     findings = report.get("findings")
     if not isinstance(findings, list):
         return False, "findings must be a JSON array"

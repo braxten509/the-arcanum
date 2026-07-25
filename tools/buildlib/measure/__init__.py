@@ -282,6 +282,28 @@ def validate_shipping(tid, tooling, plan_rel):
     return process.returncode == 0, (process.stdout + process.stderr).strip()
 
 
+def validate_every_section(tid, tooling, plan_rel):
+    """Re-run each section's own gate, which the whole-tome pass cannot stand in for.
+
+    Some checks read one section's bank at a time -- answer-position spread is the
+    plainest -- and the tome-wide pass pools every section, where one section's
+    clustering is averaged out by the other nine and no longer trips anything. The
+    author cleared these section by section. A reviewer graded only tome-wide is
+    never told which section fails, so it never fixes it, and the defect ships.
+    """
+    try:
+        with open(os.path.join(REPO, "tomes", tid, "tome.toml"), "rb") as handle:
+            manifest = tomllib.load(handle)
+    except (OSError, tomllib.TOMLDecodeError) as exc:
+        return False, f"cannot read tomes/{tid}/tome.toml to list its sections: {exc}"
+    reports = []
+    for sid in ((manifest.get("content") or {}).get("sections") or []):
+        ok, report = validate_section(tid, str(sid), tooling, plan_rel)
+        if not ok:
+            reports.append(f"section {sid}:\n{blocking_report(report)}")
+    return not reports, "\n\n".join(reports)
+
+
 def validate_live_smoke(tid):
     """Exercise loader, runtime, and grader-status routes after strict validation."""
     process = _run_harness_command(

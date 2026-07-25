@@ -13,13 +13,15 @@ from transformers import AutoTokenizer
 from trl import SFTConfig, SFTTrainer
 
 MODEL_ID = "Qwen/Qwen3-8B"
+MODEL_REVISION = "b968826d9c46dd6066d109eabc6255188de91218"
 
 def build_trainer(run_id, max_steps=-1):
     data = load_dataset("json", data_files={
-        "train": "data/curated/train.jsonl",
-        "eval": "data/curated/eval.jsonl",
+        "train": "private/dataset/train.jsonl",
+        "eval": "private/dataset/eval.jsonl",
     })
-    tokenizer = AutoTokenizer.from_pretrained(MODEL_ID)
+    tokenizer = AutoTokenizer.from_pretrained(
+        MODEL_ID, revision=MODEL_REVISION)
     args = SFTConfig(
         output_dir=f"runs/{run_id}/checkpoints",
         max_length=1024,
@@ -39,7 +41,8 @@ def build_trainer(run_id, max_steps=-1):
         gradient_checkpointing=True,
         report_to="none",
         seed=42,
-        model_init_kwargs={"dtype": "bfloat16", "use_cache": False},
+        model_init_kwargs={"revision": MODEL_REVISION,
+                           "dtype": "bfloat16", "use_cache": False},
     )
     return SFTTrainer(
         model=MODEL_ID,
@@ -59,19 +62,24 @@ def build_trainer(run_id, max_steps=-1):
 
 [[lessons.readings]]
 label = "TRL SFTTrainer"
-url = "https://huggingface.co/docs/trl/sft_trainer"
+url = "https://huggingface.co/docs/trl/v1.8.0/sft_trainer"
 
 [[lessons.readings]]
 label = "TRL dataset formats"
-url = "https://huggingface.co/docs/trl/dataset_formats"
+url = "https://huggingface.co/docs/trl/v1.8.0/dataset_formats"
 
 [[lessons.exercises]]
 id = "s05-l03-e1"
 type = "mc"
 points = 20
 prompt = "Which argument replaces the older tokenizer= parameter in this pinned TRL API?"
-choices = ["processing_class", "dataset_text_field", "formatting_func", "vocab_path"]
-answer = 0
+choices = [
+  "dataset_text_field",
+  "formatting_func",
+  "vocab_path",
+  "processing_class",
+]
+answer = 3
 whyWrong = "The other choices are old pathways or invented; current SFTTrainer receives the tokenizer through processing_class."
 explain = "The course code matches the installed TRL 1.8 interface."
 hint = "It is passed immediately after eval_dataset in the constructor."
@@ -99,7 +107,12 @@ id = "s05-l03-e4"
 type = "mc"
 points = 20
 prompt = "What does gradient accumulation of eight mean?"
-choices = ["Backward runs per microbatch, and the optimizer steps after eight accumulated microbatches", "Eight batches of activations are retained before any backward pass", "The model trains eight adapters at once", "The dataset is repeated eight epochs"]
+choices = [
+  "Backward runs per microbatch, and the optimizer steps after eight accumulated microbatches",
+  "Eight batches of activations are retained before any backward pass",
+  "The model trains eight adapters at once",
+  "The dataset is repeated eight epochs",
+]
 answer = 0
 whyWrong = "Accumulation delays the optimizer update; it does not multiply adapters, epochs, or simultaneous activation storage."
 explain = "It increases effective batch size while preserving a microbatch size of one."

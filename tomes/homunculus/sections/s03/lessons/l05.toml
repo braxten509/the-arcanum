@@ -3,20 +3,20 @@ id = "s03-l05"
 teaches = ["qlora-budget"]
 title = "QLoRA: Freeze the Vessel, Train the Bind"
 body = '''
-<p>The last rite proved full fine-tuning an 8B model needs six times the card's whole capacity. <strong>QLoRA</strong> is the answer, and it works by attacking the 12-bytes-per-parameter figure at its source: it never trains most of the parameters at all. The base model is loaded once, quantized to 4-bit, and then <strong>frozen</strong> — no gradients, no optimizer state, because a frozen weight is never updated. A small set of extra matrices, the <strong>LoRA adapters</strong>, are inserted alongside a handful of the frozen layers and are the only thing that actually trains.</p>
-<p>A LoRA adapter approximates "the change this fine-tune wants to make" as a low-rank update: instead of learning a full new weight matrix, it learns two small matrices whose product approximates the delta, at a fraction of the parameter count of the layer it modifies. Typical adapters land at well under 1% of the base model's parameter count. Run last rite's 12-bytes-per-parameter cost against only the adapter's parameters, not the base's 8 billion, and the training-state cost collapses from tens of gigabytes to tens of megabytes — the base model's 4-bit weights sit in VRAM as a large but completely static, gradient-free block.</p>
-<pre><code><span class="k">adapter_params</span> = 8_000_000    <span class="c">// ~0.1% of an 8B base</span>
+<p>The previous lesson proved full fine-tuning an 8B model needs six times the card's whole capacity. <strong>QLoRA</strong> attacks that ledger at its source: it never trains most of the parameters. The base model is loaded once, quantized to 4-bit, and then <strong>frozen</strong>—no base gradients or optimizer state because those weights are never updated. Extra <strong>LoRA adapter</strong> matrices are attached to the selected linear modules and are the only trainable weights.</p>
+<p>A LoRA adapter represents the desired update as two low-rank factors instead of a full new weight matrix. Parameter efficiency is graph-dependent: the Section V configuration targets every linear projection in all 36 Qwen3-8B layers. At rank 16, the calculated all-linear count is 43,646,976 trainable parameters, about 0.53% of the 8.19B base. Applying the simplified 12-byte training ledger to that measured count gives about 524 MB before activations and framework overhead—not a universal “tiny adapter” number.</p>
+<pre><code><span class="k">adapter_params</span> = 43_646_976  <span class="c"># pinned Qwen3-8B all-linear, rank 16</span>
 <span class="k">bytes_per_param</span> = {"weights": 2, "gradients": 2, "adam_m": 4, "adam_v": 4}
 adapter_gb = adapter_params * sum(bytes_per_param.values()) / 1_000_000_000</code></pre>
 <p>The "Q" in QLoRA specifically means the frozen base is stored in <strong>4-bit NF4</strong>, while matrix multiplication uses a higher compute dtype. <strong>bitsandbytes</strong> performs the blockwise dequantization during the forward pass. The pinned PyPI release used by this course publishes preview ROCm wheels that include <code>gfx1201</code> for the supported ROCm versions. That is why Section I verifies the installed package and the real architecture rather than installing an old source branch or disguising the card. Preview status still means the live dry run is the final compatibility proof; documentation support alone is not a successful training step.</p>
 <div class="callout">"QLoRA" names two separate ideas glued together: 4-bit quantization for the frozen base (the memory fix) and LoRA for the trainable delta (the compute fix). Confusing the two makes debugging harder — a quantization error and a LoRA rank error fail in different places for different reasons.</div>
 <div class="field-notes"><div class="fn-head">FIELD NOTES // WHY THE ADAPTER TRAINS IN HIGHER PRECISION</div>
-<p>Notice the adapter itself is NOT trained in 4-bit — it trains in <code>fp16</code>/<code>bf16</code>, same as a normal fine-tune, and only the frozen base sits at 4-bit. This isn't an inconsistency: gradients need enough numeric precision to actually represent a small update, and 4-bit has nowhere near the resolution for that. QLoRA's trick isn't "train everything at 4-bit" — it's "keep the huge static part cheap, and let the small trainable part keep the precision it actually needs." The next rite puts this adapter through its own judgment pass, the same discipline the summoning section built for judging chat output.</p></div>
+<p>Notice the adapter itself is NOT trained in 4-bit—it trains in <code>fp16</code>/<code>bf16</code>, while only the frozen base sits at 4-bit. This is not an inconsistency: gradients need enough numeric precision to represent a small update. QLoRA keeps the huge static part cheap and lets the much smaller trainable part retain working precision. Section V measures that path; Section VI judges the saved adapter on frozen held-out evidence.</p></div>
 '''
 
 [[lessons.readings]]
 label = "bitsandbytes ROCm installation targets"
-url = "https://huggingface.co/docs/bitsandbytes/installation"
+url = "https://huggingface.co/docs/bitsandbytes/v0.49.2/installation"
 
 [[lessons.exercises]]
 id = "s03-l05-e1"
@@ -25,14 +25,14 @@ points = 20
 prompt = "In QLoRA, why does freezing the base model's weights collapse the training-state cost this section worked out for full fine-tuning?"
 choices = [
   "Freezing converts the weights to a format that no longer takes up VRAM at all",
-  "A frozen weight never receives gradients or optimizer updates, so the 12-bytes-per-parameter training cost only ever applies to the small adapter, not the full base",
   "Freezing only matters for inference speed and has no effect on the training-state calculation",
+  "A frozen weight never receives gradients or optimizer updates, so the 12-bytes-per-parameter training cost only ever applies to the small adapter, not the full base",
   "Frozen weights are stored on the CPU instead of the GPU, so they never count toward the VRAM budget",
 ]
-answer = 1
+answer = 2
 whyWrong = "Frozen weights still occupy real VRAM (as the 4-bit base) and typically still sit on the GPU for the forward pass — freezing doesn't erase them or move them to the CPU, it just removes the gradient and optimizer-state cost that would otherwise apply to every one of their parameters."
-explain = "The 12-bytes-per-parameter figure from the last rite comes entirely from gradients and optimizer state, which only exist for trainable parameters — freeze the base and that cost applies only to the adapter's much smaller parameter count."
-hint = "Recall the last rite's breakdown: the 12 bytes/param came from 2 (weights) + 2 (gradients) + 4 (Adam mean) + 4 (Adam variance). Freezing a parameter removes three of those four line items — gradients and both Adam tracking values — because the frozen weight never gets an update and thus never needs them. The 4-bit base still occupies VRAM as static data, but the triple expense vanishes."
+explain = "The adapter carries trainable weights, gradients, and optimizer state; the frozen base carries quantized weights and metadata but no base gradients or optimizer state."
+hint = "For a frozen tensor, determine which training-state entries are still necessary and which exist only to update it."
 
 [[lessons.exercises]]
 id = "s03-l05-e2"
@@ -61,10 +61,10 @@ prompt = "Per this rite, what is the honest status of the pinned bitsandbytes wh
 choices = [
   "Completely unsupported with no path forward at all",
   "Fully stable and identical in reliability to the CUDA build, with no caveats",
-  "The current PyPI release publishes preview ROCm wheels that include gfx1201, so installation is supported but a real one-step QLoRA run remains the compatibility proof",
   "Only usable through Ollama, never through a raw transformers/PEFT training script",
+  "The current PyPI release publishes preview ROCm wheels that include gfx1201, so installation is supported but a real one-step QLoRA run remains the compatibility proof",
 ]
-answer = 2
+answer = 3
 whyWrong = "The package is a training-time PyTorch component, not an Ollama feature. Its documentation lists gfx1201 in preview ROCm wheels, which is more than unsupported and less than a guarantee that this exact model and kernel path will work."
 explain = "Documentation establishes that the target is packaged. The course's doctor and one-step dry run establish that the complete pinned stack actually works on this card without hiding it behind an architecture override."
 hint = "Choose the answer that treats published target support as a reason to test the real stack, not as either a dead end or a guarantee."
@@ -73,8 +73,8 @@ hint = "Choose the answer that treats published target support as a reason to te
 id = "s03-l05-e5"
 type = "type"
 points = 12
-prompt = "Retype the adapter memory calculation from the lesson, showing how the training-state cost collapses when only the adapter's parameters (not the base's) are trainable."
-code = '''adapter_params = 8_000_000
+prompt = "Retype the graph-wide adapter memory calculation for the pinned rank-16 all-linear target set."
+code = '''adapter_params = 43_646_976
 bytes_per_param = {"weights": 2, "gradients": 2, "adam_m": 4, "adam_v": 4}
 adapter_gb = adapter_params * sum(bytes_per_param.values()) / 1_000_000_000'''
 
@@ -82,21 +82,18 @@ adapter_gb = adapter_params * sum(bytes_per_param.values()) / 1_000_000_000'''
 id = "s03-l05-e6"
 type = "write"
 points = 35
-prompt = "Given <code>adapter_params = 8_000_000</code> and the <code>bytes_per_param</code> dict below, compute the adapter's training-state footprint in whole megabytes (sum the dict's values, multiply by adapter_params, integer-divide by 1,000,000) and print exactly: <code>ADAPTER FOOTPRINT 96 MB</code> — computed from the dict, not hardcoded."
-starter = '''adapter_params = 8_000_000
+prompt = "Given the graph-wide count and byte ledger, round the adapter's training-state footprint to the nearest decimal megabyte and print exactly: <code>ADAPTER FOOTPRINT 524 MB</code>."
+starter = '''adapter_params = 43_646_976
 bytes_per_param = {"weights": 2, "gradients": 2, "adam_m": 4, "adam_v": 4}
 
-# Implement: sum bytes_per_param's values, multiply by adapter_params,
-# integer-divide by 1_000_000 to get whole MB, then print:
-#   ADAPTER FOOTPRINT 96 MB
 footprint_mb = 0
 print(f"ADAPTER FOOTPRINT {footprint_mb} MB")
 '''
-expect = "ADAPTER FOOTPRINT 96 MB"
-solution = '''adapter_params = 8_000_000
+expect = "ADAPTER FOOTPRINT 524 MB"
+solution = '''adapter_params = 43_646_976
 bytes_per_param = {"weights": 2, "gradients": 2, "adam_m": 4, "adam_v": 4}
 
-footprint_mb = adapter_params * sum(bytes_per_param.values()) // 1_000_000
+footprint_mb = round(adapter_params * sum(bytes_per_param.values()) / 1_000_000)
 print(f"ADAPTER FOOTPRINT {footprint_mb} MB")
 '''
-hint = "total bytes/param is sum(bytes_per_param.values()) = 12, so footprint_mb = adapter_params * 12 // 1_000_000 (use // for a whole-number MB, not /)."
+hint = "Compute bytes from the supplied ledger, convert to decimal megabytes, then apply the requested rounding."

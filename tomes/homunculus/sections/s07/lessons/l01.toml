@@ -3,8 +3,8 @@ id = "s07-l01"
 teaches = ["embedding-contract"]
 title = "Separate What You Sound Like from What You Look Up"
 body = '''
-<p>The adapter learns relatively stable behavior and voice. External style guidance belongs in retrieval because it can change, can conflict by source, and should remain citeable. Start <code>data/references/sources.jsonl</code> with lawful local notes or short excerpts from authoritative pages—not an untracked scrape of entire websites. Each row names <code>source_id</code>, title, canonical URL, retrieval date, local Markdown path, and a rights/provenance note.</p>
-<pre><code>{"source_id":"notion-import","title":"Notion import guidance","url":"https://www.notion.com/help/import-data-into-notion","retrieved_at":"2026-07-13","path":"data/references/notion-import.md","rights_note":"Learner-authored summary with short attributed excerpts"}</code></pre>
+<p>The adapter learns relatively stable behavior and voice. External style guidance belongs in retrieval because it can change, can conflict by source, and should remain citeable. Start <code>private/references/sources.jsonl</code> with lawful local notes or short excerpts from authoritative pages—not an untracked scrape of entire websites. Each row names <code>source_id</code>, title, canonical URL, retrieval date, local Markdown path, SHA-256 of the local content, and a rights/provenance note.</p>
+<pre><code>{"source_id":"notion-import","title":"Notion import guidance","url":"https://www.notion.com/help/import-data-into-notion","retrieved_at":"2026-07-13","path":"private/references/notion-import.md","content_sha256":"&lt;64 hex characters&gt;","rights_note":"Learner-authored summary with short attributed excerpts"}</code></pre>
 <p>Use at least three sources: official Notion guidance for what standard Markdown imports cleanly, plus two writing or visual-style authorities you genuinely want the assistant to consult. In the local Markdown file, preserve headings and write only claims you can trace back to the URL. The retrieval system will cite <code>source_id</code> and URL; it cannot repair invented provenance later.</p>
 <p>The pinned embedder is <code>sentence-transformers/all-MiniLM-L6-v2</code>. It maps text to 384-dimensional vectors and has a limited input window, so documents must be chunked before encoding. Use the asymmetric API even though this model may map both through the same underlying prompt: <code>encode_document</code> for stored reference chunks and <code>encode_query</code> for user searches. That makes the document/query roles explicit and lets a later retrieval-specific embedder supply different prompts without rewriting the pipeline.</p>
 <pre><code>from sentence_transformers import SentenceTransformer
@@ -27,17 +27,6 @@ label = "Notion import guidance"
 url = "https://www.notion.com/help/import-data-into-notion"
 
 [[lessons.exercises]]
-id = "s07-l01-e1"
-type = "mc"
-points = 20
-prompt = "Using Section IV's separation between durable personal voice and replaceable source material, why does current external style guidance belong in RAG rather than adapter weights?"
-choices = ["It stays updateable, inspectable, and citeable without retraining", "Adapters cannot learn text", "FAISS changes GPU drivers", "Ollama requires URLs in weights"]
-answer = 0
-whyWrong = "Adapters can learn text; hardware and Ollama impose no such URL rule. The architectural reason is ownership and changeability."
-explain = "Retrieval keeps reference knowledge separable from personal voice."
-hint = "Ask how a corrected source is updated tomorrow."
-
-[[lessons.exercises]]
 id = "s07-l01-e2"
 type = "text"
 points = 15
@@ -45,6 +34,22 @@ prompt = "Which method encodes stored reference chunks?"
 answer = "encode_document"
 accept = ["embedder.encode_document", "encode_document()"]
 hint = "Queries use the paired query method."
+
+[[lessons.exercises]]
+id = "s07-l01-e1"
+type = "mc"
+points = 20
+prompt = "Using Section IV's separation between durable personal voice and replaceable source material, why does current external style guidance belong in RAG rather than adapter weights?"
+choices = [
+  "Adapters cannot learn text",
+  "It stays updateable, inspectable, and citeable without retraining",
+  "FAISS changes GPU drivers",
+  "Ollama requires URLs in weights",
+]
+answer = 1
+whyWrong = "Adapters can learn text; hardware and Ollama impose no such URL rule. The architectural reason is ownership and changeability."
+explain = "Retrieval keeps reference knowledge separable from personal voice."
+hint = "Ask how a corrected source is updated tomorrow."
 
 [[lessons.exercises]]
 id = "s07-l01-e3"
@@ -80,3 +85,11 @@ print(f"VALID {len(valid)}")
 '''
 expect = "VALID 1"
 hint = "Keep a row only if row.get(key) is truthy for every required key."
+
+[[lessons.exercises]]
+id = "s07-l01-e5"
+type = "type"
+points = 12
+reps = 2
+prompt = "Retype the immutable provenance keys every reference record must carry before chunking."
+code = '''required = ("source_id", "title", "url", "path", "content_sha256")'''

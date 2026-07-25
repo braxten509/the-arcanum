@@ -9,6 +9,8 @@ from ..course_map.plan import plan_contract_sha256
 from ..mechanism_contract import upgrade_map as _upgrade_mechanism_contract
 
 
+MECHANISM_MAP_VERSION = 4  # the shape `_upgrade_mechanism_contract` writes
+
 AUDITED_TOP_LEVEL_FIELDS = (
     "graduateContract", "graduateCapabilities", "masteryPerformances",
     "languageMastery", "masteryEvidence", "acceptanceScenarios",
@@ -107,7 +109,16 @@ def _load_amendable_map(build_id):
         return old
 
 
-def amend_course_map(build_id, candidate, reason):
+def amend_course_map(build_id, candidate, reason, *, upgrade=True):
+    """Replace a sealed map with an audited candidate.
+
+    ``upgrade=False`` amends the map at the schema it was sealed under. A map is a
+    contract over the TOME as well as itself -- a v4 map requires every exercise in the
+    tome to declare a mechanisms array -- so modernizing the map of a finished course
+    silently imposes hundreds of edits on content nobody asked to change. Callers that
+    regenerate their candidate from the tome each time pass False; a build still being
+    authored keeps the default and is brought forward.
+    """
     if not isinstance(reason, str) or len(reason.strip()) < 12:
         raise CourseMapError("an amendment needs a specific reason of at least 12 characters")
     if not isinstance(candidate, dict):
@@ -115,15 +126,23 @@ def amend_course_map(build_id, candidate, reason):
     old = _load_amendable_map(build_id)
     revised = copy.deepcopy(candidate)
     revised.pop("digest", None)
-    _upgrade_location_contract(revised, old.get("version"))
-    _upgrade_mechanism_contract(revised, old.get("version"))
+    if upgrade:
+        _upgrade_location_contract(revised, old.get("version"))
+        _upgrade_mechanism_contract(revised, old.get("version"))
     # An amendment preserves a legacy schema rather than manufacturing new Phase-1
     # authority after authoring has begun. New builds already enter at MAP_VERSION.
-    if int(old.get("version") or 0) >= 6:
+    if not upgrade:
+        revised["version"] = old.get("version")
+    elif int(old.get("version") or 0) >= 6:
         _upgrade_lesson_count_contract(revised, old.get("version"))
         revised["version"] = MAP_VERSION
     else:
-        revised["version"] = old.get("version")
+        # ...but the mechanism upgrade above has already rewritten every node into its v4
+        # shape, and a map that still claims v3 while carrying v4 nodes validates as
+        # neither: the node keys it just gained are rejected as unknown. The declared
+        # version has to follow the shape actually written, or no pre-v4 map -- which is
+        # every adopted map -- can be amended at all.
+        revised["version"] = max(int(old.get("version") or 0), MECHANISM_MAP_VERSION)
     revised["revision"] = old["revision"] + 1
     for key in ("buildId", "planSha256", "bounds"):
         if revised.get(key) != old.get(key):

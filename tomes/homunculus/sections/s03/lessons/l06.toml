@@ -8,6 +8,14 @@ body = '''
 <p>Open <code>homunculus.toml</code> and save the first durable configuration:</p>
 <pre><code>[model]
 base_id = "Qwen/Qwen3-8B"
+base_revision = "b968826d9c46dd6066d109eabc6255188de91218"
+tokenizer_config_sha256 = "record-the-downloaded-file-hash"
+
+[toolchain]
+container_digest = "sha256:96a2fb24dec9896e2f8238178f0c49d0dcc4c7dcc597be09e4564316bd86d191"
+llama_cpp_commit = "555881ebc8b0fc0402b30e09258a32a7bfd13c52"
+ollama_model_digest = "record-the-full-local-api-digest"
+environment_lock_sha256 = "record-the-resolved-lock-hash"
 
 [training]
 max_length = 1024
@@ -28,7 +36,7 @@ num_ctx = 4096
 [memory]
 physical_gib = 16
 required_headroom_gib = 2</code></pre>
-<p>The two-gibibyte headroom is a stop condition, not a claim that training will use exactly fourteen. Section V records <code>torch.cuda.max_memory_allocated()</code> and <code>max_memory_reserved()</code> after a dry step. If reserved memory leaves less than the configured headroom, reduce <code>max_length</code> first, enable or confirm gradient checkpointing, and only then reconsider model size. Do not quietly change the base id: an adapter is coupled to its exact base and tokenizer.</p>
+<p>The quoted “record” values are instructions to copy resolved identities, not values to leave in a finished contract. Fetch the Hugging Face model and tokenizer at the stated revision, hash the downloaded configuration files, and bind every report to those hashes. The two-gibibyte headroom is a stop condition, not a claim that training will use exactly fourteen. Section V records allocated and reserved peaks after a dry step.</p>
 <p>Write <code>reports/memory-budget.md</code> with two separate tables—one for NF4 training and one for GGUF serving. Name every uncertain term and its proof command. The document is complete when it says what would make the choice fail, not when every row contains a confident-looking number.</p>
 <p>Before trusting the saved contract, parse it with <code>python -c 'import tomllib; tomllib.load(open("homunculus.toml","rb"))'</code>. No output and a zero exit mean the syntax is sound; a traceback names the line to repair. Then rerun <code>python -m homunculus.doctor training</code>. That second command checks the live training bench, not the budget arithmetic, so keep those failure owners separate.</p>
 <div class="field-notes"><div class="fn-head">FIELD NOTES // ESTIMATES CHOOSE A TEST</div>
@@ -41,7 +49,7 @@ url = "https://huggingface.co/Qwen/Qwen3-8B"
 
 [[lessons.readings]]
 label = "Transformers bitsandbytes quantization"
-url = "https://huggingface.co/docs/transformers/quantization/bitsandbytes"
+url = "https://huggingface.co/docs/transformers/v5.13.0/quantization/bitsandbytes"
 
 [[lessons.exercises]]
 id = "s03-l06-e1"
@@ -49,12 +57,12 @@ type = "mc"
 points = 20
 prompt = "Why is a Q4_K_M file-size estimate not a complete QLoRA training budget?"
 choices = [
+  "GGUF is the serving representation, while training uses NF4 plus activations and training state",
   "Q4_K_M always consumes exactly twice the file size in VRAM",
   "GGUF includes an Adam optimizer",
-  "GGUF is the serving representation, while training uses NF4 plus activations and training state",
   "QLoRA does not load base weights",
 ]
-answer = 2
+answer = 0
 whyWrong = "There is no universal two-times rule, GGUF has no optimizer state, and QLoRA still loads the frozen base."
 explain = "The two phases use different formats and simultaneous memory line items."
 hint = "Separate the llama.cpp serving path from the bitsandbytes training path."
@@ -84,12 +92,12 @@ type = "mc"
 points = 20
 prompt = "Which result finally proves this model/config pair fits training?"
 choices = [
-  "A real dry training step whose peak reserved memory preserves the configured headroom",
   "The GGUF filename contains Q4",
+  "A real dry training step whose peak reserved memory preserves the configured headroom",
   "The model card says 8B",
   "Ollama can open the downloaded model",
 ]
-answer = 0
+answer = 1
 whyWrong = "Names and inference success are useful estimates but do not allocate training activations or optimizer state."
 explain = "The exact software, kernels, sequence shape, and card meet only in the measured dry step."
 hint = "Choose runtime evidence from the training path."

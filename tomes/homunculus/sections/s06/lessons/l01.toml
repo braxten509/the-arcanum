@@ -31,7 +31,16 @@ def generate(model, tokenizer, prompt, use_adapter):
 
 [[lessons.readings]]
 label = "PEFT adapter inference"
-url = "https://huggingface.co/docs/peft/package_reference/peft_model"
+url = "https://huggingface.co/docs/peft/v0.19.1/package_reference/peft_model"
+
+[[lessons.exercises]]
+id = "s06-l01-e2"
+type = "text"
+points = 15
+prompt = "Which setting removes random sampling from this paired test?"
+answer = "do_sample=False"
+accept = ["do_sample false", "do_sample=False"]
+hint = "It appears in model.generate."
 
 [[lessons.exercises]]
 id = "s06-l01-e1"
@@ -43,15 +52,6 @@ answer = 3
 whyWrong = "The context manager is temporary; it neither deletes data nor changes quantization or the suite."
 explain = "It isolates the learned delta without loading a second 8B model."
 hint = "Only one comparison variable should change."
-
-[[lessons.exercises]]
-id = "s06-l01-e2"
-type = "text"
-points = 15
-prompt = "Which setting removes random sampling from this paired test?"
-answer = "do_sample=False"
-accept = ["do_sample false", "do_sample=False"]
-hint = "It appears in model.generate."
 
 [[lessons.exercises]]
 id = "s06-l01-e3"
@@ -81,3 +81,12 @@ print("LEAK " + ", ".join(leaked))
 '''
 expect = "LEAK eval-02"
 hint = "Keep evaluation ids that also occur in the training-id set."
+
+[[lessons.exercises]]
+id = "s06-l01-e5"
+type = "type"
+points = 12
+reps = 2
+prompt = "Retype the two-line adapter toggle used for a paired comparison; the base path disables the adapter without loading a second model."
+code = '''context = nullcontext() if use_adapter else model.disable_adapter()
+with context, torch.inference_mode():'''

@@ -11,10 +11,12 @@ from peft import PeftModel
 from transformers import AutoModelForCausalLM, AutoTokenizer
 
 MODEL_ID = "Qwen/Qwen3-8B"
+MODEL_REVISION = "b968826d9c46dd6066d109eabc6255188de91218"
 
 def merge(adapter_dir, output_dir):
     base = AutoModelForCausalLM.from_pretrained(
         MODEL_ID,
+        revision=MODEL_REVISION,
         dtype=torch.bfloat16,
         device_map={"": "cpu"},
         low_cpu_mem_usage=True,
@@ -23,7 +25,8 @@ def merge(adapter_dir, output_dir):
     merged = model.merge_and_unload(safe_merge=True)
     merged.save_pretrained(
         output_dir, safe_serialization=True, max_shard_size="5GB")
-    AutoTokenizer.from_pretrained(MODEL_ID).save_pretrained(output_dir)
+    AutoTokenizer.from_pretrained(
+        MODEL_ID, revision=MODEL_REVISION).save_pretrained(output_dir)
 </code></pre>
 <p><code>safe_merge=True</code> checks adapter weights for invalid values before adding the scaled LoRA delta to the base. The standalone adapter is not deleted or modified. The merged output under <code>artifacts/merged/bind-001/</code> is a full bfloat16 Hugging Face model split into manageable safetensors shards, plus config and tokenizer files.</p>
 <p>This stage needs substantial system RAM and disk even though training fit in 16 GB VRAM. Before starting, use <code>free -h</code> and <code>df -h .</code>; plan for roughly the full half-precision model plus another copy during downstream conversion and quantization. If local RAM is insufficient, stop and add RAM/swap cautiously or perform this artifact stage on another trusted local machine; do not pretend GPU fit implies CPU merge fit.</p>
@@ -34,18 +37,7 @@ def merge(adapter_dir, output_dir):
 
 [[lessons.readings]]
 label = "PEFT merge and unload"
-url = "https://huggingface.co/docs/peft/developer_guides/checkpoint"
-
-[[lessons.exercises]]
-id = "s09-l01-e1"
-type = "mc"
-points = 20
-prompt = "Why reload a fresh unquantized base for merge?"
-choices = ["The approved LoRA delta should be folded into full-precision base weights for a standard HF checkpoint", "The adapter contains no weights", "FAISS requires bfloat16", "Ollama trains during merge"]
-answer = 0
-whyWrong = "The adapter contains learned weights; FAISS and Ollama are not participants in PEFT merging."
-explain = "Training quantization is a memory technique, while the archival merge starts from the original precision."
-hint = "The next converter expects a conventional Hugging Face model."
+url = "https://huggingface.co/docs/peft/v0.19.1/developer_guides/checkpoint"
 
 [[lessons.exercises]]
 id = "s09-l01-e2"
@@ -55,6 +47,22 @@ prompt = "Which merge argument checks adapter values before addition?"
 answer = "safe_merge=True"
 accept = ["safe_merge", "safe_merge=true"]
 hint = "It is passed to merge_and_unload."
+
+[[lessons.exercises]]
+id = "s09-l01-e1"
+type = "mc"
+points = 20
+prompt = "Why reload a fresh unquantized base for merge?"
+choices = [
+  "The adapter contains no weights",
+  "FAISS requires bfloat16",
+  "Ollama trains during merge",
+  "The approved LoRA delta should be folded into full-precision base weights for a standard HF checkpoint",
+]
+answer = 3
+whyWrong = "The adapter contains learned weights; FAISS and Ollama are not participants in PEFT merging."
+explain = "Training quantization is a memory technique, while the archival merge starts from the original precision."
+hint = "The next converter expects a conventional Hugging Face model."
 
 [[lessons.exercises]]
 id = "s09-l01-e3"
@@ -86,3 +94,11 @@ print("MERGE AUTHORIZED" if authorized else "MERGE BLOCKED")
 '''
 expect = "MERGE AUTHORIZED"
 hint = "Both the verdict and exact manifest identity must match."
+
+[[lessons.exercises]]
+id = "s09-l01-e5"
+type = "type"
+points = 12
+reps = 2
+prompt = "Retype the guarded PEFT operation that folds the approved adapter into the fresh base."
+code = '''merged = model.merge_and_unload(safe_merge=True)'''

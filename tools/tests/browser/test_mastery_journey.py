@@ -65,16 +65,39 @@ def _shot(page: Page, artifacts: Path, name: str) -> None:
 
 
 def _set_monaco(page: Page, host: str, source: str) -> None:
+    """Type into the editor and make sure the workspace load does not undo it.
+
+    The bench paints its Monaco surface before `/api/workspace` resolves, and the
+    response attaches a fresh model holding the file already on disk. Writing
+    once into whatever model is mounted at that instant reads back correctly and
+    is then silently replaced -- the submit that follows grades the saved
+    `print("READY")` instead of the text this test just set, so the run fails
+    roughly half the time. Write, let the pending load land, and write again if
+    it clobbered us.
+    """
     editor_surface = page.locator(f"{host} .monaco-editor")
     expect(editor_surface).to_be_visible(timeout=20_000)
-    actual = page.evaluate("""({host, source}) => {
+    script = """({host, source}) => {
       const root = document.querySelector(host);
       const editor = monaco.editor.getEditors().find(
         candidate => root.contains(candidate.getDomNode()));
       if (!editor) return null;
-      editor.setValue(source);
+      if (source !== null) editor.setValue(source);
       return editor.getValue();
-    }""", {"host": host, "source": source})
+    }"""
+    # Settle first, write once. Writing repeatedly until it sticks also works,
+    # but every setValue fires onDidChangeContent -> scheduleDiagnostics, and
+    # cancelling those in-flight requests floods the console with Monaco's
+    # "Canceled" error, which this test treats as a page failure.
+    previous, settled = None, 0
+    for _ in range(80):
+        current = page.evaluate(script, {"host": host, "source": None})
+        settled = settled + 1 if current == previous else 0
+        if settled >= 2:
+            break
+        previous = current
+        page.wait_for_timeout(150)
+    actual = page.evaluate(script, {"host": host, "source": source})
     assert actual == source, (host, actual)
 
 

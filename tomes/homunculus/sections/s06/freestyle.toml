@@ -1,7 +1,7 @@
 [freestyle]
 requires = ["python-craft", "baseline-suite", "dataset-curation", "adapter-artifact", "held-out-evaluation", "style-rubric", "regression-suite", "loss-diagnostics", "controlled-sweep", "merge-gate"]
 title = "THE WORKING: EARN THE MERGE PERMIT"
-brief = '''Evaluate the exact saved adapter against its frozen base and issue a hash-bound decision.<ul><li>Use every baseline-suite id with identical native template and deterministic generation; fail on train/eval leakage.</li><li>Blind-score correctness, requested format, usefulness, and learner-defined voice with evidence notes.</li><li>Run at least fifteen base-qualified capability cases plus privacy/memorization probes.</li><li>Preserve raw paired outputs, score data, loss history, regression ids, suite/config/adapter hashes, and aggregate-by-category results.</li><li>Apply thresholds written before unblinding and end with MERGE, REBIND, or STOP. If re-binding, change one cause and repeat the whole gate.</li><li>Run <code>python -m compileall -q src tests</code> and the complete evaluator through <code>python -m homunculus.evaluate</code>.</li><li>Keep evaluation code to the Section I Python naming and layout contract.</li></ul>A missing frozen id, leakage hit, non-finite loss, or critical privacy result is a stop condition, not a row to omit from the average. The artifact may proceed only when <code>reports/evaluation-decision.md</code> names its manifest hash under a MERGE verdict.'''
+brief = '''Evaluate the exact adapter against its frozen base and issue a hash-bound decision.<ul><li>Randomize blind A/B order with a saved seed; repeat a subset and use a second reviewer for ambiguous/high-risk cases where feasible.</li><li>Use every baseline id plus base-qualified capability and extraction/privacy probes; fail on leakage or missing ids.</li><li>Report category denominators, exact failures, reviewer disagreement, repeated-base variation, and limits of the small suites.</li><li>Treat thresholds as predeclared starter policies, while privacy/memorization criticals remain zero-tolerance.</li><li>Write <code>evidence/receipts/s06.json</code> with hashes, counts, aggregates, redacted failure ids, limitations, and the exact MERGE/REBIND/STOP permit.</li></ul>A critical, leakage, identity, completeness, or permit failure blocks the Working regardless of aggregate quality.'''
 reward = 240
 xray = "Reject semantic-similarity theater, evaluation on training rows, averages that hide critical leaks, base failures mislabeled as forgetting, or a permit that does not identify the exact adapter hash."
 
@@ -14,18 +14,46 @@ desc = "Awarded for a blinded, regression-aware merge permit."
 criterion = "Fair paired evaluation"
 weight = 30
 desc = "Base versus adapter differs only by the adapter and covers every frozen, leak-free prompt id."
+essential = true
+minimumScore = 8
 
 [[freestyle.rubric]]
 criterion = "Useful personal voice"
 weight = 30
 desc = "Blind, learner-specific rubric evidence shows broad voice gain without unacceptable correctness or usefulness loss."
+essential = true
+minimumScore = 7
 
 [[freestyle.rubric]]
 criterion = "Release discipline"
 weight = 30
 desc = "Capability and critical gates, loss evidence, manifests, and the exact hash-bound verdict are complete."
+essential = true
+minimumScore = 9
 
 [[freestyle.rubric]]
 criterion = "Python craft"
 weight = 10
 desc = "Evaluation code uses snake_case names, UPPER_CASE fixed thresholds, four-space indentation, grouped imports, and small separated functions for generation, scoring, and gates."
+
+[[freestyle.verification]]
+id = "compile-s06"
+command = "compile"
+label = "Compile source and tests"
+required = true
+expect = { exitCode = 0 }
+
+[[freestyle.verification]]
+id = "tests-s06"
+command = "tests"
+label = "Run unit tests"
+required = true
+expect = { exitCode = 0 }
+
+[[freestyle.verification]]
+id = "evidence-s06"
+command = "evidence"
+label = "Validate evaluation and permit receipt"
+required = true
+args = ["s06"]
+expect = { exitCode = 0 }

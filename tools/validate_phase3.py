@@ -5,7 +5,15 @@ import os
 import subprocess
 import sys
 
-from buildlib import REPO
+# Direct execution puts ``tools/`` on sys.path but not the repository root, and this gate
+# reaches the server-side ``arcanum`` package through buildlib. Without this the command
+# only runs for a caller that already exported PYTHONPATH -- which a sandboxed AI running
+# it from the permission allowlist never does, so it failed on an import, not on the tome.
+REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if REPO_ROOT not in sys.path:
+    sys.path.insert(0, REPO_ROOT)
+
+from buildlib import REPO  # noqa: E402
 from buildlib.measure import section_window_validator_argv, validator_argv
 from buildlib.course.alignment import validate_tome_alignment
 from buildlib.course_map import build_id_from_plan

@@ -65,4 +65,17 @@ def check_layout(tome_path, m):
         err(rel(tome_path), f"unexpected file(s) outside the tome layout: {shown} — a tome ships "
                             "only the layout-contract files (tome_layout.py); scratch files, "
                             "backups, and sections missing from [content].sections must go")
+    # The sweep above walks files, so a section folder left behind by an abandoned
+    # expansion -- its lessons deleted, the empty directories still on disk -- is
+    # invisible to it and to every other check, which all read the manifest and so
+    # never look at a folder the manifest does not name.
+    section_root = os.path.join(tome_path, "sections")
+    orphans = sorted(name for name in (os.listdir(section_root)
+                                       if os.path.isdir(section_root) else [])
+                     if name not in sections
+                     and os.path.isdir(os.path.join(section_root, name)))
+    if orphans:
+        err(rel(tome_path), f"section folder(s) on disk but absent from [content].sections: "
+                            f"{', '.join(orphans)} — delete the folders, or list the sections "
+                            "in the manifest if they are meant to ship")
     return legit_tomls

@@ -12,7 +12,18 @@ import re
 
 
 CONTRACT_KEYS = {"version", "coverageStart", "mechanisms"}
-MECHANISM_KEYS = {"id", "label", "kind", "owner"}
+# `detect` holds the literal surface spellings a learner would have to type for
+# this mechanism -- "print(", "import ", "#". It is what turns teach-before-use
+# from a prose rule the Validator AI re-derives by reading every code block into
+# a free scan the harness runs itself (see course/surface.py). Empty is a real
+# answer for a mechanism with no fixed spelling ("iterable collection"), so the
+# key is required and the list is not.
+MECHANISM_KEYS = {"id", "label", "kind", "owner", "detect"}
+# Maps sealed before `detect` existed are still valid and must stay loadable --
+# a seal is a promise, not a draft. They simply contribute no surface scan, so
+# their sections keep relying on the paid audit exactly as they did when sealed.
+LEGACY_MECHANISM_KEYS = MECHANISM_KEYS - {"detect"}
+DETECT_MAP_VERSION = 6
 ID_RE = re.compile(r"[a-z0-9]+(?:-[a-z0-9]+)*\Z")
 DELETE_ACTION_TERMS = {"delete", "deletion", "remove", "removal", "unlink"}
 
@@ -34,6 +45,27 @@ def _delete_step_problem(step, used, records, allowed, where):
         return ""
     return (f"{where} mode='delete' must declare an introduced file-deletion "
             "tool-action mechanism")
+
+
+def detect_problems(value, label):
+    """Validate one mechanism's `detect` list of literal surface spellings.
+
+    A spelling is matched verbatim against authored code, so a blank entry or a
+    lone alphanumeric character ("a", "x") would hit every file and is rejected
+    here rather than blocking a section later. Surrounding whitespace is kept,
+    not trimmed: "def " and "import " are only meaningful with their space.
+    """
+    if not isinstance(value, list):
+        return [f"{label}.detect must be an array of literal spellings, even when empty"]
+    problems = []
+    for item in value:
+        if not isinstance(item, str) or not item.strip():
+            problems.append(f"{label}.detect entries must be non-empty strings")
+        elif len(item.strip()) < 2 and item.strip().isalnum():
+            problems.append(f"{label}.detect entry {item!r} is too generic to match on")
+    if len(value) != len(set(item for item in value if isinstance(item, str))):
+        problems.append(f"{label}.detect contains duplicates")
+    return problems
 
 
 def seed_contract(section_ids):
@@ -78,14 +110,20 @@ def validate_map_contract(value, sections, positions, *, detailed, map_version):
     records = contract.get("mechanisms")
     if not isinstance(records, list):
         return problems + ["mechanismContract.mechanisms must be an array"]
+    # v6 requires `detect`; anything sealed earlier may carry it or not, so a
+    # map amended across the boundary is not trapped between two exact shapes.
+    detects = map_version >= DETECT_MAP_VERSION
+    allowed_keys = ([MECHANISM_KEYS] if detects
+                    else [MECHANISM_KEYS, LEGACY_MECHANISM_KEYS])
+    expected_keys = MECHANISM_KEYS if detects else LEGACY_MECHANISM_KEYS
     owners, records_by_id = {}, {}
     for index, record in enumerate(records):
         label = f"mechanismContract.mechanisms[{index}]"
         if not isinstance(record, dict):
             problems.append(f"{label} must be an object")
             continue
-        if set(record) != MECHANISM_KEYS:
-            problems.append(f"{label} keys must be exactly {sorted(MECHANISM_KEYS)}")
+        if set(record) not in allowed_keys:
+            problems.append(f"{label} keys must be exactly {sorted(expected_keys)}")
         mid = record.get("id")
         if not ID_RE.fullmatch(str(mid or "")):
             problems.append(f"{label}.id must be a stable kebab id")
@@ -98,6 +136,8 @@ def validate_map_contract(value, sections, positions, *, detailed, map_version):
                 problems.append(f"{label}.{key} must be a non-empty string")
         if not ID_RE.fullmatch(str(record.get("kind") or "")):
             problems.append(f"{label}.kind must be a language-neutral kebab category")
+        if detects or "detect" in record:
+            problems += detect_problems(record.get("detect"), label)
         owner = record.get("owner")
         if owner not in positions or ".l" not in str(owner):
             problems.append(f"{label}.owner must name a sealed lesson node")
@@ -339,8 +379,17 @@ def candidate_with_findings(course, sid, findings):
         expected = MECHANISM_KEYS | {"demands", "closestExisting", "semanticDelta"}
         if not isinstance(finding, dict) or set(finding) != expected:
             raise ValueError(
-                "each mechanism finding must contain id, label, kind, owner, demands, "
-                "closestExisting, semanticDelta")
+                "each mechanism finding must contain id, label, kind, owner, detect, "
+                "demands, closestExisting, semanticDelta")
+        detect_bad = detect_problems(finding.get("detect"), "finding")
+        if detect_bad:
+            raise ValueError("; ".join(detect_bad))
+        # An amendment must leave the map in the shape it was sealed in: adding
+        # the only record carrying `detect` to a pre-v6 map would fail its own
+        # exact-key check on the very next validation.
+        stored_keys = (MECHANISM_KEYS
+                       if int(candidate.get("version") or 0) >= DETECT_MAP_VERSION
+                       else LEGACY_MECHANISM_KEYS)
         mid, owner = finding["id"], finding["owner"]
         if mid in known or not ID_RE.fullmatch(str(mid or "")):
             raise ValueError(f"new mechanism id {mid!r} is invalid or already sealed")
@@ -360,7 +409,7 @@ def candidate_with_findings(course, sid, findings):
             raise ValueError("semanticDelta must state a distinct non-spelling responsibility")
         if owner not in nodes or nodes[owner].get("kind") != "lesson":
             raise ValueError("a finding owner must be a lesson in the failing section")
-        records.append({key: finding[key] for key in MECHANISM_KEYS})
+        records.append({key: finding[key] for key in stored_keys})
         nodes[owner]["introduces"].append(mid)
         for demand in finding["demands"]:
             target = nodes.get(demand)

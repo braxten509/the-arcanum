@@ -13,7 +13,6 @@ sys.path.insert(0, ROOT)
 from tools.buildlib import ai_costs
 from tools.buildlib import planning_review
 from tools.buildlib.prerequisites import records as review_records
-from tools.buildlib.prerequisites import transport as validator_transport
 
 
 def audit_report(phase, sources, outcome="PASS", fail_criterion=""):
@@ -127,28 +126,6 @@ with tempfile.TemporaryDirectory() as root:
         assert "concrete tool-action ownership" not in calls[0][0]
         assert planning_review.DYNAMIC_MARKER in calls[0][0]
 
-        captured = {}
-
-        class FakeResponse:
-            def __enter__(self):
-                return self
-
-            def __exit__(self, *_args):
-                return False
-
-            def read(self):
-                return json.dumps({
-                    "id": "resp_phase_1",
-                    "output_text": audit_report(1, phase1_sources),
-                    "usage": {"input_tokens": 100, "output_tokens": 20,
-                              "total_tokens": 120},
-                }).encode("utf-8")
-
-        def fake_urlopen(request, timeout):
-            captured["payload"] = json.loads(request.data.decode("utf-8"))
-            captured["timeout"] = timeout
-            return FakeResponse()
-
         phase1_review_prompt = planning_review.planning_prompt(
             1, phase1_packet, phase1_sources)
         assert phase1_review_prompt.count(planning_review.planning_authority(1)) == 1
@@ -157,19 +134,15 @@ with tempfile.TemporaryDirectory() as root:
             build_dir=build_dir) in phase1_review_prompt
         assert "runtime repair must never put a Makefile" in phase1_review_prompt
         assert "requirements field is not a generic source inventory" in phase1_review_prompt
-        with patch.object(validator_transport, "_openai_key", return_value="test-key"), \
-                patch.object(validator_transport.urllib.request, "urlopen",
-                             side_effect=fake_urlopen):
-            raw, api_meta = planning_review._invoke(
-                phase1_review_prompt,
-                {"kind": "openai-api", "model": "gpt-5.6-luna", "effort": "medium"},
-                1)
+        # The Validator AI is CLI-only. The hosted responses-API transport this
+        # block used to exercise was deleted with prerequisites/transport.py.
+        raw, api_meta = planning_review._invoke(
+            phase1_review_prompt,
+            {"kind": "claude-cli", "model": "opus", "effort": "medium"}, 1,
+            adapter=lambda prompt, validator: audit_report(1, phase1_sources),
+            build_id="demo")
         assert raw.startswith("PASS")
-        assert api_meta["transport"] == "responses-api"
-        assert captured["payload"]["text"] == {"verbosity": "low"}
-        assert captured["payload"]["prompt_cache_key"] == "arcanum-phase-1-quality-v14"
-        assert captured["payload"]["max_output_tokens"] == 2500
-        assert "tools" not in captured["payload"]
+        assert api_meta["transport"] == "test-adapter"
 
         with open(review_records.calls_path(build_dir, "demo"),
                   encoding="utf-8") as handle:

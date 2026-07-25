@@ -3,7 +3,7 @@ id = "s02-l05"
 teaches = ["baseline-suite"]
 title = "Freeze the Before Picture"
 body = '''
-<p>A personal fine-tune is only useful if you can show what improved. Build the comparison before the adapter exists. Create <code>data/eval/baseline-prompts.jsonl</code> with at least ten rows. Each row needs a stable <code>id</code>, a <code>category</code>, and a <code>prompt</code>. Cover the real job: rewriting rough notes, summarizing a decision, formatting standard Markdown for Notion, explaining uncertainty, following an exact output shape, and answering a question that will later use a style reference. Do not put the desired answers into training data later.</p>
+<p>A personal fine-tune is only useful if you can show what improved. Build the comparison before the adapter exists. Create excluded <code>private/eval/baseline-prompts.jsonl</code> with at least ten rows. Each row needs a stable <code>id</code>, a <code>category</code>, and a <code>prompt</code>. Cover the real job without copying desired answers into training later.</p>
 <pre><code>{"id":"rewrite-01","category":"voice","prompt":"Rewrite this as a concise project note: We tried three layouts and the second one was easiest to scan."}
 {"id":"format-01","category":"format","prompt":"Return a Markdown heading, two bullets, and one next action for a project review."}</code></pre>
 <p>Create <code>src/homunculus/baseline.py</code>. It reads those rows, calls the live Ollama chat endpoint, and writes the complete responses rather than a hand-written impression:</p>
@@ -15,7 +15,7 @@ MODEL = "qwen3:8b"
 OPTIONS = {"temperature": 0.2, "top_p": 0.8, "seed": 42}
 
 def main():
-    source = Path("data/eval/baseline-prompts.jsonl")
+    source = Path("private/eval/baseline-prompts.jsonl")
     target = Path("reports/baseline.jsonl")
     target.parent.mkdir(parents=True, exist_ok=True)
     with source.open(encoding="utf-8") as rows, target.open("w", encoding="utf-8") as report:
@@ -37,7 +37,7 @@ def main():
 
 if __name__ == "__main__":
     main()</code></pre>
-<p>Run <code>python -m homunculus.baseline</code>, then open <code>reports/baseline.jsonl</code>. Score each response manually in a separate <code>reports/baseline-review.md</code> on task correctness, requested format, usefulness, and resemblance to your preferred voice, each from 0–2. Record concrete observations, such as “added an unnecessary preamble” or “ignored the two-bullet limit.” These same prompt IDs and settings become the frozen comparison in Section VI.</p>
+<p>Before the first request, record the full Ollama digest from <code>/api/tags</code>, Ollama version, prompt-suite hash, and all generation settings. Run a small subset twice to measure residual backend variation even under greedy decoding. Then score the private raw responses on task correctness, requested format, usefulness, and voice. Write only stable ids, category counts, aggregate scores, hash identities, repeat-difference counts, and redacted failure summaries to <code>evidence/receipts/s02.json</code>; no prompt or response text belongs there.</p>
 <p>A base-versus-instruct experiment is still useful for understanding templates, but it is not the product baseline. The product baseline is the exact Qwen3 service the final model will replace, using a fixed suite, fixed settings, saved raw outputs, and a rubric another run can repeat.</p>
 <div class="field-notes"><div class="fn-head">FIELD NOTES // FREEZE THE QUESTIONS FIRST</div>
 <p>A baseline created after seeing the tuned model is easy to manipulate unconsciously. Freeze case IDs, prompts, settings, and scoring criteria before training; save raw responses as well as scores. Later comparisons can then ask whether the adapter changed behavior on the same work, rather than whether a reviewer invented friendlier tests.</p></div>
@@ -94,12 +94,12 @@ type = "mc"
 points = 20
 prompt = "Which observation is reproducible enough for the review?"
 choices = [
-  "format-01 added prose before the requested heading and returned three bullets instead of two",
   "It felt vaguely worse",
   "The colors seemed strange",
   "I liked the second answer more",
+  "format-01 added prose before the requested heading and returned three bullets instead of two",
 ]
-answer = 0
+answer = 3
 whyWrong = "Unanchored impressions do not name the case or the contract that failed."
 explain = "A case id plus an observable deviation can be checked again after training."
 hint = "Choose the statement that another person could verify from the saved row."

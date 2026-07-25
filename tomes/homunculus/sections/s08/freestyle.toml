@@ -1,7 +1,7 @@
 [freestyle]
 requires = ["python-craft", "baseline-suite", "policy-layers", "system-policy", "base-risk", "refusal-suite", "policy-decision"]
 title = "THE WORKING: OWN THE VISIBLE POLICY"
-brief = '''Extend <code>Homunculus/</code> with editable policy files, a safe policy loader, a twenty-case desired-behavior suite, raw reports, and a hash-bound policy decision.<ul><li>Separate learned weights, editable conversation policy, application controls, and sampling; make no claim of a literally unaligned model.</li><li>Keep the Qwen base and approved adapter fixed. Store the active policy outside training data and Python source.</li><li>Test in-domain, ambiguous, insufficient-evidence, out-of-domain, conflict, and retrieved-injection cases with explicit desired outcomes.</li><li>Blind-label observed behavior; do not use refusal keywords or temperature as the decision mechanism.</li><li>Require zero injection-following or invented-citation criticals and at least 0.85 agreement, then record POLICY APPROVED or POLICY REVISE.</li><li>Run <code>python -m compileall -q src tests</code> and <code>python -m homunculus.evaluate policy</code> with the fixed weights and settings.</li><li>Keep policy and evaluation code to the Section I Python naming and layout contract.</li></ul>A path escape, empty policy, injection-following case, invented citation, or agreement below the gate blocks approval and must remain visible in the report. The learner may revise the desired boundary, but every released boundary must be explicit, measured, and reproducible.'''
+brief = '''Implement visible policy and issue a hash-bound policy decision.<ul><li>Separate learned weights, editable policy, application controls, and sampling without impossible guarantees.</li><li>Use a path-contained loader and a frozen private suite spanning in-domain, ambiguous, insufficient-evidence, conflict, and retrieved-injection cases.</li><li>Randomize blind review, repeat a subset, report category denominators/disagreement, and treat 0.85 as a starter policy.</li><li>Require zero injection-following or invented-citation criticals.</li><li>Write <code>evidence/receipts/s08.json</code> with policy/suite hashes, counts, aggregate/category results, exact redacted critical ids, limitations, and POLICY APPROVED/REVISE.</li></ul>A loader escape, empty policy, identity mismatch, critical, or failed decision gate blocks the Working.'''
 reward = 230
 xray = "Reject claims that a base has no alignment, labels that substitute for testing, hidden hard-coded policy, prompt text presented as a guarantee, temperature-tuned compliance, or an average that hides reference-injection failures."
 
@@ -14,18 +14,46 @@ desc = "Awarded for transparent, reversible, measured local policy control."
 criterion = "Honest layer model"
 weight = 30
 desc = "Learned behavior and project-owned controls are separated without impossible guarantees."
+essential = true
+minimumScore = 7
 
 [[freestyle.rubric]]
 criterion = "Editable implementation"
 weight = 30
 desc = "Policy files, safe loader, active path/hash, visible messages, and application boundaries are inspectable."
+essential = true
+minimumScore = 8
 
 [[freestyle.rubric]]
 criterion = "Measured decision"
 weight = 30
 desc = "The frozen suite covers meaningful categories, criticals, desired outcomes, mismatches, and the exact release verdict."
+essential = true
+minimumScore = 9
 
 [[freestyle.rubric]]
 criterion = "Python craft"
 weight = 10
 desc = "Policy and evaluation modules use snake_case names, UPPER_CASE fixed gates, four-space indentation, grouped imports, and separate loading, execution, and decision functions."
+
+[[freestyle.verification]]
+id = "compile-s08"
+command = "compile"
+label = "Compile source and tests"
+required = true
+expect = { exitCode = 0 }
+
+[[freestyle.verification]]
+id = "tests-s08"
+command = "tests"
+label = "Run unit tests"
+required = true
+expect = { exitCode = 0 }
+
+[[freestyle.verification]]
+id = "evidence-s08"
+command = "evidence"
+label = "Validate policy decision receipt"
+required = true
+args = ["s08"]
+expect = { exitCode = 0 }

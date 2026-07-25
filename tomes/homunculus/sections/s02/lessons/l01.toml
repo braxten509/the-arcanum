@@ -3,14 +3,14 @@ id = "s02-l01"
 teaches = ["ollama-baseline"]
 title = "The First Breath"
 body = '''
-<p>The bench from the last rite proved the metal works. This rite proves something different: that a vessel — a model — can actually be summoned into it and made to answer. Waking a model is not a single click; it is a chain of its own, and the fastest link to pull first is <strong>Ollama</strong>, the serving tool your last rite already installed to load a <code>Modelfile</code> and speak GGUF.</p>
-<div class="callout"><strong>Keep the identity fixed.</strong> The course baseline, fine-tune, merge, and served artifact all use the Qwen3 8B family. Changing families halfway through would invalidate the tokenizer, adapter, template, and comparisons.</div>
+<p>Section I proved the metal works. Section II proves something different: that a vessel — a model — can actually be summoned into it and made to answer. Waking a model is not a single click; it is a chain of its own, and the fastest link to pull first is <strong>Ollama</strong>, the serving tool the bench already installed to load a <code>Modelfile</code> and speak GGUF.</p>
+<div class="callout"><strong>Keep the identity fixed.</strong> The course baseline, fine-tune, merge, and served artifact all use the Qwen3 8B family. A tag is only a lookup name; the digest and tool version are the identity you compare.</div>
 <p>Two commands do almost everything at this stage. <code>ollama pull &lt;name&gt;</code> fetches a model's GGUF weights and its <code>Modelfile</code> from Ollama's own registry and stores them locally — no chat happens yet. <code>ollama run &lt;name&gt;</code> pulls first if the weights aren't already local, then drops you into an interactive chat loop against that vessel. The distinction matters once you start scripting: a build step should <code>pull</code> explicitly and fail loudly if the download breaks, rather than silently blocking the first <code>run</code> a user tries.</p>
 <pre><code><span class="k">ollama</span> pull qwen3:8b
 <span class="k">ollama</span> run qwen3:8b</code></pre>
-<p>Once a model is local, <code>ollama list</code> shows every vessel currently bound to your machine — name, size on disk, and how long since it was last touched. Read that list like a ledger, not a curiosity: each entry is disk space and, later, a candidate base for your own fine-tune. A name with no tag after the colon defaults to whatever Ollama's library calls its primary build for that family — usually the instruction-tuned one, a distinction the next rite digs into properly.</p>
+<p>Immediately query <code>GET /api/tags</code> and freeze the complete digest returned for <code>qwen3:8b</code>, plus <code>ollama --version</code>, in the private baseline manifest. At the time this course was revised, the registry page showed digest prefix <code>500a1f067a9f</code>; your locally returned full digest is authoritative. A later pull that resolves the tag to different bytes starts a new baseline rather than silently replacing this one.</p>
+<p>Once a model is local, <code>ollama list</code> shows every vessel currently bound to your machine. Read that list like a ledger, not a curiosity: each entry is disk space and a mutable name pointing at bytes. A name with no tag after the colon defaults to the registry's primary build for that family, a distinction the next lesson digs into properly.</p>
 <p>This is deliberately the shallow end. You are not yet asking whether the answer was any good, or whether the sampling settings were sane, or whether the chat template was honored — those are the next three rites. Right now the only question is whether the chain from registry to local GGUF to a running local process actually completes, end to end, on your own bench.</p>
-<div class="callout">A model that never finished downloading and a model that downloaded but won't load are two different failures with two different fixes — <code>ollama list</code> tells you which one you're looking at before you start guessing.</div>
 <div class="field-notes"><div class="fn-head">FIELD NOTES // THE REGISTRY IS NOT THE ONLY SOURCE</div>
 <p>Ollama's own registry is the fast path, but it is not the only source of vessels — Hugging Face hosts the far larger catalog, including bases with no Ollama listing at all. Later rites pull straight from Hugging Face with <code>transformers</code> when a fine-tune needs a model Ollama's library doesn't carry, and convert the result back to GGUF yourself with the llama.cpp tooling this course already installed. Treat Ollama's registry as a curated convenience, not the whole territory.</p></div>
 '''
@@ -25,15 +25,15 @@ type = "mc"
 points = 15
 prompt = "What is the actual difference between <code>ollama pull qwen3:8b</code> and <code>ollama run qwen3:8b</code> on a machine with nothing local yet?"
 choices = [
-  "pull only checks the registry for updates; run is required to download anything at all",
   "pull downloads the weights and Modelfile and stops there; run downloads them too if missing, then opens an interactive chat",
+  "pull only checks the registry for updates; run is required to download anything at all",
   "pull and run are identical aliases for the same download-and-chat operation",
   "pull downloads the GGUF; run separately re-quantizes it before chatting",
 ]
-answer = 1
+answer = 0
 whyWrong = "They are not identical — run adds an interactive chat loop pull never opens on its own, and pull does not silently do nothing if the weights aren't cached; it fetches them."
 explain = "pull is the fetch-only step, useful in a build script that wants to fail loudly on a broken download; run folds a pull-if-missing into the start of an interactive session, which is convenient by hand but hides a failed fetch behind the chat prompt."
-hint = "The lesson distinguishes them directly: one fetches the GGUF and Modelfile and stops there; the other does that too if missing, then opens an interactive chat the first never touches."
+hint = "Compare what remains on disk and whether the command keeps a conversation open."
 
 [[lessons.exercises]]
 id = "s02-l01-e2"
@@ -60,6 +60,7 @@ type = "write"
 points = 30
 prompt = "A local registry ledger holds four models as (name, size_gb) tuples. Count how many have <code>instruct</code> in their name and print exactly: <code>INSTRUCT COUNT: 2</code> — computed from the data, not hardcoded."
 starter = '''models = [
+    # Synthetic ledger names for this Python exercise; do not search for these tags.
     ("qwen3:8b-instruct-q4_K_M", 5.2),
     ("qwen3:8b-base-q4_K_M", 5.2),
     ("gemma2:9b-instruct-q4_0", 5.4),
@@ -77,6 +78,7 @@ print(f"INSTRUCT COUNT: {count}")
 '''
 expect = "INSTRUCT COUNT: 2"
 solution = '''models = [
+    # Synthetic ledger names for this Python exercise; do not search for these tags.
     ("qwen3:8b-instruct-q4_K_M", 5.2),
     ("qwen3:8b-base-q4_K_M", 5.2),
     ("gemma2:9b-instruct-q4_0", 5.4),

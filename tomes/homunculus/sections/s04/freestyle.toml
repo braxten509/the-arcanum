@@ -1,7 +1,7 @@
 [freestyle]
 requires = ["python-craft", "notion-export", "prompt-completion-schema", "tokenizer-template", "completion-only-loss", "dataset-curation"]
 title = "THE WORKING: DISTILL THE ACTUAL VOICE"
-brief = '''Export your own Notion material as Markdown and extend <code>Homunculus/</code> with <code>data/drafts.jsonl</code>, <code>src/homunculus/curate.py</code>, frozen train/eval JSONL files, a native-template sample, and curation reports.<ul><li>Every row uses conversational <code>prompt</code>/<code>completion</code>, stable id/category, source path/hash, frozen split, and human approval.</li><li>Completions are your writing or text you personally rewrote—not bulk synthetic proxy voice.</li><li>Keep each source page wholly in one split and prove baseline prompts did not leak into training.</li><li>Run schema, duplicate, provenance, and secret-pattern gates, then manually review every accepted row.</li><li>Prove the Qwen tokenizer renders a sample and the planned SFT config uses completion-only loss.</li><li>From the root run <code>python -m compileall -q src tests</code> and <code>python -m homunculus.curate</code>, then parse every emitted JSONL line and reopen the rejection and review reports.</li><li>Keep <code>curate.py</code> to the Section I Python naming and layout contract.</li></ul>Stop on the first schema, provenance, duplicate, secret-pattern, or source-split failure; never improve the count by weakening that gate. Your own notes are required input; the tome never ships or invents a personal corpus for you.'''
+brief = '''Export and curate entirely behind <code>private/</code>, then expose only a sanitized evidence contract.<ul><li>Require ownership/consent, provenance, stable source grouping, frozen splits, and human approval for every accepted row.</li><li>Review PII, confidential entities, third-party text, attachments, secrets, licensing, and baseline leakage; keep a reason-coded rejection ledger without rejected content.</li><li>Hash the pinned tokenizer/config and prove a 200-token chunk example stays beneath the 256-token embedder window.</li><li>Document retention, backups, source-control history, deletion propagation through adapters and releases, and later extraction probes.</li><li>Write <code>evidence/receipts/s04.json</code> with counts, hashes, redaction categories, review coverage, and gate results only.</li></ul>Any privacy, permission, provenance, schema, duplicate, leakage, template, or split failure blocks the Working and cannot be offset by corpus size.'''
 reward = 240
 xray = "Reject raw-note dumping, synthetic completions mistaken for the learner's voice, mutable/random splits, source siblings across splits, or a claimed privacy pass based only on regex."
 
@@ -14,18 +14,46 @@ desc = "Awarded for a provenance-backed, leak-resistant personal dataset."
 criterion = "Authentic curation"
 weight = 30
 desc = "Approved completions represent the learner's real voice and all accepted rows receive human review."
+essential = true
+minimumScore = 8
 
 [[freestyle.rubric]]
 criterion = "Training contract"
 weight = 30
 desc = "Prompt/completion schema, Qwen template, source-grouped split, and completion-only supervision agree."
+essential = true
+minimumScore = 8
 
 [[freestyle.rubric]]
 criterion = "Reproducibility and privacy"
 weight = 30
 desc = "Hashes, reports, duplicate/secret gates, baseline leak check, and frozen outputs are present."
+essential = true
+minimumScore = 9
 
 [[freestyle.rubric]]
 criterion = "Python craft"
 weight = 10
 desc = "curate.py uses snake_case functions and variables, UPPER_CASE pattern constants, four-space indentation, grouped imports, and readable top-level separation."
+
+[[freestyle.verification]]
+id = "compile-s04"
+command = "compile"
+label = "Compile source and tests"
+required = true
+expect = { exitCode = 0 }
+
+[[freestyle.verification]]
+id = "tests-s04"
+command = "tests"
+label = "Run unit tests"
+required = true
+expect = { exitCode = 0 }
+
+[[freestyle.verification]]
+id = "evidence-s04"
+command = "evidence"
+label = "Validate sanitized curation receipt"
+required = true
+args = ["s04"]
+expect = { exitCode = 0 }

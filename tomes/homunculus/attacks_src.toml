@@ -1,5 +1,5 @@
 [[challenge]]
-tier = 2
+tier = 1
 title = "THE TOOLCHAIN BIND"
 starter = '''
 base_vram = 16
@@ -42,7 +42,7 @@ print(f"FAILED {failed[0]}")
 cuts = [1, 2, 3]
 
 [[challenge]]
-tier = 1
+tier = 2
 title = "THE BASELINE PROMPTS"
 starter = '''
 cases = ["voice-01", "format-01", "privacy-01", "rag-01"]
@@ -89,7 +89,7 @@ cuts = [1, 2, 3]
 
 [[challenge]]
 tier = 2
-title = "THE DETERMINISTIC SAMPLE"
+title = "THE GREEDY SAMPLE"
 starter = '''
 settings = {"temperature": 0, "seed": 42, "num_predict": 128}
 # Describe the reproducible baseline call.
@@ -97,13 +97,13 @@ settings = {"temperature": 0, "seed": 42, "num_predict": 128}
 briefs = [
     "Print the temperature. Print exactly: «TEMPERATURE 0»",
     "Print the seed. Append: «SEED 42»",
-    "Confirm deterministic sampling. Append: «DETERMINISTIC True»"
+    "Confirm stochastic sampling is disabled. Append: «GREEDY True»"
 ]
 solution = '''
 settings = {"temperature": 0, "seed": 42, "num_predict": 128}
 print(f"TEMPERATURE {settings['temperature']}")
 print(f"SEED {settings['seed']}")
-print(f"DETERMINISTIC {settings['temperature'] == 0}")
+print(f"GREEDY {settings['temperature'] == 0}")
 '''
 cuts = [1, 2, 3]
 
@@ -185,112 +185,105 @@ cuts = [1, 2, 3]
 
 [[challenge]]
 tier = 4
-title = "THE ONE-STEP WITNESS"
+title = "THE SANITIZED LEDGER"
 starter = '''
-result = {"steps": 1, "peak_gb": 13.2, "adapter_saved": True}
-# Decide whether the dry run is evidence.
+rejections = {"pii": 3, "duplicate": 2, "no-consent": 1}
+# Count reasons without retaining rejected text.
 '''
 briefs = [
-    "Print completed steps. Print exactly: «STEPS 1»",
-    "Print peak memory. Append: «PEAK 13.2 GB»",
-    "Require one step, saved adapter, and peak below 15 GB. Append: «DRY PASS»"
+    "Count rejection categories. Print exactly: «CATEGORIES 3»",
+    "Count rejected rows. Append: «REJECTED 6»",
+    "Confirm the ledger contains counts only. Append: «SANITIZED True»"
 ]
 solution = '''
-result = {"steps": 1, "peak_gb": 13.2, "adapter_saved": True}
-print(f"STEPS {result['steps']}")
-print(f"PEAK {result['peak_gb']:.1f} GB")
-passed = result['steps'] == 1 and result['adapter_saved'] and result['peak_gb'] < 15
-print(f"DRY {'PASS' if passed else 'FAIL'}")
+rejections = {"pii": 3, "duplicate": 2, "no-consent": 1}
+print(f"CATEGORIES {len(rejections)}")
+print(f"REJECTED {sum(rejections.values())}")
+print(f"SANITIZED {all(isinstance(value, int) for value in rejections.values())}")
 '''
 cuts = [1, 2, 3]
 
 [[challenge]]
 tier = 5
-title = "THE DOCUMENT QUERY"
+title = "THE TARGET GRAPH"
 starter = '''
-api_calls = ["encode_document", "encode_document", "encode_query"]
-# Verify asymmetric embedding intent.
+layers = 36
+projections = 7
+# Count every all-linear target, not one illustrative layer.
 '''
 briefs = [
-    "Count all calls. Print exactly: «CALLS 3»",
-    "Count document encodes. Append: «DOCUMENTS 2»",
-    "Count query encodes. Append: «QUERIES 1»"
+    "Print transformer layers. Print exactly: «LAYERS 36»",
+    "Print projections per layer. Append: «PROJECTIONS 7»",
+    "Compute targeted modules. Append: «TARGETS 252»"
 ]
 solution = '''
-api_calls = ["encode_document", "encode_document", "encode_query"]
-print(f"CALLS {len(api_calls)}")
-print(f"DOCUMENTS {api_calls.count('encode_document')}")
-print(f"QUERIES {api_calls.count('encode_query')}")
+layers = 36
+projections = 7
+print(f"LAYERS {layers}")
+print(f"PROJECTIONS {projections}")
+print(f"TARGETS {layers * projections}")
 '''
 cuts = [1, 2, 3]
 
 [[challenge]]
 tier = 5
-title = "THE CITED RETURN"
+title = "THE TRAINABLE COUNT"
 starter = '''
-results = [
-    {"score": 0.82, "source": "typography.md"},
-    {"score": 0.71, "source": "notes.md"},
-]
-# Preserve ranking and provenance.
+rank = 16
+per_layer = 1212416
+# Scale the measured graph-wide LoRA count.
 '''
 briefs = [
-    "Print the top score. Print exactly: «TOP 0.82»",
-    "Print the top source. Append: «SOURCE typography.md»",
-    "Confirm every result is citeable. Append: «CITEABLE True»"
+    "Print the rank. Print exactly: «RANK 16»",
+    "Print one-layer parameters. Append: «PER_LAYER 1212416»",
+    "Compute 36-layer parameters. Append: «TOTAL 43646976»"
 ]
 solution = '''
-results = [
-    {"score": 0.82, "source": "typography.md"},
-    {"score": 0.71, "source": "notes.md"},
-]
-print(f"TOP {results[0]['score']:.2f}")
-print(f"SOURCE {results[0]['source']}")
-print(f"CITEABLE {all(result.get('source') for result in results)}")
+rank = 16
+per_layer = 1212416
+print(f"RANK {rank}")
+print(f"PER_LAYER {per_layer}")
+print(f"TOTAL {per_layer * 36}")
 '''
 cuts = [1, 2, 3]
 
 [[challenge]]
 tier = 6
-title = "THE SERVED REGRESSION"
+title = "THE PAIRED DIFFERENCE"
 starter = '''
-stages = {"adapter": True, "merged": True, "served": False}
-# Find the first boundary that changed behavior.
+settings = {"base_digest": "a1", "prompt_hash": "b2", "adapter_only": True}
 '''
 briefs = [
-    "Count stages. Print exactly: «STAGES 3»",
-    "Count passing stages. Append: «PASSED 2»",
-    "Print the failing boundary. Append: «FAILED served»"
+    "Count frozen identities. Print exactly: «IDENTITIES 3»",
+    "Count matching fixed values. Append: «FROZEN 3»",
+    "Confirm only adapter state changes. Append: «PAIRED True»"
 ]
 solution = '''
-stages = {"adapter": True, "merged": True, "served": False}
-print(f"STAGES {len(stages)}")
-print(f"PASSED {sum(stages.values())}")
-failed = [stage for stage, passed in stages.items() if not passed]
-print(f"FAILED {failed[0]}")
+settings = {"base_digest": "a1", "prompt_hash": "b2", "adapter_only": True}
+print(f"IDENTITIES {len(settings)}")
+print(f"FROZEN {sum(bool(value) for value in settings.values())}")
+print(f"PAIRED {settings['adapter_only']}")
 '''
 cuts = [1, 2, 3]
 
 [[challenge]]
 tier = 6
-title = "THE REBUILD MANIFEST"
+title = "THE BLIND ORDER"
 starter = '''
-expected = {"adapter": "a1", "rag": "b2", "policy": "c3"}
-rebuilt = {"adapter": "a1", "rag": "b2", "policy": "c3"}
-# Compare immutable identities.
+labels = ["B", "A", "B", "A"]
+reveal_key_saved = True
 '''
 briefs = [
-    "Count expected components. Print exactly: «COMPONENTS 3»",
-    "Count matching hashes. Append: «MATCHES 3»",
-    "Declare the fresh rebuild verdict. Append: «REBUILD PASS»"
+    "Count presentations. Print exactly: «CASES 4»",
+    "Count A labels. Append: «A_COUNT 2»",
+    "Confirm the reveal key stayed separate. Append: «BLIND True»"
 ]
 solution = '''
-expected = {"adapter": "a1", "rag": "b2", "policy": "c3"}
-rebuilt = {"adapter": "a1", "rag": "b2", "policy": "c3"}
-matches = sum(rebuilt.get(name) == digest for name, digest in expected.items())
-print(f"COMPONENTS {len(expected)}")
-print(f"MATCHES {matches}")
-print(f"REBUILD {'PASS' if matches == len(expected) else 'FAIL'}")
+labels = ["B", "A", "B", "A"]
+reveal_key_saved = True
+print(f"CASES {len(labels)}")
+print(f"A_COUNT {labels.count('A')}")
+print(f"BLIND {reveal_key_saved}")
 '''
 cuts = [1, 2, 3]
 
@@ -315,7 +308,7 @@ print(f"VOLUME {shape[0]*shape[1]*shape[2]}")
 cuts = [1, 2, 3]
 
 [[challenge]]
-tier = 2
+tier = 1
 title = "THE ARCHITECTURE RUN"
 starter = '''
 arch = 1200
@@ -363,25 +356,22 @@ cuts = [1, 2, 3]
 
 [[challenge]]
 tier = 3
-title = "THE BITS-PER-WEIGHT"
+title = "THE MEASURED ARTIFACT"
 starter = '''
-params_billion = 7
-bits = 4
-# Calculate the compressed vessel's size.
+artifact_bytes = 5239497728
+master_bytes = 16900000000
 '''
 briefs = [
-    "Calculate total bits. Print exactly: «BITS 28 BILLION»",
-    "Convert to bytes (divide by 8). Append: «BYTES 3.5 BILLION»",
-    "State the GB requirement. Append: «VRAM 3.5 GB»"
+    "Convert measured bytes to GiB. Print exactly: «SIZE 4.88 GiB»",
+    "Compute the child/master ratio. Append: «RATIO 0.31»",
+    "Confirm the result came from bytes. Append: «MEASURED True»"
 ]
 solution = '''
-params_billion = 7
-bits = 4
-total_bits = params_billion * bits
-print(f"BITS {total_bits} BILLION")
-bytes_b = total_bits / 8.0
-print(f"BYTES {bytes_b} BILLION")
-print(f"VRAM {bytes_b} GB")
+artifact_bytes = 5239497728
+master_bytes = 16900000000
+print(f"SIZE {artifact_bytes / (1024 ** 3):.2f} GiB")
+print(f"RATIO {artifact_bytes / master_bytes:.2f}")
+print(f"MEASURED {artifact_bytes > 0}")
 '''
 cuts = [1, 2, 3]
 
@@ -409,24 +399,21 @@ cuts = [1, 2, 3]
 
 [[challenge]]
 tier = 4
-title = "THE ADAPTER SEAM"
+title = "THE TEMPLATE IDENTITY"
 starter = '''
-rank = 16
-scaling_factor = 2
-# The bind requires proper hyperparameters.
+files = {"config": True, "tokenizer": True, "template": True}
+# The curation contract must freeze every template owner.
 '''
 briefs = [
-    "State the rank. Print exactly: «RANK 16»",
-    "Calculate the required alpha (rank * scaling_factor). Append: «ALPHA 32»",
-    "State the ratio (alpha / rank). Append: «RATIO 2.0»"
+    "Count identity files. Print exactly: «FILES 3»",
+    "Count present hashes. Append: «HASHED 3»",
+    "Judge the template identity. Append: «TEMPLATE PASS»"
 ]
 solution = '''
-rank = 16
-scaling_factor = 2
-print(f"RANK {rank}")
-alpha = rank * scaling_factor
-print(f"ALPHA {alpha}")
-print(f"RATIO {alpha / rank:.1f}")
+files = {"config": True, "tokenizer": True, "template": True}
+print(f"FILES {len(files)}")
+print(f"HASHED {sum(files.values())}")
+print(f"TEMPLATE {'PASS' if all(files.values()) else 'FAIL'}")
 '''
 cuts = [1, 2, 3]
 
@@ -453,167 +440,164 @@ cuts = [1, 2, 3]
 
 [[challenge]]
 tier = 4
-title = "THE PARAMETER COUNT"
+title = "THE DELETION MAP"
 starter = '''
-modules = 4
-rank = 8
-dim = 4096
-# Calculate the low-rank delta parameters.
+derivatives = ["curated", "adapter", "gguf", "ollama"]
+covered = {"curated", "adapter", "gguf", "ollama"}
+# A source deletion must propagate through every derivative.
 '''
 briefs = [
-    "Calculate parameters per module (2 * rank * dim). Print exactly: «PER_MODULE 65536»",
-    "Calculate total adapter parameters. Append: «TOTAL 262144»",
-    "State the megabytes (2 bytes per param). Append: «SIZE 0.52 MB»"
+    "Count derivative classes. Print exactly: «DERIVATIVES 4»",
+    "Count covered classes. Append: «COVERED 4»",
+    "Judge the deletion map. Append: «DELETION PASS»"
 ]
 solution = '''
-modules = 4
-rank = 8
-dim = 4096
-per = 2 * rank * dim
-print(f"PER_MODULE {per}")
-total = per * modules
-print(f"TOTAL {total}")
-mb = (total * 2) / 1000000.0
-print(f"SIZE {mb:.2f} MB")
+derivatives = ["curated", "adapter", "gguf", "ollama"]
+covered = {"curated", "adapter", "gguf", "ollama"}
+print(f"DERIVATIVES {len(derivatives)}")
+print(f"COVERED {len(covered)}")
+print(f"DELETION {'PASS' if set(derivatives) <= covered else 'FAIL'}")
 '''
 cuts = [1, 2, 3]
 
 
 [[challenge]]
 tier = 5
-title = "THE ORTHOGONAL WARD"
+title = "THE CONTROLLED SWEEP"
 starter = '''
-vec_a = [1, 0]
-vec_b = [0, 1]
-# A rival challenges the similarity of two thoughts.
+trials = [{"id": "A", "critical": 0, "score": 1.5},
+          {"id": "B", "critical": 0, "score": 1.7},
+          {"id": "C", "critical": 1, "score": 1.9}]
 '''
 briefs = [
-    "Calculate the dot product. Print exactly: «DOT 0»",
-    "Since both are normalized, dot product is cosine similarity. Append: «COSINE 0»",
-    "Are they orthogonal? Append: «ORTHOGONAL True»"
+    "Count trials. Print exactly: «TRIALS 3»",
+    "Count zero-critical trials. Append: «SAFE 2»",
+    "Choose the safe score at least 1.6. Append: «SELECT B»"
 ]
 solution = '''
-vec_a = [1, 0]
-vec_b = [0, 1]
-dot = vec_a[0]*vec_b[0] + vec_a[1]*vec_b[1]
-print(f"DOT {dot}")
-print(f"COSINE {dot}")
-print(f"ORTHOGONAL {dot == 0}")
+trials = [{"id": "A", "critical": 0, "score": 1.5},
+          {"id": "B", "critical": 0, "score": 1.7},
+          {"id": "C", "critical": 1, "score": 1.9}]
+safe = [trial for trial in trials if trial["critical"] == 0]
+selected = [trial for trial in safe if trial["score"] >= 1.6][0]
+print(f"TRIALS {len(trials)}")
+print(f"SAFE {len(safe)}")
+print(f"SELECT {selected['id']}")
 '''
 cuts = [1, 2, 3]
 
 [[challenge]]
 tier = 5
-title = "THE CHUNK STRIDE"
+title = "THE DRY HEADROOM"
 starter = '''
-chunk_size = 200
-overlap = 30
-total_tokens = 500
-# The Distiller commands you to portion the quintessence.
+physical_gib = 16.0
+reserved_gib = 13.4
+required_gib = 2.0
 '''
 briefs = [
-    "Calculate the effective stride (size - overlap). Print exactly: «STRIDE 170»",
-    "Calculate the start of the second chunk. Append: «CHUNK_2_START 170»",
-    "Calculate the start of the third chunk. Append: «CHUNK_3_START 340»"
+    "Compute free memory. Print exactly: «FREE 2.6 GiB»",
+    "Print the required headroom. Append: «REQUIRED 2.0 GiB»",
+    "Judge the dry step. Append: «DRY PASS»"
 ]
 solution = '''
-chunk_size = 200
-overlap = 30
-total_tokens = 500
-stride = chunk_size - overlap
-print(f"STRIDE {stride}")
-print(f"CHUNK_2_START {stride}")
-print(f"CHUNK_3_START {stride * 2}")
+physical_gib = 16.0
+reserved_gib = 13.4
+required_gib = 2.0
+free_gib = physical_gib - reserved_gib
+print(f"FREE {free_gib:.1f} GiB")
+print(f"REQUIRED {required_gib:.1f} GiB")
+print(f"DRY {'PASS' if free_gib >= required_gib else 'FAIL'}")
 '''
 cuts = [1, 2, 3]
 
 [[challenge]]
 tier = 5
-title = "THE PRECISION RITE"
+title = "THE RELOAD SEAL"
 starter = '''
-retrieved = ["A", "B", "C", "D"]
-relevant = ["B", "E"]
-# Measure the truth in the grimoire's return.
+files = {"config": True, "weights": True, "manifest": True}
+fresh_reload = True
 '''
 briefs = [
-    "Count the retrieved items. Print exactly: «RETRIEVED 4»",
-    "Count the relevant items in the retrieved set. Append: «MATCHES 1»",
-    "Calculate Precision@4 (Matches / Retrieved). Append: «PRECISION 0.25»"
+    "Count required files. Print exactly: «FILES 3»",
+    "Count present files. Append: «PRESENT 3»",
+    "Require all files and a fresh reload. Append: «ADAPTER PASS»"
 ]
 solution = '''
-retrieved = ["A", "B", "C", "D"]
-relevant = ["B", "E"]
-print(f"RETRIEVED {len(retrieved)}")
-matches = sum(1 for r in retrieved if r in relevant)
-print(f"MATCHES {matches}")
-print(f"PRECISION {matches / len(retrieved)}")
+files = {"config": True, "weights": True, "manifest": True}
+fresh_reload = True
+print(f"FILES {len(files)}")
+print(f"PRESENT {sum(files.values())}")
+print(f"ADAPTER {'PASS' if all(files.values()) and fresh_reload else 'FAIL'}")
 '''
 cuts = [1, 2, 3]
 
 
 [[challenge]]
 tier = 6
-title = "THE ALIGNMENT SEAL"
+title = "THE REGRESSION GATE"
 starter = '''
-base_model = "Qwen3-8B"
-adapter_path = "artifacts/adapter"
-# The artificer must merge the final vessel.
+base = [True, True, False, True]
+adapted = [True, False, True, True]
 '''
 briefs = [
-    "Print the base model name. Print exactly: «BASE Qwen3-8B»",
-    "Print the adapter path. Append: «ADAPTER artifacts/adapter»",
-    "State the merged identifier. Append: «MERGED Qwen3-8B+artifacts/adapter»"
+    "Count base-qualified cases. Print exactly: «QUALIFIED 3»",
+    "Count newly failed cases. Append: «REGRESSIONS 1»",
+    "Apply the starter policy of at most one. Append: «GATE PASS»"
 ]
 solution = '''
-base_model = "Qwen3-8B"
-adapter_path = "artifacts/adapter"
-print(f"BASE {base_model}")
-print(f"ADAPTER {adapter_path}")
-print(f"MERGED {base_model}+{adapter_path}")
+base = [True, True, False, True]
+adapted = [True, False, True, True]
+qualified = sum(base)
+regressions = sum(was and not now for was, now in zip(base, adapted))
+print(f"QUALIFIED {qualified}")
+print(f"REGRESSIONS {regressions}")
+print(f"GATE {'PASS' if regressions <= 1 else 'FAIL'}")
 '''
 cuts = [1, 2, 3]
 
 [[challenge]]
 tier = 6
-title = "THE QUANTIZATION COMPROMISE"
+title = "THE CRITICAL WARD"
 starter = '''
-fp16_size = 16.0
-target_format = "Q4_K_M"
-# Prepare the vessel for serving.
+critical_flags = [False, False, False]
+aggregate_score = 1.8
 '''
 briefs = [
-    "State the original size. Print exactly: «ORIGINAL 16.0 GB»",
-    "State the target format. Append: «FORMAT Q4_K_M»",
-    "Estimate 4-bit size as one quarter of F16. Append: «SERVED 4.0 GB»"
+    "Count critical cases. Print exactly: «CRITICALS 3»",
+    "Count failures. Append: «FAILURES 0»",
+    "Apply the zero-tolerance ward. Append: «WARD PASS»"
 ]
 solution = '''
-fp16_size = 16.0
-target_format = "Q4_K_M"
-print(f"ORIGINAL {fp16_size} GB")
-print(f"FORMAT {target_format}")
-print(f"SERVED {fp16_size / 4} GB")
+critical_flags = [False, False, False]
+aggregate_score = 1.8
+failures = sum(critical_flags)
+print(f"CRITICALS {len(critical_flags)}")
+print(f"FAILURES {failures}")
+print(f"WARD {'PASS' if failures == 0 else 'FAIL'}")
 '''
 cuts = [1, 2, 3]
 
 [[challenge]]
 tier = 6
-title = "THE OLLAMA MODIFICATION"
+title = "THE MERGE PERMIT"
 starter = '''
-gguf_path = "homunculus-q4_k_m.gguf"
-temperature = 0.2
-# Keep the GGUF's embedded Qwen template.
+verdict = "MERGE"
+permitted_hash = "a1b2"
+adapter_hash = "a1b2"
 '''
 briefs = [
-    "State the FROM directive. Print exactly: «FROM homunculus-q4_k_m.gguf»",
-    "State the sampling parameter. Append: «PARAMETER temperature 0.2»",
-    "Confirm no guessed template was added. Append: «NATIVE_TEMPLATE True»"
+    "Print the verdict. Print exactly: «VERDICT MERGE»",
+    "Confirm the hashes match. Append: «HASH_MATCH True»",
+    "Judge authorization. Append: «PERMIT PASS»"
 ]
 solution = '''
-gguf_path = "homunculus-q4_k_m.gguf"
-temperature = 0.2
-print(f"FROM {gguf_path}")
-print(f"PARAMETER temperature {temperature}")
-print(f"NATIVE_TEMPLATE {True}")
+verdict = "MERGE"
+permitted_hash = "a1b2"
+adapter_hash = "a1b2"
+matches = permitted_hash == adapter_hash
+print(f"VERDICT {verdict}")
+print(f"HASH_MATCH {matches}")
+print(f"PERMIT {'PASS' if verdict == 'MERGE' and matches else 'FAIL'}")
 '''
 cuts = [1, 2, 3]
 
@@ -661,7 +645,7 @@ print(f"VRAM {sum(kept)}")
 cuts = [1, 2, 3]
 
 [[challenge]]
-tier = 1
+tier = 2
 title = "THE MAP READ ALOUD"
 starter = '''
 config = {"base": "Qwen3-8B", "rank": 16}

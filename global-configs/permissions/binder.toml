@@ -1,6 +1,11 @@
 # Permission profile for Binder amendments and read-only review reports.
 # The runner mounts these inputs read-only, then overlays only the request's explicit
 # writable path: the target tome for amendments or one pre-created review report.
+#
+# Build artifacts are addressed by {tome_id}, not {build_id}: {build_id} here is the Binder
+# JOB id, while the sealed map and plan were written under the authoring build id, which is
+# the tome id by convention. A path with no file at it is dropped rather than mounted, so a
+# tome that never had a map simply does not get one.
 
 [system]
 read = ["/usr", "/bin", "/lib", "/lib64", "/usr/local", "/etc", "/opt", "/proc"]
@@ -27,11 +32,33 @@ read = [
   "reviews",
   "tome_layout.py",
   "tome_proof.py",
+  # The sealed map is the contract every shipping gate measures the tome against. Read-only
+  # on purpose: a map the author can rewrite certifies nothing. Without it mounted the Binder
+  # cannot even tell that adding a lesson breaks alignment, so it edits blind and reports
+  # success against a validator that never looks here.
+  ".tome-build/{tome_id}.course-map.json",
+  ".tome-build/{tome_id}.plan.md",
 ]
 write = []
-both = []
+both = [
+  # Continuity handoffs are author prose about how each section leaves the project, and the
+  # strict gate blocks on a blank one. The harness creates the files but cannot know what
+  # they should say, so whoever edits the sections has to be able to write them.
+  ".tome-build/{tome_id}.handoffs",
+]
 execute = [
   ["python3", "tools/validate_tome.py", "tomes/{tome_id}"],
   ["python3", "tools/validate_tome.py", "tomes/{tome_id}", "--strict"],
+  # validate_tome does no sealed-map alignment even when handed a plan, so it reports a
+  # clean tome that the shipping gate then rejects. This is the gate that actually decides
+  # shippability; the Binder is told to run it, so it must be allowed to.
+  ["python3", "tools/validate_phase3.py", "tomes/{tome_id}",
+   "--plan", ".tome-build/{tome_id}.plan.md"],
+  ["python3", "tools/validate_phase3.py", "tomes/{tome_id}",
+   "--plan", ".tome-build/{tome_id}.plan.md", "--strict"],
+  # Per section, because the whole-tome pass pools every bank together and averages one
+  # section's answer-position clustering away. "<section>" is the sNN the report names.
+  ["python3", "tools/validate_section.py", "tomes/{tome_id}", "<section>",
+   "--plan", ".tome-build/{tome_id}.plan.md", "--source-only"],
   ["python3", "tools/gen_attacks.py", "{tome_id}"],
 ]

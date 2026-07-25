@@ -4,21 +4,24 @@ teaches = ["tool-install", "tool-create-open"]
 title = "Open the One Real Workshop"
 body = '''
 <p>The commission is specific: build a private assistant that learns your Notion voice, retrieves trustworthy style guidance, runs on your own hardware, and can be retrained when your work changes. You are not starting from absolute programming basics. You need only the basic Python syntax named in the original brief; this course supplies the model-building tools and explains what each one proves.</p>
-<p>Create one physical project now and keep extending it through the final Working. In a terminal, choose a parent folder you control and run:</p>
-<pre><code>mkdir -p Homunculus/{src/homunculus,tests,data/raw/notion,data/references,data/curated,data/eval,artifacts,reports,runs,outbox,vendor}
+<p>Create one physical project now and keep extending it through the final Working. Its privacy boundary has two faces: source, tests, configuration, and a deliberately sanitized <code>evidence/</code> bundle are assessable; personal text, raw generations, model artifacts, run logs, and delivery drafts are excluded from the grading snapshot. In a terminal, choose a parent folder you control and run:</p>
+<pre><code>mkdir -p Homunculus/{src/homunculus,tests,evidence/{receipts,summaries},private/{notion,dataset,eval,references,outbox,credentials},artifacts,reports,runs,vendor}
 cd Homunculus
-touch pyproject.toml homunculus.toml src/homunculus/__init__.py
+touch pyproject.toml homunculus.toml .gitignore src/homunculus/{__init__.py,verify.py}
+chmod 700 private
 code .</code></pre>
 <p>If your editor is not VS Code, replace <code>code .</code> with that editor's <em>Open Folder</em> command. Confirm its file tree shows <code>pyproject.toml</code>, open that file, type a temporary comment, save it, close the tab, and reopen it from the tree. Those small actions prove you are editing the project you will run—not a loose copy elsewhere.</p>
-<p>The two execution environments have different jobs. The <strong>host</strong> owns the GPU driver, Docker, Git, CMake, llama.cpp, and Ollama. A tested AMD ROCm PyTorch container owns training. The project folder is mounted into that container, so source, data, adapters, and reports survive when the container exits. This split gives you a reproducible Python stack without pretending an unsupported host distribution is officially supported.</p>
-<p>Install Docker using its instructions for your operating system and verify <code>docker version</code>. Install Ollama from its official Linux instructions and verify <code>ollama --version</code>. Install Git and CMake through your operating system, then clone llama.cpp into the project:</p>
+<p>The two execution environments have different jobs. The <strong>host</strong> owns the GPU driver, Docker, Git, CMake, llama.cpp, and Ollama. A digest-pinned AMD ROCm PyTorch container owns training. The project folder is mounted into that container, so learner-owned files survive when the container exits. Never mount more of the host than this project, and keep credentials outside the workspace or in an ignored, mode-700 credential directory.</p>
+<p>Before importing personal material, install and pin the network-fetched toolchain. Install Docker and Ollama from their official instructions, verify their versions, and record them in <code>evidence/toolchain-lock.json</code>. Clone llama.cpp at the course-tested commit and build from that detached identity:</p>
 <pre><code>git clone https://github.com/ggml-org/llama.cpp vendor/llama.cpp
+git -C vendor/llama.cpp checkout 555881ebc8b0fc0402b30e09258a32a7bfd13c52
 cmake -S vendor/llama.cpp -B vendor/llama.cpp/build -DCMAKE_BUILD_TYPE=Release
 cmake --build vendor/llama.cpp/build --config Release -j --target llama-quantize llama-cli</code></pre>
-<p>Do not download a mystery bundle that claims to contain the whole stack. Each command above has one owner and one verification. By the end of this section, <code>reports/doctor.txt</code> will record whether the complete bench is ready.</p>
+<p>Put <code>private/</code>, <code>artifacts/</code>, <code>models/</code>, <code>vendor/</code>, <code>runs/</code>, <code>reports/</code>, and <code>private/outbox/</code> in <code>.gitignore</code>. The platform also excludes those directory names from grading. The included manifest should contain only source, tests, policy/configuration, and sanitized evidence: SHA-256 hashes, record counts, redaction statistics, schema/test results, decision summaries, and narrowly redacted live receipts. Never copy raw prompts or completions into <code>evidence/</code> merely to make them gradeable.</p>
+<p>Do not download a mystery bundle that claims to contain the whole stack. Each command above has one owner and one verification. By the end of this section, <code>reports/doctor.txt</code> will record the private live result while <code>evidence/receipts/s01.json</code> carries only the identities, pass/fail facts, and redacted device receipt needed for assessment.</p>
 <div class="callout"><strong>Continuity rule:</strong> every later command is run from this same <code>Homunculus/</code> root. If <code>pwd</code> does not end there, stop and navigate back before editing or running anything.</div>
 <div class="field-notes"><div class="fn-head">FIELD NOTES // ONE WORKSPACE, TWO ENVIRONMENTS</div>
-<p>The host folder is the durable project; the container is a replaceable tool room. If the container vanishes, source, data, reports, and manifests remain on the host mount. If the host folder is misplaced, a healthy container cannot recover it. Keep that ownership distinction visible in every command: verify <code>pwd</code>, mount the same root, and write derived artifacts beneath it.</p></div>
+<p>The host folder is the durable project; the container is a replaceable tool room. The grader receives an immutable snapshot only after showing the complete included/excluded manifest and asking for consent. Keep raw personal data and generated text behind the excluded boundary, keep evidence below the 2,000-file/80-MiB cap, and verify that a sample snapshot contains hashes and counts rather than private prose.</p></div>
 '''
 
 [[lessons.readings]]
@@ -39,12 +42,12 @@ type = "mc"
 points = 20
 prompt = "Why does the course keep the project on the host while running the training stack in a tested ROCm container?"
 choices = [
-  "Docker adds more physical VRAM to the graphics card",
   "The mounted host folder preserves the evolving project while the container supplies a reproducible training environment",
+  "Docker adds more physical VRAM to the graphics card",
   "Ollama can only read files created by a container",
   "Python source files cannot run directly on Linux",
 ]
-answer = 1
+answer = 0
 whyWrong = "A container does not add VRAM, Ollama has no such file-origin rule, and Linux runs Python normally. The useful boundary is persistent project data plus a repeatable training environment."
 explain = "The disposable container owns package compatibility; the mounted Homunculus folder owns everything the learner creates and must retain."
 hint = "Ask what survives after the container exits."
@@ -62,12 +65,12 @@ type = "mc"
 points = 20
 prompt = "You opened a terminal and are unsure which copy of the project it points at. What should you do before editing?"
 choices = [
-  "Run pwd, confirm the path ends in Homunculus, and inspect the expected root files",
   "Start training; a traceback will eventually reveal the folder",
+  "Run pwd, confirm the path ends in Homunculus, and inspect the expected root files",
   "Create another pyproject.toml in the current directory",
   "Move the data folder into the course engine",
 ]
-answer = 0
+answer = 1
 whyWrong = "Training from an unknown directory risks writing artifacts into the wrong tree. Creating duplicate markers or moving learner data into the course engine makes that ambiguity worse."
 explain = "A working-directory check is cheap and protects the single evolving project boundary."
 hint = "Use the command that prints the current working directory."
@@ -76,10 +79,10 @@ hint = "Use the command that prints the current working directory."
 id = "s01-l01-e4"
 type = "text"
 points = 15
-prompt = "Which project directory receives Notion's Markdown export before curation?"
-answer = "data/raw/notion"
-accept = ["data/raw/notion/", "Homunculus/data/raw/notion", "Homunculus/data/raw/notion/"]
-hint = "It is the nested raw-data path created in the first mkdir command."
+prompt = "Which excluded project directory receives Notion's Markdown export before curation?"
+answer = "private/notion"
+accept = ["private/notion/", "Homunculus/private/notion", "Homunculus/private/notion/"]
+hint = "Trace the privacy boundary in the project-creation command."
 
 [[lessons.exercises]]
 id = "s01-l01-e5"

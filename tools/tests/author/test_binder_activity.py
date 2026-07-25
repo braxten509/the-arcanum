@@ -7,8 +7,10 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(ROOT))
 
+from arcanum.authoring import amender  # noqa: E402
 from arcanum.authoring.amender import (  # noqa: E402
     _activity_rows, _review_verdict, _run_agent_turn)
+from arcanum.authoring.amendment.runner import run_agent_turn  # noqa: E402
 from arcanum.authoring.services.binder import BinderService  # noqa: E402
 from arcanum.ai.models import AiRequest  # noqa: E402
 from arcanum.ai.providers.cli import (  # noqa: E402
@@ -102,6 +104,45 @@ assert priced["apiCostEstimate"]["usage"]["freshInputTokens"] == 200, priced
 assert priced["apiCostEstimate"]["usage"]["cachedInputTokens"] == 800, priced
 assert priced["apiCostEstimate"]["usage"]["outputTokens"] == 100, priced
 assert priced["apiCostEstimate"]["usd"] > 0, priced
+
+# A whole-tome amendment runs for hours, so only a provably idle tree is killed: a
+# process burning CPU well past a short stall bound must survive, and a sleeping one
+# with no provider connection must not.
+busy_job = jobs.create("binder-amend", log=[], activity=[])["id"]
+rc, cut_short, _ = run_agent_turn(
+    busy_job, [sys.executable, "-c", "import time\nend=time.monotonic()+4\n"
+               "while time.monotonic()<end: pass\nprint('finished')"],
+    "", "none", {}, str(ROOT), "codex-cli", "model", jobs, ProcessStore(),
+    timeout=3600, stall=2)
+assert (rc, cut_short) == (0, False), (rc, cut_short, jobs.status(busy_job)["log"])
+
+idle_job = jobs.create("binder-amend", log=[], activity=[])["id"]
+rc, cut_short, _ = run_agent_turn(
+    idle_job, [sys.executable, "-c", "import time; time.sleep(60)"],
+    "", "none", {}, str(ROOT), "codex-cli", "model", jobs, ProcessStore(),
+    timeout=3600, stall=2)
+assert cut_short, (rc, jobs.status(idle_job)["log"])
+
+# A turn that dies mid-amendment is continued from the work already on disk, not
+# retried from scratch — the tome it half-edited is the state the next turn reads.
+resumed_job = jobs.create("binder-amend", log=[], activity=[])["id"]
+original_continuations = amender.AMEND_CONTINUATIONS
+amender.AMEND_CONTINUATIONS = 1
+try:
+    rc, cut_short, _ = _run_agent_turn(
+        resumed_job,
+        [sys.executable, "-c", "import sys; print(sys.stdin.read()); sys.exit(3)"],
+        "AMEND THE TOME", "stdin", {}, str(ROOT), "codex-cli", "model",
+        jobs, ProcessStore())
+finally:
+    amender.AMEND_CONTINUATIONS = original_continuations
+resumed = "\n".join(jobs.status(resumed_job)["log"])
+assert (rc, cut_short) == (3, False), (rc, cut_short, resumed)
+assert "takes the work up again" in resumed, resumed
+assert "HARNESS CONTINUATION TURN" in resumed, resumed
+assert "do NOT undo your own work" in resumed.replace("DO NOT", "do NOT"), resumed
+# Exactly one continuation: the second turn echoes the marker, a third never runs.
+assert resumed.count("HARNESS CONTINUATION TURN") == 1, resumed
 
 request = AiRequest(
     role="binder-amend", model="model", input="work", timeout=10,

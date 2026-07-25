@@ -3,9 +3,9 @@ id = "s04-l01"
 teaches = ["notion-export"]
 title = "From Notes to Feedstock"
 body = '''
-<p>Rite one's toolchain and rite three's memory budget both promised a model that fits on the card. This rite starts on the other half of the bind: the quintessence itself — the training examples that will actually shift the vessel toward your own voice. Nothing downstream matters if this material is wrong, so the fourth rite begins where the notes already live, not with a training script.</p>
+<p>Section I's toolchain and Section III's memory budget both promised a model that fits on the card. Section IV starts on the other half of the bind: the quintessence itself — the training examples that will actually shift the vessel toward your own voice. Nothing downstream matters if this material is wrong, so the data work begins where the notes already live, not with a training script.</p>
 <div class="callout"><strong>Coming from Chapters I-II?</strong> The coding here is list-and-dict work you already have, plus two small idioms worth meeting up front. <em>Counting with a condition</em>: to tally how many items pass a test you can write the plain Chapter-I loop — <code>count = 0</code>, then <code>for x in seq: if test: count += 1</code> — or the shorter <code>sum(1 for x in seq if test)</code>, which does the exact same thing. Either is accepted. <em>Building a JSONL line</em>: <code>json.dumps(record)</code> turns a dict into a text line, shown in the next lesson. Anything beyond these — like copying into a <em>slice</em> of a list — is spelled out in that exercise's own comments.</div>
-<p>Your own notes are the richest source of "sounds like me" signal you have, but they are not training data as written. They're raw quintessence: freeform, inconsistent, and full of material that was never meant to teach anything — meeting times, half-finished shopping lists, a stray password pasted in a hurry. The practical way to get them out of Notion is the workspace's own built-in export, under Settings &amp; Members → Export content, which for a personal workspace produces a zip of Markdown files (plus CSVs for any databases) with no code and no API key. Notion also exposes a real API for pulling pages programmatically, which matters once the tenth rite makes the pipeline repeatable. For the first distillation, manual export is the honest, correct tool: use the simplest thing that gets you clean files.</p>
+<p>Your own notes are the richest source of "sounds like me" signal you have, but they are not training data as written. They're raw quintessence: freeform, inconsistent, and full of material that was never meant to teach anything. The current whole-workspace route is <strong>Settings → Workspace → General → Export all workspace content</strong>. Export Markdown/CSV into <code>private/notion/</code>, never into the assessable tree. Notion also exposes an API for later automation, but a first manual export avoids creating a credential merely to acquire files once.</p>
 <p>An exported <code>.md</code> file is not yet feedstock. The habit this rite teaches is separating two questions that look similar but aren't: "is this note true and useful" and "is this note worth training on." A note can be perfectly true and still be wrong material — a grocery list, a one-line meeting reminder, a stray API key pasted for safekeeping — because none of it teaches the model anything about how you think or write when you're actually explaining something. What's worth keeping is durable: notes where you worked through a problem, explained a decision, or wrote at some length in your own distinctive style. Everything else is <strong>personal residue</strong> — real, but not feedstock — and it either gets discarded before the next rite or, worse, ends up baked permanently into the model's weights if it slips through.</p>
 <pre><code><span class="k">import</span> pathlib
 notes = <span class="k">list</span>(pathlib.Path(<span class="s">"export"</span>).rglob(<span class="s">"*.md"</span>))
@@ -33,17 +33,17 @@ print(len(notes), "raw files")'''
 id = "s04-l01-e2"
 type = "mc"
 points = 20
-prompt = "Per this rite, what's the correct first move to get your Notion notes out as files a Python script can read, for a one-time personal dataset build?"
+prompt = "Per this lesson, what is the current first move for a one-time whole-workspace Notion export?"
 choices = [
-  "Use the workspace's built-in Settings &amp; Members → Export content, which produces a zip of Markdown files with no code and no API key",
   "Register a Notion integration, generate an API token, and write an API client before touching a single note",
   "Copy each page's content into the clipboard manually and paste it into a JSONL file",
+  "Use Settings → Workspace → General → Export all workspace content, then unpack it beneath private/notion",
   "Install a browser extension that scrapes the rendered Notion page as HTML",
 ]
-answer = 0
+answer = 2
 whyWrong = "The API route is real and correct once you're automating repeated re-distillation (this course's later rite), but it's more machinery than a first, one-time export needs; manual copy-paste doesn't scale past a handful of notes, and scraping rendered HTML fights formatting the built-in export already solves for you."
-explain = "For a one-time build, the built-in export is the least machinery that yields clean files — a zip of Markdown with no token to register and no client to write. The Notion API is the right tool only once the tenth rite makes repeated rebuilds useful, while copy-paste and HTML scraping each create more cleanup than they remove. Match the tool to the job: the simplest thing that produces readable files."
-hint = "The lesson says 'for a first distillation, the manual export is the honest, correct tool: use the simplest thing that gets you clean files.' It's the built-in Notion export under Settings & Members, not the later API automation and not a manual or browser-scraping approach."
+explain = "For a one-time build, the built-in export is the least machinery that yields clean files — a zip of Markdown with no token to register and no client to write. The Notion API is the right tool only once Section X makes repeated rebuilds useful, while copy-paste and HTML scraping each create more cleanup than they remove. Match the tool to the job: the simplest thing that produces readable files."
+hint = "Follow the workspace-level path rather than a page menu or API-token workflow."
 
 [[lessons.exercises]]
 id = "s04-l01-e3"

@@ -44,3 +44,56 @@ jobComposition = "arcanum/jobs/registry.py"
 [facades]
 maxLines = 120
 allowed = ["runtimes/__init__.py", "arcanum/catalog/__init__.py"]
+
+# Declared, auditable escapes from the size gates in tools/validate_code.py.
+#
+# The gates exist because nobody reads a 2000-line file or finds anything in a
+# 40-file folder. They are not a licence to shred a file along a seam that isn't
+# there: a split that forces callables through a dict (`f(self, globals())`)
+# hides every reference from the reader, the editor, and every static check, and
+# is strictly worse than the long file it replaced.
+#
+# Every entry needs its own ceiling and its own reason. The gate also fails when
+# an entry stops being needed -- a file back under the global limit, or a
+# missing path -- so this list cannot quietly rot into a permanent bypass.
+[limits]
+maxLines = 500
+maxFilesPerDirectory = 10
+
+[[limits.oversizeFiles]]
+path = "tools/buildlib/single_author/__init__.py"
+maxLines = 720
+reason = """One author control loop and the session object it drives. It was split \
+once: the loop moved to session/orchestration.py and received its 35 collaborators as \
+`run_author_session(self, globals())`. That satisfied the gate and cost the reader every \
+reference -- no editor, linter, or import graph could follow a single name through the \
+dict. Rejoined deliberately."""
+
+[[limits.oversizeFiles]]
+path = "tools/tests/binder/test_prerequisite_contract.py"
+maxLines = 580
+reason = "Linear assertion script, no functions to split on. Its directory is already at its own declared file ceiling."
+
+[[limits.oversizeFiles]]
+path = "tools/tests/binder/test_phase_reset.py"
+maxLines = 550
+reason = "Linear assertion script, no functions to split on. Its directory is already at its own declared file ceiling."
+
+[[limits.oversizeFiles]]
+path = "tools/tests/binder/test_language_mastery.py"
+maxLines = 520
+reason = "Linear assertion script, no functions to split on. Its directory is already at its own declared file ceiling."
+
+[[limits.crowdedDirectories]]
+path = "tools"
+maxFiles = 11
+reason = """Not a package -- this is the repository's command surface. Every file is one \
+command invoked by path from the guides, the CI steps, and the AI permission allowlists, \
+so moving one into a subdirectory breaks a documented path and merging two unrelated \
+commands into one file to satisfy a count hides one of them. The implementation lives \
+in tools/buildlib and tools/validatelib, which are counted separately."""
+
+[[limits.crowdedDirectories]]
+path = "tools/tests/binder"
+maxFiles = 20
+reason = "Flat linear test scripts; subdirectories only hide which ones exist."

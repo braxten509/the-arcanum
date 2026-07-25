@@ -22,7 +22,13 @@ read = [
 write = []
 both = [
   "tomes/{tome_id}",
-  ".tome-build/{build_id}.review-evidence.json",
+  # Must match full_review.evidence_path exactly. A path that does not resolve to a
+  # real file is silently dropped rather than mounted, so a wrong name here reads as
+  # the reviewer refusing to write its packet, and the harness retries it forever.
+  ".tome-build/{build_id}.full-review.json",
+  # Continuity handoffs are author-owned prose about how each section leaves the
+  # project. The harness creates the files; only a reviewer can say what they mean.
+  ".tome-build/{tome_id}.handoffs",
   "global-configs/runtimes/{runtime_id}",
 ]
 execute = []

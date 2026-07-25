@@ -16,6 +16,7 @@ import tempfile
 from unittest.mock import patch
 
 from tools.buildlib.single_author import gate  # noqa: E402
+from tools.buildlib.single_author.prompts import continuation  # noqa: E402
 from tools.buildlib import brief_exception, measure, single_author  # noqa: E402
 from author.sessions import (  # noqa: E402
     BlockedThenHandoffSession,
@@ -246,7 +247,7 @@ assert (
 assert "tools/validate_section.py" in resume_section
 assert "--source-only" not in resume_section
 
-operator_resume = gate.interrupted_prompt(
+operator_resume = continuation.interrupted_prompt(
     "Why did these findings repeat?", section)
 assert operator_resume.startswith("Why did these findings repeat?")
 assert "continue the exact assignment that was interrupted" in operator_resume

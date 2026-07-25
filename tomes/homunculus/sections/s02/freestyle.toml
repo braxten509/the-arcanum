@@ -1,7 +1,7 @@
 [freestyle]
 requires = ["tool-run-test", "python-craft", "ollama-baseline", "model-types", "model-card", "sampling-contract", "baseline-suite"]
 title = "THE WORKING: FREEZE THE FIRST RESPONSE"
-brief = '''Extend the same <code>Homunculus/</code> project with <code>data/eval/baseline-prompts.jsonl</code>, <code>src/homunculus/baseline.py</code>, <code>reports/baseline.jsonl</code>, and <code>reports/baseline-review.md</code>.<ul><li>Use at least ten stable prompt ids spanning voice, format, task correctness, uncertainty, and future grounding.</li><li>Record the exact <code>qwen3:8b</code> model id and fixed sampling options.</li><li>Call the live Ollama chat API; do not invent or paste responses.</li><li>Save every raw response, then score each 0–2 for correctness, format, usefulness, and voice.</li><li>Demonstrate once what a missing chat template changes, but keep that experiment separate from the frozen product baseline.</li><li>Run <code>python -m compileall -q src tests</code> and <code>python -m homunculus.baseline</code> from the project root, then confirm the report contains every frozen id exactly once.</li><li>Keep <code>baseline.py</code> to the Section I Python naming and layout contract.</li></ul>A missing id, HTTP failure, or malformed JSONL row blocks the rite and must be repaired at that boundary. These prompt ids are now evaluation assets and may not be copied into the training split.'''
+brief = '''Extend the same project with a private frozen baseline and a sanitized receipt.<ul><li>Use at least ten stable private prompt ids spanning the real job; never copy prompts or responses into assessable evidence.</li><li>Bind the suite to the full Ollama digest, Ollama version, settings, seed where honored, and prompt-suite hash.</li><li>Call the live local API and preserve raw responses privately.</li><li>Repeat a frozen subset to characterize residual variation under greedy decoding.</li><li>Write <code>evidence/receipts/s02.json</code> with ids, counts, hashes, aggregate scores, repeat differences, and redacted failure summaries.</li><li>Prove every id occurs exactly once and no baseline id enters training.</li></ul>A missing id, mutable identity, HTTP/schema failure, leakage, fabricated output, or raw text in evidence blocks the Working.'''
 reward = 200
 xray = "The report must be reproducible from code and a live model. Reject a baseline with mutable prompt ids, unstated settings, hand-written outputs, or evaluation prompts later leaked into training."
 
@@ -14,18 +14,46 @@ desc = "Awarded for a frozen, repeatable before-picture of the assistant."
 criterion = "Live baseline"
 weight = 30
 desc = "The module calls Ollama and preserves raw responses with model and sampling metadata."
+essential = true
+minimumScore = 8
 
 [[freestyle.rubric]]
 criterion = "Representative suite"
 weight = 30
 desc = "Ten or more stable, leak-free prompts exercise the assistant's actual daily job."
+essential = true
+minimumScore = 7
 
 [[freestyle.rubric]]
 criterion = "Repeatable judgment"
 weight = 30
 desc = "The review uses the stated four-axis rubric and names concrete failures by prompt id."
+essential = true
+minimumScore = 7
 
 [[freestyle.rubric]]
 criterion = "Python craft"
 weight = 10
 desc = "baseline.py keeps snake_case names, UPPER_CASE constants, four-space indentation, grouped imports at the top, and clearly separated top-level functions."
+
+[[freestyle.verification]]
+id = "compile-s02"
+command = "compile"
+label = "Compile source and tests"
+required = true
+expect = { exitCode = 0 }
+
+[[freestyle.verification]]
+id = "tests-s02"
+command = "tests"
+label = "Run unit tests"
+required = true
+expect = { exitCode = 0 }
+
+[[freestyle.verification]]
+id = "evidence-s02"
+command = "evidence"
+label = "Validate sanitized Section II receipt"
+required = true
+args = ["s02"]
+expect = { exitCode = 0 }

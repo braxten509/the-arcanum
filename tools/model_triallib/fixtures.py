@@ -32,6 +32,10 @@ TRIAL_MODELS = (
      "roles": ("reviewer",)},
     {"id": "claude-opus-4.8", "spec": "claude-cli:claude-opus-4-8@high",
      "roles": ("writer", "reviewer")},
+    # Sections too: Opus 5 is the candidate to supersede 4.8 outright at the same price,
+    # so the trial must cover the hand 4.8 was never granted, not only the one it holds.
+    {"id": "claude-opus-5", "spec": "claude-cli:claude-opus-5@high",
+     "roles": ("writer", "sections", "reviewer")},
     {"id": "qwen3.7-max", "spec": "opencode-cli:opencode-go/qwen3.7-max",
      "roles": ("reviewer",)},
     {"id": "gemini-3.5-flash-high", "spec": "antigravity-cli:Gemini 3.5 Flash (High)",

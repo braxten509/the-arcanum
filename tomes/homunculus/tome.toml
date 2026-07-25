@@ -3,7 +3,7 @@ id = "homunculus"
 name = "Homunculus"
 description = "Build a private, retrainable local AI assistant on a 16 GB AMD GPU: distill your Notion voice, QLoRA-tune an open model, ground it in cited style references, set a policy you control, then merge, quantize, and serve it through Ollama."
 author = "Codex"
-version = "0.1.0"
+version = "1.0.0"
 favicon = "⚗"
 
 [runtime]
@@ -12,6 +12,12 @@ project = "Homunculus"
 language = "Python"
 externalWorkspace = true
 projectFile = "pyproject.toml"
+excludeDirs = ["private", "artifacts", "models", "vendor", "runs", "reports", "outbox"]
+
+[runtime.assessmentCommands]
+compile = ["python3", "-m", "compileall", "-q", "src", "tests"]
+tests = ["python3", "-m", "unittest", "discover", "-s", "tests", "-q"]
+evidence = ["python3", "src/homunculus/verify.py"]
 
 [content]
 sections = ["s01", "s02", "s03", "s04", "s05", "s06", "s07", "s08", "s09", "s10"]
@@ -49,7 +55,7 @@ currencyShort = "dr"
 gradeScale = "S|A|B|C|D|F"
 bootLines = [
   "The lamps are lit. Your vessel waits on the bench, bare and patient.",
-  "Ten rites lie ahead; each leaves a tested capability in the same Homunculus workspace.",
+  "{N} rites lie ahead; each leaves a tested capability in the same Homunculus workspace.",
   "I am THE DISTILLER. You are the artificer. Bring discipline, not guesses.",
   "You bring basic Python syntax. I will teach the terminal, files, tests, and recovery while we build the real thing.",
   "We begin with the metal, the driver, and a project folder whose commands can prove every claim.",

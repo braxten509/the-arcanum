@@ -20,8 +20,7 @@ from ..course.amend import amend_course_map
 from ..course.state import record_section_failure
 from ..course_map import CourseMapError, load_course_map
 from ..mechanism_contract import candidate_with_findings
-from ..prerequisites.ledger import (finding_fingerprints, load_ledger, open_fingerprints,
-                                     restrict)
+from ..prerequisites.ledger import load_ledger, open_fingerprints, restrict
 from ..prerequisites.review import review_prerequisites
 
 # review_prerequisites calls per mode: "off" never runs, "pass" runs once, "gate" runs the

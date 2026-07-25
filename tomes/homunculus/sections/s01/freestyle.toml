@@ -1,7 +1,7 @@
 [freestyle]
 requires = ["tool-install", "tool-create-open", "tool-navigate", "tool-edit-save", "python-craft", "tool-run-test", "tool-diagnose", "project-doctor"]
 title = "THE WORKING: KINDLE THE REAL BENCH"
-brief = '''Create and keep the external <code>Homunculus/</code> project that every later Working will extend. Submit the project tree, its pinned <code>pyproject.toml</code>, <code>src/homunculus/doctor.py</code>, <code>tests/test_doctor.py</code>, and <code>reports/doctor.txt</code>.<ul><li>Show that you opened the project root in your editor, edited and saved the visible source, and ran commands from that same root.</li><li>Use AMD's tested Python 3.12 ROCm container without replacing its PyTorch build.</li><li>Prove HIP, the Radeon name, <code>gfx1201</code>, and the result of a real GPU tensor operation.</li><li>Prove the pinned application imports, the llama.cpp build, and the host Ollama version endpoint.</li><li>From the project root run <code>python -m compileall -q src tests</code>, <code>pytest -q</code>, and <code>python -m homunculus.doctor all</code>; the saved doctor report must end in <code>READY</code>.</li><li>Add <code>reports/recovery.md</code> naming the owner and narrow recovery for a host-device failure, container-mapping failure, wrong import path, and Ollama failure.</li><li>Keep Python names and layout to the Section I craft contract: snake_case functions and variables, UPPER_CASE constants, four-space indentation, grouped top-of-file imports, and separated top-level definitions.</li></ul>Do not submit screenshots without command output, a copied report from another machine, an HSA target override, or files outside the one evolving project. If a command fails, preserve its output and repair the first failed owner boundary before rerunning the full chain.'''
+brief = '''Create and keep the external <code>Homunculus/</code> project that every later Working will extend.<ul><li>Implement the pinned, network-staged toolchain and the assessable/private directory boundary taught in this section.</li><li>Prove HIP, the Radeon name, <code>gfx1201</code>, and a real device tensor operation in the digest-pinned, networkless container.</li><li>Use standard-library unit tests and implement <code>src/homunculus/verify.py</code> as a fail-closed dispatcher for sanitized Working receipts.</li><li>Keep raw command output in excluded <code>reports/</code>; write <code>evidence/receipts/s01.json</code> with hashes, identities, boolean results, and redacted failure classes only.</li><li>Verify the snapshot manifest excludes <code>private</code>, artifacts, models, vendor, runs, reports, and outbox and stays below platform limits.</li><li>Document credential storage, restrictive permissions, source-control exclusions, retention, deletion, and narrow recovery.</li><li>Keep Python names and layout to the Section I craft contract.</li></ul>Any exposed private text, missing pin, failed tensor/test, unsafe snapshot, or unsanitized receipt blocks the Working.'''
 reward = 180
 xray = "A passing-looking report is insufficient if the script never performs its claimed checks. Inspect the code and evidence together. The GPU proof must execute a device tensor, package versions must be read from the environment, and Ollama must answer its live endpoint."
 
@@ -14,23 +14,53 @@ desc = "Awarded for a reproducible Radeon workshop with executable readiness pro
 criterion = "Persistent project and editor workflow"
 weight = 20
 desc = "The required tree is one real external project; root navigation, edit/save, run, and preserved report are demonstrated."
+essential = true
+minimumScore = 7
 
 [[freestyle.rubric]]
 criterion = "ROCm compute proof"
 weight = 35
 desc = "The tested image reports HIP, the Radeon, gfx1201, and a correct GPU tensor result without a target override."
+essential = true
+minimumScore = 8
 
 [[freestyle.rubric]]
 criterion = "Toolchain and tests"
 weight = 20
-desc = "Pinned imports, pytest, llama.cpp, and live Ollama are verified by commands whose saved output matches the implementation."
+desc = "Pinned imports, standard-library unit tests, llama.cpp, and live Ollama are verified by commands whose saved output matches the implementation."
+essential = true
+minimumScore = 7
 
 [[freestyle.rubric]]
 criterion = "Diagnosis and recovery"
 weight = 15
 desc = "Recovery notes assign each failure to the correct layer and preserve learner-owned data and artifacts."
+essential = true
+minimumScore = 7
 
 [[freestyle.rubric]]
 criterion = "Python craft"
 weight = 10
 desc = "Python uses snake_case functions and variables, UPPER_CASE constants, four-space indentation, grouped top-of-file imports, and blank lines between top-level definitions."
+
+[[freestyle.verification]]
+id = "compile-s01"
+command = "compile"
+label = "Compile source and tests"
+required = true
+expect = { exitCode = 0 }
+
+[[freestyle.verification]]
+id = "tests-s01"
+command = "tests"
+label = "Run unit tests"
+required = true
+expect = { exitCode = 0 }
+
+[[freestyle.verification]]
+id = "evidence-s01"
+command = "evidence"
+label = "Validate sanitized Section I receipt"
+required = true
+args = ["s01"]
+expect = { exitCode = 0 }

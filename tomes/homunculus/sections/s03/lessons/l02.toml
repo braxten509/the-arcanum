@@ -4,17 +4,15 @@ teaches = ["gguf-quantization"]
 title = "The GGUF Ladder"
 body = '''
 <p>The last rite's math used clean bytes-per-parameter numbers — 4, 2, 1, 0.5 — as if quantization only ever lands on a whole-byte boundary. GGUF, the format llama.cpp converts to and Ollama serves from, mostly doesn't. Its quant names encode a specific bit-width and a specific bucketing strategy, and reading them correctly is how you predict a model's real VRAM cost before you ever download it.</p>
-<p>The legacy names are the simplest: <code>q8_0</code> quantizes every weight to 8 bits with one scale factor per fixed-size block of weights; <code>q4_0</code> does the same at 4 bits per weight. The <code>_0</code> suffix marks the oldest, plainest bucketing scheme — one scale, no per-weight nuance. The newer <strong>K-quants</strong> — <code>q4_K_M</code>, <code>q5_K_S</code>, <code>q3_K_L</code> — spend a variable number of bits per weight depending on which layer and which role that weight plays, because not every weight matters equally to output quality. A <code>q4_K_M</code> file is not exactly 4 bits per weight; it averages out closer to <strong>4.5 bits</strong>, spending a little extra where it buys back the most accuracy. The letter suffix (<code>_S</code>/<code>_M</code>/<code>_L</code>) is llama.cpp's own small/medium/large tradeoff within that same bit-width family — more bits spent on the sensitive layers as you go from S to L.</p>
+<p>The legacy names are the simplest: <code>q8_0</code> and <code>q4_0</code> use fixed block formats whose metadata makes their effective storage exceed the headline integer. K-quant names such as <code>Q4_K_M</code> identify llama.cpp recipes, not an exact universal rate. The recipe may assign different tensor types by architecture and tensor category, and its implementation can change with the pinned llama.cpp commit. The S/M suffix is a named recipe choice; it is not a general law that every “sensitive early layer” receives a fixed number of extra bits.</p>
 <pre><code><span class="k">quant_bits</span> = {
-    "q8_0": 8.0,
-    "q4_0": 4.0,
-    "q4_K_M": 4.5,
-    "q3_K_S": 3.4,
+    "Q4_K_M_REFERENCE": 4.8944,
+    "source": "llama.cpp quantize table for its stated Llama 3.1 8B example",
 }</code></pre>
-<p>The formula from the last rite still applies — <code>size_gb = params_b * bits / 8</code> — you just plug in the K-quant's real average instead of assuming a clean whole number. An 8B model at <code>q4_K_M</code> is <code>8 * 4.5 / 8</code> ≈ 4.5 GB, not the 4 GB a naive "it says 4-bit" read would suggest. That half a gigabyte of difference is exactly the kind of gap that turns "fits comfortably" into "barely fits" once the KV cache and an adapter join the budget in the rites ahead.</p>
+<p>The current official quantization table reports <code>4.8944</code> bits per weight for its specific Llama 3.1 8B Q4_K_M example. Treat that as a planning reference, not a Qwen file-size promise. For the artifact you actually produce, record bytes from <code>stat</code>, parameter count from GGUF metadata, the exact quantizer commit and command, and the measured ratio. File size also includes metadata and tensors that may use other formats, so measured bytes outrank arithmetic.</p>
 <div class="callout">A quant name is not a promise of quality on its own — <code>q2_K</code> exists and will run, but pushing bits-per-weight that low measurably degrades output on anything but the largest base models. Smaller isn't free; it trades accuracy you may need back later.</div>
 <div class="field-notes"><div class="fn-head">FIELD NOTES // WHY K-QUANTS BEAT A FLAT BIT-WIDTH</div>
-<p>The insight behind K-quants is that a transformer's weights are not equally sensitive to error — attention projections and early layers tend to punish aggressive quantization harder than later feed-forward blocks. A flat <code>q4_0</code> spends the same 4 bits everywhere regardless; a <code>q4_K_M</code> spends closer to 5–6 bits on the layers that matter most and less on the ones that tolerate it, landing at a better quality-per-byte than the legacy scheme at a similar average size. This is also why two models both labeled "4-bit" are not interchangeable numbers — always read the exact quant string, never round it to "4-bit" in your head.</p></div>
+<p>Quantization is an empirical release choice. Keep the F16 master, create the Q4_K_M child with the pinned tool, then compare actual bytes, loadability, throughput, and the frozen behavior suites. Two artifacts called “4-bit” can differ by recipe, architecture, metadata, and tool revision; the label alone is neither a memory measurement nor a quality verdict.</p></div>
 '''
 
 [[lessons.readings]]
@@ -25,17 +23,17 @@ url = "https://github.com/ggml-org/llama.cpp/blob/master/tools/quantize/README.m
 id = "s03-l02-e1"
 type = "mc"
 points = 20
-prompt = "Why does a <code>q4_K_M</code> GGUF land closer to 4.5 bits per weight on average, rather than exactly 4?"
+prompt = "Why must the course measure its produced <code>Q4_K_M</code> artifact instead of treating the name as an exact four-bit file-size formula?"
 choices = [
   "It's a labeling error in llama.cpp's naming scheme with no technical cause",
+  "The name selects a quantization recipe; tensor formats, metadata, architecture, and the pinned implementation determine the produced bytes",
   "It stores the model twice, once at 4-bit and once at full precision, then averages the file size",
   "The K stands for 'kilobyte-aligned', which pads the file size upward with no effect on precision",
-  "It spends a variable bit budget per layer, giving sensitive layers a few extra bits back rather than quantizing every weight identically",
 ]
-answer = 3
-whyWrong = "There's no naming error, no duplicate storage, and no kilobyte-padding scheme at work — the extra fraction of a bit comes from a real design choice: spending more bits on the layers most sensitive to quantization error and fewer on the ones that tolerate it."
-explain = "K-quants vary bits per weight by layer sensitivity, which is exactly why the average lands above the flat bit-width the name suggests — the lesson's field notes name attention/early layers as the ones that get the extra bits."
-hint = "Read the lesson's field notes: 'a transformer's weights are not equally sensitive to error — attention projections and early layers tend to punish aggressive quantization harder than later feed-forward blocks.' A q4_K_M does not spend the same 4 bits everywhere — it varies the budget per layer, and that variable spend is what pushes the average above 4.0."
+answer = 1
+whyWrong = "There is no duplicate full-precision copy or meaningless padding explanation. The recipe and concrete artifact—not the headline digit—own the storage result."
+explain = "A quant label selects an implementation recipe. Reproducible budgeting records the tool commit, command, produced bytes, metadata, and behavioral comparison."
+hint = "Ask whether the label describes bytes, or selects the process that produces them."
 
 [[lessons.exercises]]
 id = "s03-l02-e2"
@@ -50,46 +48,31 @@ hint = "It's described in the lesson's second paragraph, contrasted directly aga
 id = "s03-l02-e3"
 type = "fill"
 points = 20
-prompt = "Fill the missing average bits-per-weight value for <code>q4_K_M</code>, as given in the lesson's quant_bits table."
+prompt = "Fill the reference-table bits-per-weight value for the stated llama.cpp Llama 3.1 8B example."
 code = '''quant_bits = {
-    "q8_0": 8.0,
-    "q4_0": 4.0,
-    "q4_K_M": ____,
-    "q3_K_S": 3.4,
+    "Q4_K_M_REFERENCE": ____,
 }'''
-answer = "4.5"
-hint = "It's the number the lesson uses in its worked 8B-model example: 8 * 4.5 / 8 ≈ 4.5 GB."
+answer = "4.8944"
+hint = "Read the official-table value precisely; do not round the recipe to its headline digit."
 
 [[lessons.exercises]]
 id = "s03-l02-e4"
 type = "write"
 points = 30
-prompt = "Given <code>params_b = 8</code> and the quant_bits dict below, compute the size in GB for the <code>\"q3_K_S\"</code> entry using <code>size_gb = params_b * bits / 8</code>, and print exactly: <code>SIZE 3.4 GB</code> — computed from the dict, not hardcoded."
-starter = '''params_b = 8
-quant_bits = {
-    "q8_0": 8.0,
-    "q4_0": 4.0,
-    "q4_K_M": 4.5,
-    "q3_K_S": 3.4,
-}
+prompt = "Given measured artifact bytes and an F16 master size, compute the Q4_K_M size in GiB and compression ratio. Print exactly: <code>Q4 4.88 GiB RATIO 0.31</code>."
+starter = '''artifact_bytes = 5_239_497_728
+f16_bytes = 16_900_000_000
 
-# Implement: look up quant_bits["q3_K_S"], compute size_gb = params_b * bits / 8,
-# then print:
-#   SIZE 3.4 GB
-size_gb = 0
-print(f"SIZE {size_gb} GB")
+size_gib = 0
+ratio = 0
+print(f"Q4 {size_gib:.2f} GiB RATIO {ratio:.2f}")
 '''
-expect = "SIZE 3.4 GB"
-solution = '''params_b = 8
-quant_bits = {
-    "q8_0": 8.0,
-    "q4_0": 4.0,
-    "q4_K_M": 4.5,
-    "q3_K_S": 3.4,
-}
+expect = "Q4 4.88 GiB RATIO 0.31"
+solution = '''artifact_bytes = 5_239_497_728
+f16_bytes = 16_900_000_000
 
-bits = quant_bits["q3_K_S"]
-size_gb = params_b * bits / 8
-print(f"SIZE {size_gb:.1f} GB")
+size_gib = artifact_bytes / (1024 ** 3)
+ratio = artifact_bytes / f16_bytes
+print(f"Q4 {size_gib:.2f} GiB RATIO {ratio:.2f}")
 '''
-hint = "Pull the bits value with quant_bits[\"q3_K_S\"], then size_gb = params_b * bits / 8 — format the result with one decimal place."
+hint = "Convert bytes with 1024 cubed, then divide the measured child bytes by the measured master bytes."

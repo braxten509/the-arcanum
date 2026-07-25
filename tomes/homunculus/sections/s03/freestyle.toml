@@ -1,7 +1,7 @@
 [freestyle]
 requires = ["python-craft", "vram-budget", "gguf-quantization", "kv-cache", "training-memory", "qlora-budget", "model-selection"]
 title = "THE WORKING: FREEZE THE VESSEL CONTRACT"
-brief = '''Extend <code>Homunculus/</code> with the exact <code>homunculus.toml</code> model, training, serving, and memory tables from this section plus <code>reports/memory-budget.md</code>.<ul><li>Freeze <code>Qwen/Qwen3-8B</code>; explain why changing the base later invalidates the adapter comparison.</li><li>Keep NF4 QLoRA training and Q4_K_M GGUF serving in separate tables.</li><li>Name weights, quantization metadata/workspace, activations, adapter gradients/optimizer state, framework reservation, and fragmentation.</li><li>State the two-GiB headroom gate and the future live commands that will measure allocated and reserved peaks.</li><li>Record the recovery order: reduce max length, verify gradient checkpointing, then reconsider the base.</li><li>Parse the saved contract from the project root with <code>python -c 'import tomllib; tomllib.load(open("homunculus.toml","rb"))'</code>, then run <code>python -m homunculus.doctor training</code>.</li><li>Keep supporting Python and configuration layout consistent with the Section I craft contract.</li></ul>A parse error blocks the configuration; a doctor failure belongs to the toolchain rather than to memory arithmetic. Do not claim that an inference file-size formula proves the training run fits.'''
+brief = '''Freeze the complete model and memory contract in <code>homunculus.toml</code>.<ul><li>Record the Qwen id and revision, tokenizer/config hashes, Ollama digest/version, ROCm image digest, llama.cpp commit, and resolved dependency-lock hash.</li><li>Keep NF4 training and Q4_K_M serving separate; use the official table only as a labeled reference example and make produced artifact bytes authoritative.</li><li>Derive the all-linear adapter estimate from the actual module graph and require PEFT's trainable report.</li><li>Name every training-memory line item, uncertainty, two-GiB headroom gate, and recovery order.</li><li>Write <code>evidence/receipts/s03.json</code> with parsed identities, formula inputs, and schema/check results, never model files or private text.</li></ul>A missing identity, mixed-format budget, parse failure, or unmeasured fit claim blocks the Working.'''
 reward = 220
 xray = "The decisive defect is a mixed budget that treats GGUF serving numbers as NF4 training proof. Require explicit uncertainties and a measurable dry-run gate."
 
@@ -14,18 +14,46 @@ desc = "Awarded for a fixed base and a falsifiable 16 GB memory contract."
 criterion = "Phase-correct memory model"
 weight = 35
 desc = "Training and serving formats and line items are separated correctly."
+essential = true
+minimumScore = 8
 
 [[freestyle.rubric]]
 criterion = "Frozen configuration"
 weight = 25
 desc = "The exact base, sequence, adapter, serving, and headroom values are saved in homunculus.toml."
+essential = true
+minimumScore = 8
 
 [[freestyle.rubric]]
 criterion = "Live acceptance gate"
 weight = 30
 desc = "A future measured dry step, its pass threshold, and the narrow recovery order are explicit."
+essential = true
+minimumScore = 7
 
 [[freestyle.rubric]]
 criterion = "Python and configuration craft"
 weight = 10
 desc = "Any supporting Python uses snake_case names, UPPER_CASE constants, four-space indentation, grouped imports, and separated top-level definitions; the TOML is consistently laid out and parses cleanly."
+
+[[freestyle.verification]]
+id = "compile-s03"
+command = "compile"
+label = "Compile source and tests"
+required = true
+expect = { exitCode = 0 }
+
+[[freestyle.verification]]
+id = "tests-s03"
+command = "tests"
+label = "Run unit tests"
+required = true
+expect = { exitCode = 0 }
+
+[[freestyle.verification]]
+id = "evidence-s03"
+command = "evidence"
+label = "Validate model and memory receipt"
+required = true
+args = ["s03"]
+expect = { exitCode = 0 }

@@ -65,22 +65,26 @@ in each scenario. Use an ordinary path plus a boundary, failure, or alternate in
 of the same launch.
 
 Obey the sealed language-neutral mechanism ledger. Copy each lesson node's `introduces` exactly
-to its `[[lessons]]` table and give every introduced mechanism its own complete
-`[[lessons.concepts]]` evidence plus guided exercise. Copy the Working node's `mechanisms`
-exactly to `[freestyle]`. Add `mechanisms = []`, even when empty, to every exercise, hidden
-reference step, rubric row, and `[proof]`, plus any exceptional visible artifact step; list every
-concrete mechanism that demand requires. Every introduced mechanism must appear in its named
-guided-practice exercise's `mechanisms` and in the chapter Working's declared mechanisms, where a
-rubric, proof action, or hidden replay step demonstrates real demand. A concept may not point at an
-exercise that omits the mechanism it claims to practice, and a typing drill cannot be its only
-guided practice. Declarations never substitute for teaching. The deterministic gate checks known
-IDs, ownership order, guided-practice coverage, Working-demand coverage, and map/file alignment; a
-separate cached prerequisite audit examines
-the actual prose, code, commands, checklist, rubric, proof, and replay for omissions. If that audit
-discovers a real undeclared mechanism, only the harness may add it through the audited map-
-amendment path, after which this section must teach and declare it before validation can pass.
-The harness refuses to auto-add a near-duplicate ahead of its closest sealed future owner; simplify
-an incidental authored route instead of pulling later curriculum forward under a new name.
+to its `[[lessons]]` table and the Working node's `mechanisms` exactly to `[freestyle]`. Add
+`mechanisms = []`, even when empty, to every exercise, hidden reference step, rubric row, and
+`[proof]`, plus any exceptional visible artifact step, and list every concrete mechanism that
+demand requires. Give every introduced mechanism its own complete `[[lessons.concepts]]` evidence
+and real guided practice. Declarations never substitute for teaching.
+
+Do not audit your own bookkeeping against that ledger. The deterministic gate re-derives it and
+reports the exact file and finding: drifted `introduces`/`mechanisms`, unknown ids, use before the
+owner lesson, a concept pointing at an exercise that omits the mechanism it claims to practice, a
+typing drill standing in as the only guided practice, an introduced mechanism with no guided
+exercise or no Working demand, and any sealed spelling — `print(`, `import `, `#` — appearing in
+your code, starters, solutions, reference steps, proof, or code spans before the lesson that owns
+it. Spend your turn on the teaching those checks cannot see.
+
+A separate cached prerequisite audit reads the actual prose, code, commands, checklist, rubric,
+proof, and replay for the omissions no scan can find. If it discovers a real undeclared mechanism,
+only the harness may add it through the audited map-amendment path, after which this section must
+teach and declare it before validation can pass. The harness refuses to auto-add a near-duplicate
+ahead of its closest sealed future owner; simplify an incidental authored route instead of pulling
+later curriculum forward under a new name.
 
 Before drafting, walk the Working backward from every checklist item, rubric row, proof action,
 validation dependency, artifact change, and hidden replay step to the learner's declared prior

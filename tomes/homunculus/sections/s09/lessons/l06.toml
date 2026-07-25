@@ -9,11 +9,11 @@ ollama show homunculus
 ollama show homunculus --modelfile
 ollama list</code></pre>
 <p>Record the model digest from Ollama's tags/list API, the Q4_K_M source hash, Modelfile hash, policy hash, and Ollama version in <code>artifacts/ollama/release-manifest.json</code>. Ollama imports weights into its own store, so moving the original GGUF does not invalidate the registry entry; nevertheless, retain or reproducibly regenerate the source artifact and its manifest.</p>
-<p>Now rerun the frozen baseline prompt suite, capability suite, policy suite, and retrieval-required cases through the actual <code>assistant.py</code> endpoint. Write <code>reports/served-evaluation.json</code>. The served release must preserve zero critical failures, the approved policy threshold, retrieval hit/citation behavior, and the adapter's required voice gain. Its mean correctness and usefulness may not drop more than 0.2 from the direct adapter evaluation. Any failure blocks delivery and is diagnosed by stage: template/import, quantization, retrieval, policy, or wrapper.</p>
+<p>Now rerun the frozen baseline prompt suite, capability suite, policy suite, and retrieval-required cases through the actual <code>assistant.py</code> endpoint. Write <code>reports/served-evaluation.json</code>. The served release must preserve zero critical failures, the approved policy threshold, retrieval hit/citation behavior, and the adapter's required voice gain. Use 0.2 as this project's predeclared starter tolerance for a mean correctness/usefulness drop only after the repeated direct baseline shows ordinary scoring variation is smaller; otherwise calibrate and record a defensible tolerance before seeing served results. Any failure blocks delivery and is diagnosed by stage: template/import, quantization, retrieval, policy, or wrapper.</p>
 <p>Prove daily use with a new real request:</p>
 <pre><code>python -m homunculus.assistant \
   --query "Turn these project findings into my standard decision-note format." \
-  --out outbox/decision-note.md</code></pre>
+  --out private/outbox/decision-note.md</code></pre>
 <p>Open the Markdown in the editor, verify claims and citations, then use Notion's Import → Markdown &amp; CSV flow to import it into a scratch page. Confirm headings, bullets, links, and fenced code survive. Advanced Markdown and anchors are outside the promised interchange. Record the scratch import result in <code>reports/notion-delivery.md</code>; do not claim integration from file creation alone.</p>
 <p>The release is now useful to a person: a local command accepts a real request, consults current cited references, writes in the evaluated personal voice under visible policy, saves an editable Notion-ready artifact, and has endpoint test evidence.</p>
 <div class="field-notes"><div class="fn-head">FIELD NOTES // IMPORT IS A HUMAN-FACING PROOF</div>
@@ -40,24 +40,6 @@ explain = "Only endpoint evidence covers the released chain."
 hint = "The user consumes the served wrapper, not the trainer object."
 
 [[lessons.exercises]]
-id = "s09-l06-e2"
-type = "text"
-points = 15
-prompt = "Which report proves the Markdown was actually imported into a scratch Notion page?"
-answer = "reports/notion-delivery.md"
-accept = ["notion-delivery.md", "reports/notion-delivery.md"]
-hint = "File generation alone is not delivery proof."
-
-[[lessons.exercises]]
-id = "s09-l06-e3"
-type = "fill"
-points = 20
-prompt = "Complete the command that registers the model."
-code = "ollama ____ homunculus -f Modelfile"
-answer = "create"
-hint = "It imports FROM and the Modelfile directives."
-
-[[lessons.exercises]]
 id = "s09-l06-e4"
 type = "write"
 points = 35
@@ -80,3 +62,37 @@ print("SERVED PASS" if passed else "SERVED FAIL")
 '''
 expect = "SERVED PASS"
 hint = "Require zero criticals and a direct-minus-served drop no greater than max_drop."
+
+[[lessons.exercises]]
+id = "s09-l06-e3"
+type = "fill"
+points = 20
+prompt = "Complete the command that registers the model."
+code = "ollama ____ homunculus -f Modelfile"
+answer = "create"
+hint = "It imports FROM and the Modelfile directives."
+
+[[lessons.exercises]]
+id = "s09-l06-e2"
+type = "text"
+points = 15
+prompt = "Which report proves the Markdown was actually imported into a scratch Notion page?"
+answer = "reports/notion-delivery.md"
+accept = ["notion-delivery.md", "reports/notion-delivery.md"]
+hint = "File generation alone is not delivery proof."
+
+[[lessons.exercises]]
+id = "s09-l06-e5"
+type = "mc"
+points = 20
+prompt = "Before conversion, which earlier artifact authorizes the exact adapter being merged?"
+choices = [
+  "The newest directory by modification time",
+  "The evaluation decision's MERGE verdict plus the matching adapter-manifest hash",
+  "Any adapter whose loss decreased",
+  "The Notion delivery report",
+]
+answer = 1
+whyWrong = "Recency, loss alone, and a downstream import check do not grant merge authority."
+explain = "The evaluation permit binds a human decision to one content-identified adapter."
+hint = "Authorization needs both a verdict and an immutable subject."

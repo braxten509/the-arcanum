@@ -14,7 +14,7 @@ body = '''
     "critical_failures": 0,
     "score_by_axis": {"correct": 1.8, "voice": 1.7},
 }</code></pre>
-<p>Compare like with like. If a score changes while any identity hash changed, classify the event by that component and run its rebuild plan. If hashes match but outputs change, confirm deterministic settings, conversation isolation, Ollama version, and hardware placement. A critical privacy, injection, or citation failure blocks use immediately; a noncritical score drop greater than the predefined 0.2 tolerance triggers review, not blind retraining.</p>
+<p>Compare like with like. If a score changes while any identity hash changed, classify the event by that component and run its rebuild plan. If hashes match but outputs change, confirm deterministic settings, conversation isolation, Ollama version, and hardware placement. A critical privacy, injection, or citation failure blocks use immediately. For noncritical scores, use the release's predeclared tolerance—0.2 is only the course's starter value, justified when repeated baseline scoring varies by less than that amount—and trigger review rather than blind retraining when the bound is crossed.</p>
 <p>Version evaluation suites when the real job expands. Keep the old suite and baseline rather than editing history, and evaluate a release against the suite version it was approved under plus the new candidate suite. Monitoring reports link raw responses so a number never hides the actual behavioral difference.</p>
 <div class="field-notes"><div class="fn-head">FIELD NOTES // DRIFT BEGINS WITH IDENTITY</div>
 <p>When a monthly score moves, first compare release, model, policy, RAG, suite, generation settings, and software identities. Only then interpret behavior. A score change with a changed suite is not model drift; a change with identical inputs may reveal nondeterminism, evaluator variance, corrupted state, or a real serving regression worth isolating.</p></div>
@@ -29,20 +29,16 @@ id = "s10-l03-e1"
 type = "mc"
 points = 20
 prompt = "What is the first action when a monthly score changes?"
-choices = ["Verify release, policy, RAG, suite, software, and settings identities", "Retrain immediately", "Delete the old report", "Raise temperature"]
-answer = 0
+choices = [
+  "Retrain immediately",
+  "Delete the old report",
+  "Raise temperature",
+  "Verify release, policy, RAG, suite, software, and settings identities",
+]
+answer = 3
 whyWrong = "Blind mutation destroys the evidence needed to locate the changed component."
 explain = "Drift diagnosis begins with lineage."
 hint = "Determine whether the comparison is actually like-for-like."
-
-[[lessons.exercises]]
-id = "s10-l03-e2"
-type = "text"
-points = 15
-prompt = "What score-drop tolerance triggers noncritical review?"
-answer = "0.2"
-accept = ["0.2", "0.20", "twenty hundredths"]
-hint = "It matches the served quality tolerance."
 
 [[lessons.exercises]]
 id = "s10-l03-e3"
@@ -72,3 +68,12 @@ print("OWNER " + ", ".join(owners))
 '''
 expect = "OWNER policy"
 hint = "Keep component names whose identity changed."
+
+[[lessons.exercises]]
+id = "s10-l03-e2"
+type = "text"
+points = 15
+prompt = "What score-drop tolerance triggers noncritical review?"
+answer = "0.2"
+accept = ["0.2", "0.20", "twenty hundredths"]
+hint = "It matches the served quality tolerance."

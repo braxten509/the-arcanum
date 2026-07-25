@@ -23,17 +23,6 @@ label = "Ollama Modelfile SYSTEM directive"
 url = "https://docs.ollama.com/modelfile"
 
 [[lessons.exercises]]
-id = "s08-l05-e1"
-type = "mc"
-points = 20
-prompt = "A policy edit changes its SHA-256. What follows?"
-choices = ["Update the recorded hash and rerun the policy suite", "Ignore it because Markdown is not code", "Retrain automatically", "Delete prior reports"]
-answer = 0
-whyWrong = "Policy text affects model input even though it is Markdown; it does not automatically require training or history deletion."
-explain = "Versioned policy changes are cheap but still evaluated changes."
-hint = "The hash exists to surface exactly this event."
-
-[[lessons.exercises]]
 id = "s08-l05-e2"
 type = "text"
 points = 15
@@ -51,6 +40,22 @@ code = "minimum_agreement = ____"
 answer = "0.85"
 accept = ["0.85", "85%"]
 hint = "Seventeen of twenty cases would meet it."
+
+[[lessons.exercises]]
+id = "s08-l05-e1"
+type = "mc"
+points = 20
+prompt = "A policy edit changes its SHA-256. What follows?"
+choices = [
+  "Ignore it because Markdown is not code",
+  "Retrain automatically",
+  "Update the recorded hash and rerun the policy suite",
+  "Delete prior reports",
+]
+answer = 2
+whyWrong = "Policy text affects model input even though it is Markdown; it does not automatically require training or history deletion."
+explain = "Versioned policy changes are cheap but still evaluated changes."
+hint = "The hash exists to surface exactly this event."
 
 [[lessons.exercises]]
 id = "s08-l05-e4"
@@ -73,3 +78,19 @@ print(f"POLICY {verdict}")
 '''
 expect = "POLICY APPROVED"
 hint = "Approval requires both zero criticals and agreement at or above the minimum."
+
+[[lessons.exercises]]
+id = "s08-l05-e5"
+type = "mc"
+points = 20
+prompt = "Why can neither a system message nor greedy decoding prove that every future response will obey a policy?"
+choices = [
+  "System messages are never tokenized",
+  "Greedy decoding calls a hosted moderation service",
+  "Policy files cannot be hashed",
+  "The model retains learned tendencies, and fixed decoding removes sampling randomness without proving universal behavior",
+]
+answer = 3
+whyWrong = "The policy is tokenized and hashable, and local greedy decoding does not imply a hosted service."
+explain = "Policy compliance is an empirical, versioned claim bounded by the evaluated cases—not a universal guarantee."
+hint = "Separate repeatability of a decoding rule from proof over all possible prompts."

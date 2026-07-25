@@ -18,9 +18,8 @@ ROLES = (*CORE_ROLES, "backup")
 # recovery hand may verify a stronger reviewer's repaired artifact without being exposed as
 # a selectable Phase-8 primary after missing latent blockers in the real HollowCrawl audit.
 BACKUP_REQUIREMENTS = frozenset(("writer", "sections", "review_verifier"))
-# Phase-8 escalation contract (see global-configs/model-role-evidence.toml): a chained
-# economy primary is legal ONLY with one of the fully/operator-approved reviewers
-# explicitly pinned behind it as the phase-8 escalation hand.
+# Phase-8 escalation contract: a chained economy primary is legal ONLY with one of the
+# fully/operator-approved reviewers explicitly pinned behind it as the phase-8 escalation hand.
 ESCALATION_PRIMARIES = frozenset(("opencode-go/kimi-k2.6",))
 ESCALATION_TARGETS = frozenset(("gpt-5.6-sol", "claude-fable-5"))
 
@@ -32,6 +31,13 @@ def _entry(roles, basis):
 # Research and local-run evidence snapshot: 2026-07-14. ``basis`` is returned by /api/models for
 # diagnostics and future audits; the compact UI shows power for selectable
 # choices and the concise "(insufficient)" or "(wasteful)" exclusion reason.
+#
+# Each ``basis`` IS the evidence record -- there is no second file to keep in step. The trials
+# behind them: role-specific-edit-v1 for the authoring hands; for Reviewer, two consecutive
+# authored-repair-replay-v3 passes AND the blind real HollowCrawl false-pass audit, whose three
+# required root causes were the float tile viewport bounds, the missing draw_inventory import,
+# and the constant acceptance PASS. Raw run artifacts, while they survive, are under
+# .tome-build/hollowcrawl-review-trials/<run-id>/results.json.
 MODEL_POLICY = {
     # Anthropic. Haiku, Sonnet, and Opus retain only their proven authoring hands.
     # No Claude endpoint completed Reviewer v3 inside the bounded live trial, so
@@ -51,6 +57,10 @@ MODEL_POLICY = {
     "claude-opus-4-8": _entry(
         ("writer",),
         "At $5/$25 per MTok, Opus remains justified for the course arc; its Reviewer v3 run exhausted the test budget with most repair gates still open.",
+    ),
+    "claude-opus-5": _entry(
+        (*CORE_ROLES, "review_verifier"),
+        "Current frontier Opus at the unchanged $5/$25 per MTok, publicly within a point of Fable 5 on SWE-bench Pro for half the price. Operator-designated on 2026-07-24 as sufficient for every hand at every effort, with no restriction: that is a judgment call, not a completed role trial.",
     ),
     "claude-fable-5": _entry(
         ("reviewer", "review_verifier"),
@@ -253,6 +263,7 @@ MODEL_POWER = {
     "claude-sonnet-5": 9,
     "claude-opus-4-7": 9,
     "claude-opus-4-8": 9,
+    "claude-opus-5": 10,
     "claude-fable-5": 10,
     "Gemini 3.5 Flash (Low)": 5,
     "Gemini 3.5 Flash (Medium)": 6,
@@ -329,6 +340,9 @@ MODEL_ROLES = {model: policy["roles"] for model, policy in MODEL_POLICY.items()}
 # bundled phases, while unnecessarily high effort and max/ultra are gray when a
 # lower setting clears the hand's bar.  Every supported level remains visible.
 EFFORT_PROFILES = {
+    # An omitted role grays every level, so "unrestricted" has to be spelled out: Opus 5 is
+    # advised for every hand at every effort its provider row reports.
+    "claude-opus-5": {role: ("low", "medium", "high", "xhigh", "max") for role in ROLES},
     "claude-opus-4-8": {
         "writer": ("high",),
     },

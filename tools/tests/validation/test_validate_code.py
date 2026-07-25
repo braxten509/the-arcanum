@@ -13,7 +13,8 @@ import sys
 import tempfile
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from validate_code import crowded_directories, offenders  # noqa: E402
+from validate_code import (crowded_directories, offenders,  # noqa: E402
+                           stale_exemptions)
 
 
 def write(root, relpath, lines):
@@ -33,7 +34,7 @@ def main():
         write(root, ".hidden/gen.py", 99)     # skipped dotdir
         write(root, "nested/deep/huge.java", 20)
 
-        found = offenders(root, 10)
+        found, honored_files = offenders(root, 10, {"big.py": 15})
         for index in range(11):
             write(root, f"crowded/file-{index}.txt", 1)
         for index in range(10):
@@ -46,10 +47,22 @@ def main():
                 write(root, f"{excluded}/excluded-{index}.txt", 1)
         for index in range(12):
             write(root, f"root-file-{index}.txt", 1)
-        crowded = crowded_directories(root, 10)
+        crowded, honored_dirs = crowded_directories(
+            root, 10, {"crowded": 11, "exactly-ten": 12})
+        stale = stale_exemptions(root, honored_files, honored_dirs, 10, 10,
+                                 {"big.py": 15, "gone.py": 20},
+                                 {"crowded": 11, "exactly-ten": 12})
 
-    assert found == [(20, os.path.join("nested", "deep", "huge.java")), (12, "big.py")], found
-    assert crowded == [(11, "crowded")], crowded
+    # big.py declares a 15-line ceiling, so 12 lines is honored, not a violation.
+    assert found == [(20, os.path.join("nested", "deep", "huge.java"), 10)], found
+    assert honored_files == [(12, "big.py", 15)], honored_files
+    # `crowded` fits its declared 11-file ceiling; `exactly-ten` never needed one.
+    assert crowded == [], crowded
+    assert honored_dirs == [(11, "crowded", 11), (10, "exactly-ten", 12)], honored_dirs
+    joined = "\n".join(stale)
+    assert "gone.py: declared in [[limits.oversizeFiles]] but the file does not exist" in joined
+    assert "exactly-ten: 10 direct files is back under the 10-file limit" in joined
+    assert "big.py" not in joined and "crowded:" not in joined, joined
     with open(os.path.join(_BOOTSTRAP_REPO, ".gitignore"), encoding="utf-8") as handle:
         assert "/validator-failures/" in handle.read()
     print("ok: line and direct-file limits enforced; children and excluded trees ignored")

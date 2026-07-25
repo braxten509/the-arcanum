@@ -19,17 +19,6 @@ label = "FAISS index persistence"
 url = "https://github.com/facebookresearch/faiss/wiki/Index-IO%2C-cloning-and-hyper-parameter-tuning"
 
 [[lessons.exercises]]
-id = "s07-l05-e1"
-type = "mc"
-points = 20
-prompt = "Why does rag search refuse a manifest hash mismatch?"
-choices = ["The index and citation metadata may no longer describe the current sources", "It makes the GPU faster", "It retrains Qwen", "It changes Notion permissions"]
-answer = 0
-whyWrong = "Hash validation protects artifact identity; it does not affect model training, permissions, or hardware speed."
-explain = "A stale index can return plausible evidence with false provenance."
-hint = "Which physical files did the vectors represent?"
-
-[[lessons.exercises]]
 id = "s07-l05-e2"
 type = "text"
 points = 15
@@ -47,6 +36,22 @@ code = "minimum_hit_rate_at_4 = ____"
 answer = "0.80"
 accept = ["0.8", "0.80", "80%"]
 hint = "Twelve of fifteen queries would meet it."
+
+[[lessons.exercises]]
+id = "s07-l05-e1"
+type = "mc"
+points = 20
+prompt = "Why does rag search refuse a manifest hash mismatch?"
+choices = [
+  "It makes the GPU faster",
+  "The index and citation metadata may no longer describe the current sources",
+  "It retrains Qwen",
+  "It changes Notion permissions",
+]
+answer = 1
+whyWrong = "Hash validation protects artifact identity; it does not affect model training, permissions, or hardware speed."
+explain = "A stale index can return plausible evidence with false provenance."
+hint = "Which physical files did the vectors represent?"
 
 [[lessons.exercises]]
 id = "s07-l05-e4"
@@ -69,3 +74,55 @@ print("RAG READY" if ready else "RAG NOT READY")
 '''
 expect = "RAG READY"
 hint = "All booleans must pass and the duplicate count must be zero."
+
+[[lessons.exercises]]
+id = "s07-l05-e5"
+type = "mc"
+points = 20
+prompt = "A reference URL still resolves, but its content has changed since the index was built. Which earlier reproducibility rule detects that the vectors are stale?"
+choices = [
+  "Compare the frozen content hash and source-manifest hash, then rebuild if either identity differs",
+  "Assume a working URL means identical bytes",
+  "Increase generation temperature",
+  "Rename the FAISS directory",
+]
+answer = 0
+whyWrong = "Reachability, sampling, and filenames do not establish content identity."
+explain = "Resolved content hashes connect retrieval artifacts to the exact source bytes they represent."
+hint = "A mutable name is not an immutable identity."
+
+[[lessons.exercises]]
+id = "s07-l05-e6"
+type = "write"
+points = 35
+prompt = "Debug the stale-index guard: it currently reports READY when a source hash changed. Preserve the supplied manifest and print exactly: STALE source_hash"
+starter = '''manifest = {
+    "source_hash": "old-source",
+    "embedder_id": "all-MiniLM-L6-v2",
+    "chunk_tokens": 200,
+}
+current = {
+    "source_hash": "new-source",
+    "embedder_id": "all-MiniLM-L6-v2",
+    "chunk_tokens": 200,
+}
+
+changed = [key for key in manifest if manifest[key] == current[key]]
+print("READY" if changed else "STALE " + ", ".join(changed))
+'''
+solution = '''manifest = {
+    "source_hash": "old-source",
+    "embedder_id": "all-MiniLM-L6-v2",
+    "chunk_tokens": 200,
+}
+current = {
+    "source_hash": "new-source",
+    "embedder_id": "all-MiniLM-L6-v2",
+    "chunk_tokens": 200,
+}
+
+changed = [key for key in manifest if manifest[key] != current[key]]
+print("STALE " + ", ".join(changed) if changed else "READY")
+'''
+expect = "STALE source_hash"
+hint = "Inspect both the comparison operator and which branch should run when the mismatch list is nonempty."

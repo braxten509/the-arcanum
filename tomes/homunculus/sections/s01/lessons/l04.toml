@@ -58,18 +58,21 @@ def main() -&gt; None:
 
 if __name__ == "__main__":
     main()</code></pre>
-<p>Create <code>tests/test_doctor.py</code> with a small failure test:</p>
-<pre><code>import pytest
+<p>Create <code>tests/test_doctor.py</code> with a standard-library failure test. The project may also use pytest locally, but the grading sandbox can execute this suite without downloading dependencies:</p>
+<pre><code>import unittest
 from homunculus.doctor import require
 
-def test_require_names_failed_boundary():
-    with pytest.raises(RuntimeError, match="tensor failed"):
-        require(False, "tensor failed")</code></pre>
-<p>Start Ollama on the host, enter the mounted training container, and run from <code>/workspace</code>:</p>
-<pre><code>pytest -q
-python -m homunculus.doctor all | tee reports/doctor.txt</code></pre>
+class DoctorTests(unittest.TestCase):
+    def test_require_names_failed_boundary(self):
+        with self.assertRaisesRegex(RuntimeError, "tensor failed"):
+            require(False, "tensor failed")</code></pre>
+<p>Run the compile and unit-test checks inside the networkless container. Run the Ollama check separately on the host, then sanitize the result through <code>src/homunculus/verify.py s01</code>:</p>
+<pre><code>python -m compileall -q src tests
+python -m unittest discover -s tests -q
+python -m homunculus.doctor training | tee reports/doctor-training.txt
+python src/homunculus/verify.py s01</code></pre>
 <p>The exit bar is literal: the test passes; the report names the pinned packages, Radeon and <code>gfx1201</code>; the tensor result is 10; Ollama returns a version; the final line is <code>READY</code>. Open <code>reports/doctor.txt</code> in the editor and confirm it contains this run rather than an old copy.</p>
-<p>When it fails, read the final exception and the first traceback frame in your own source. Confirm <code>pwd</code>, then rerun the smallest owner check. The container is disposable, but <code>data/raw</code>, <code>artifacts</code>, and <code>reports</code> are not. Recreate a broken environment; never “recover” by deleting the learner-owned project.</p>
+<p>When it fails, read the final exception and the first traceback frame in your own source. Confirm <code>pwd</code>, then rerun the smallest owner check. The container is disposable, but <code>private/</code>, <code>artifacts/</code>, and <code>reports/</code> are not. Recreate a broken environment; never “recover” by deleting learner-owned data. The sanitized receipt records tool versions, hashes, device identity, boolean checks, and redacted failure classes—never raw environment variables, credentials, prompts, or generations.</p>
 <div class="field-notes"><div class="fn-head">FIELD NOTES // A DOCTOR SHOULD NAME THE OWNER</div>
 <p>Useful diagnostics do more than print red or green. They report the working directory, imported module path, package versions, detected architecture, available devices, and the first failed boundary. That turns “training is broken” into a specific statement such as “the container imported a host package” or “PyTorch cannot allocate on the ROCm device.”</p></div>
 '''
@@ -89,11 +92,11 @@ points = 20
 prompt = "What evidence proves GPU compute rather than mere device discovery?"
 choices = [
   "pip prints Successfully installed",
-  "A tensor allocated on the ROCm device produces the checked sum 10",
   "The editor can open doctor.py",
+  "A tensor allocated on the ROCm device produces the checked sum 10",
   "Ollama returns its version",
 ]
-answer = 1
+answer = 2
 whyWrong = "Package, editor, and service checks prove other boundaries. Only a checked tensor operation exercises actual GPU computation."
 explain = "The doctor requires both discovery and a correct device-side result."
 hint = "Look for the check that asks the card to calculate."
@@ -122,12 +125,12 @@ type = "mc"
 points = 20
 prompt = "An import traceback points at a different Homunculus directory. What is the narrow recovery?"
 choices = [
-  "Confirm pwd, remove the accidental installed copy, return to /workspace, and reinstall this project editable",
-  "Delete data/raw and begin the corpus again",
+  "Delete private/notion and begin the corpus again",
   "Set HSA_OVERRIDE_GFX_VERSION",
   "Quantize the untrained model",
+  "Confirm pwd, remove the accidental installed copy, return to /workspace, and reinstall this project editable",
 ]
-answer = 0
+answer = 3
 whyWrong = "Corpus deletion, GPU impersonation, and premature quantization do not correct Python's import path."
 explain = "The printed module path identifies an environment/cwd ownership mistake, so repair that boundary only."
 hint = "Fix the location Python imports, not unrelated data or GPU settings."

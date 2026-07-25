@@ -161,7 +161,8 @@ def validate_course_map(value, detailed=True, seed=None):
     """Return every schema/graph problem; never silently normalize omissions."""
     problems = _keys(value, TOP_KEYS, "course map",
                      optional={"digest", "languageMastery", "artifactContract",
-                               "mechanismContract", "masteryEvidence"})
+                               "mechanismContract", "masteryEvidence",
+                               "adoptedFromTome"})
     if not isinstance(value, dict):
         return problems
     map_version = value.get("version")

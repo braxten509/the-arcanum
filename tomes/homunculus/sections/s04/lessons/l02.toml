@@ -7,7 +7,7 @@ body = '''
 <pre><code>{
   "id": "decision-001",
   "category": "decision-note",
-  "source_path": "data/raw/notion/Project Alpha/Decision.md",
+  "source_path": "private/notion/Project Alpha/Decision.md",
   "source_sha256": "...",
   "split": "train",
   "approved": true,
@@ -20,14 +20,14 @@ body = '''
 }</code></pre>
 <p>The metadata is for your pipeline, not the model. <code>id</code> is immutable. <code>category</code> lets evaluation cover different writing jobs. <code>source_sha256</code> proves which export produced the row. <code>split</code> is assigned during human review, before training. Keep every fragment from the same source document in the same split; otherwise a near-duplicate paragraph can leak from train into evaluation. <code>approved</code> records the human decision that the completion really represents you and contains no secret.</p>
 <p>The roles are also deliberate. The system policy is not baked into every training record because Section VIII keeps policy user-controlled and reversible. The prompt contains the task and any source facts; the completion contains only the answer to learn. Current TRL applies the tokenizer's native chat template to this conversational pair. It can then compute loss on completion tokens only, which Section IV makes explicit.</p>
-<p>Write draft rows to <code>data/drafts.jsonl</code> one JSON object per line. Use <code>json.dumps(row, ensure_ascii=False)</code> so punctuation and non-English text survive. A row that parses is not automatically good: it still needs source provenance, manual approval, and a completion that would be useful in daily work.</p>
+<p>Write draft rows to <code>private/dataset/drafts.jsonl</code> one JSON object per line. Use <code>json.dumps(row, ensure_ascii=False)</code> so punctuation and non-English text survive. A row that parses is not automatically good: it still needs source provenance, manual approval, and a completion that would be useful in daily work.</p>
 <div class="field-notes"><div class="fn-head">FIELD NOTES // EXAMPLES ARE BEHAVIORAL CONTRACTS</div>
 <p>Each row should demonstrate one recognizable job: what was asked, what a good answer looks like, and where it came from. A giant note converted into one row teaches topic continuation more than assistant behavior. Smaller, reviewed prompt/completion pairs make errors removable and let evaluation refer back to the source without exposing unrelated personal text.</p></div>
 '''
 
 [[lessons.readings]]
 label = "TRL dataset formats"
-url = "https://huggingface.co/docs/trl/dataset_formats"
+url = "https://huggingface.co/docs/trl/v1.8.0/dataset_formats"
 
 [[lessons.exercises]]
 id = "s04-l02-e1"

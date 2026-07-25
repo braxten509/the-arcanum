@@ -25,17 +25,6 @@ label = "Python hashlib"
 url = "https://docs.python.org/3/library/hashlib.html"
 
 [[lessons.exercises]]
-id = "s10-l01-e1"
-type = "mc"
-points = 20
-prompt = "Why is a date-only directory name insufficient?"
-choices = ["It does not identify exact inputs, software, decisions, or artifact bytes", "JSON cannot store dates", "Ollama rejects dates", "Hashes require cloud access"]
-answer = 0
-whyWrong = "Dates are valid JSON and Ollama is unrelated; hashes are computed locally."
-explain = "Reproducibility needs lineage, not chronology alone."
-hint = "Two different runs can happen on the same day."
-
-[[lessons.exercises]]
 id = "s10-l01-e2"
 type = "text"
 points = 15
@@ -43,6 +32,22 @@ prompt = "Which file is the machine-readable source of truth for a run?"
 answer = "runs/<run-id>/manifest.json"
 accept = ["manifest.json", "the run manifest", "runs/<run-id>/manifest.json"]
 hint = "RUNS.md is only the human index."
+
+[[lessons.exercises]]
+id = "s10-l01-e1"
+type = "mc"
+points = 20
+prompt = "Why is a date-only directory name insufficient?"
+choices = [
+  "JSON cannot store dates",
+  "It does not identify exact inputs, software, decisions, or artifact bytes",
+  "Ollama rejects dates",
+  "Hashes require cloud access",
+]
+answer = 1
+whyWrong = "Dates are valid JSON and Ollama is unrelated; hashes are computed locally."
+explain = "Reproducibility needs lineage, not chronology alone."
+hint = "Two different runs can happen on the same day."
 
 [[lessons.exercises]]
 id = "s10-l01-e3"
@@ -73,3 +78,12 @@ print("CHANGED " + ", ".join(changed))
 '''
 expect = "CHANGED policy"
 hint = "Compare each recorded hash with the current hash under the same key."
+
+[[lessons.exercises]]
+id = "s10-l01-e5"
+type = "type"
+points = 12
+reps = 2
+prompt = "Retype the append-only lineage fields that distinguish a child release from its parent."
+code = '''manifest["run_id"] = new_run_id
+manifest["parent_release"] = approved_parent_id'''

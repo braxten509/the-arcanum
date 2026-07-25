@@ -37,16 +37,17 @@ where = ["src"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]</code></pre>
-<p>These pins are a known course snapshot, not a promise that newer versions are bad. They make the examples and current APIs agree. The <code>numpy</code> pin also follows AMD's tested-environment guidance. When you intentionally upgrade later, change one layer at a time and rerun the doctor.</p>
-<p>Still inside the training container and at <code>/workspace</code>, install the editable project:</p>
-<pre><code>python -m pip install --upgrade pip
-python -m pip install -e '.[train,rag,dev]'
+<p>These direct pins are a known course snapshot, not a complete lock. Before personal material enters <code>private/</code>, use a networked bootstrap container to download the resolved wheels into excluded <code>vendor/wheels/</code>, record every SHA-256, and save <code>python -m pip freeze --all</code> as <code>reports/environment.lock</code>. That resolved inventory—not the short list alone—is the environment identity. When you intentionally upgrade later, change one layer at a time and rerun the doctor.</p>
+<p>Inside the training container at <code>/workspace</code>, keep networking disabled and install the editable project only from the staged wheelhouse:</p>
+<pre><code>python -m pip install --no-index --find-links vendor/wheels -e '.[train,rag,dev]'
+python -m pip freeze --all &gt; reports/environment.lock
+sha256sum reports/environment.lock &gt; evidence/receipts/environment-lock.sha256
 python -c 'import homunculus; print(homunculus.__file__)'</code></pre>
 <p>An editable install means <code>python -m homunculus.doctor</code> imports the file under <code>src/homunculus/</code> that you can see and edit. If the printed path points at some unrelated copy, stop: inspect <code>pwd</code>, uninstall that accidental copy, return to <code>/workspace</code>, and install again.</p>
 <p>The source you save must also remain legible as this project grows. Follow the load-bearing PEP 8 conventions from the first module onward: indent blocks with four spaces; use <code>snake_case</code> for functions and variables, <code>UPPER_CASE</code> for constants, and CapWords for classes; keep imports at the top in standard-library, third-party, then local groups; and separate top-level function or class definitions with two blank lines. These are reviewable choices, not decoration. Before presenting a Working, run <code>python -m compileall -q src tests</code> from the project root. A nonzero exit proves a syntax boundary is broken; read the named path and line before touching packages.</p>
 <p>Know which component owns each future problem. <code>datasets</code> shapes JSONL rows; <code>transformers</code> owns tokenization and base-model loading; <code>peft</code> owns the LoRA adapter; <code>trl</code> owns supervised training; <code>bitsandbytes</code> owns 4-bit loading; <code>sentence-transformers</code> and FAISS own retrieval. llama.cpp converts and quantizes merged weights; Ollama serves the GGUF. Save after each coherent edit, run the smallest relevant command, and read the first traceback frame inside <code>src/homunculus</code> before changing packages.</p>
 <div class="field-notes"><div class="fn-head">FIELD NOTES // PINS ARE PART OF THE EXPERIMENT</div>
-<p>Package versions are not housekeeping here. They define constructor names, dataset behavior, quantization kernels, and even whether the card target exists in a wheel. Change one pin only as an explicit experiment, capture the old and new lock state, and rerun the doctor plus the narrowest affected proof before accepting it.</p></div>
+<p>Package versions are not housekeeping here. They define constructor names, dataset behavior, quantization kernels, and even whether the card target exists in a wheel. Keep the wheelhouse and full resolved lock excluded from grading; place only their hashes, package counts, and compatibility-test result in <code>evidence/</code>. Change one pin only as an explicit experiment, capture the old and new identities, and rerun the doctor plus the narrowest affected proof.</p></div>
 '''
 
 [[lessons.readings]]
@@ -55,7 +56,7 @@ url = "https://packaging.python.org/en/latest/guides/writing-pyproject-toml/"
 
 [[lessons.readings]]
 label = "TRL SFTTrainer"
-url = "https://huggingface.co/docs/trl/sft_trainer"
+url = "https://huggingface.co/docs/trl/v1.8.0/sft_trainer"
 
 [[lessons.readings]]
 label = "PEP 8: Python code style"
@@ -67,12 +68,12 @@ type = "mc"
 points = 20
 prompt = "Why is torch absent from this project's dependency list?"
 choices = [
-  "Homunculus never uses tensors",
   "The tested AMD image already owns the matching ROCm PyTorch build",
+  "Homunculus never uses tensors",
   "bitsandbytes secretly replaces PyTorch",
   "Ollama trains the adapter instead",
 ]
-answer = 1
+answer = 0
 whyWrong = "The training code does use PyTorch; neither bitsandbytes nor Ollama replaces it. The omission protects the vendor-tested ROCm build from an accidental generic replacement."
 explain = "Environment-level PyTorch and application-level dependencies have deliberately separate owners."
 hint = "Which component supplied the tested GPU runtime?"
@@ -122,11 +123,11 @@ points = 20
 prompt = "Which edit leaves a new Homunculus module aligned with the Python craft contract used by every Working?"
 choices = [
   "Indent nested blocks with tabs and name a helper BuildReport",
-  "Place third-party imports after the first function and name a constant reportPath",
   "Use four-space blocks, name the helper build_report, and name the fixed path REPORT_PATH",
+  "Place third-party imports after the first function and name a constant reportPath",
   "Put two top-level functions on adjacent lines and name both in UPPER_CASE",
 ]
-answer = 2
+answer = 1
 whyWrong = "Tabs violate the chosen four-space layout; functions and variables use snake_case rather than CapWords; constants use UPPER_CASE; imports stay at the top; and top-level definitions need separating blank lines."
 explain = "The third choice applies both halves of the project contract: PEP 8 layout with four-space blocks, and distinct naming forms for a function and a constant."
 hint = "Check the option's indentation, helper name, and constant name together."

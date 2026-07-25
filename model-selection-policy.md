@@ -74,10 +74,12 @@ actionable fact for that hand.
 | `claude-sonnet-5` | — | yes | yes | — | W/S medium or high | $2/$10 per MTok through August 2026. It remains a cost-effective author, but its Reviewer v3 run exhausted the test budget before repair closure. |
 | `claude-opus-4-7` | — | — | — | — | all efforts gray | Same $5/$25 base rate as newer Opus 4.8, with its fast mode being retired. It is a same-price predecessor. |
 | `claude-opus-4-8` | — | yes | — | — | W high | $5/$25. It remains useful for course architecture, but exhausted the Reviewer v3 budget with most critical gates open. |
+| `claude-opus-5` | yes | yes | yes | yes | every effort, every hand | $5/$25 — the Opus rate card is unchanged, and public results put it within a point of Fable 5 on SWE-bench Pro at half the price. Operator-designated 2026-07-24 for every hand at every effort with no restriction. It ran no harness role trial; the deterministic launch/acceptance/independent-verification gates carry the qualification burden, as they do for Fable 5. |
 | `claude-fable-5` | — | — | — | yes | R high only | $10/$50, operator-designated as a premium final-audit hand at high effort. Untrialed on Reviewer v3; the deterministic launch/acceptance/independent-verification gates carry the qualification burden. Authoring hands remain wasteful. |
 
-Sonnet and Opus reviewer runs remain inconclusive (budget-exhausted) and fail
-closed; they may still author in their proven hands.
+Sonnet's and Opus 4.7/4.8's reviewer runs remain inconclusive (budget-exhausted)
+and fail closed; they may still author in their proven hands. Opus 5 is the
+operator-designated exception and is not limited on any hand.
 
 ## Antigravity CLI — measured, not preset
 
@@ -93,8 +95,9 @@ effort box.
 | `Gemini 3.1 Pro (High)` | yes | yes | yes | — | Retains its earlier authoring passes, but returned from Reviewer v3 with twelve mandatory gates open. |
 | `GPT-OSS 120B (Medium)` | yes | — | — | — | Strong tool use and roughly o4-mini-class open-model performance, but not the general pedagogy/reviewer floor. |
 
-The role trials are bounded and deterministic; their binary results are recorded in
-`global-configs/model-role-evidence.toml` and gate every quality-tier assignment. Reviewer v3
+The role trials are bounded and deterministic; their binary results are recorded in the
+`basis` string of each model's entry in `arcanum/authoring/model_policy.py`, which is what
+actually assigns the hands and is returned by `/api/models`. Reviewer v3
 requires authored repairs, replay, ordinary launch, authentic negative controls, truthful evidence,
 and a preserved clean control twice in fresh workspaces. The additional blind HollowCrawl case
 requires looking behind the first crash; only Sol found the float viewport bounds, the missing

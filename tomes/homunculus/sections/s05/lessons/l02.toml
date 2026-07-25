@@ -32,19 +32,24 @@ adapter = LoraConfig(
 
 [[lessons.readings]]
 label = "Transformers bitsandbytes quantization"
-url = "https://huggingface.co/docs/transformers/quantization/bitsandbytes"
+url = "https://huggingface.co/docs/transformers/v5.13.0/quantization/bitsandbytes"
 
 [[lessons.readings]]
 label = "PEFT LoRA configuration"
-url = "https://huggingface.co/docs/peft/package_reference/lora"
+url = "https://huggingface.co/docs/peft/v0.19.1/package_reference/lora"
 
 [[lessons.exercises]]
 id = "s05-l02-e1"
 type = "mc"
 points = 20
 prompt = "Which values remain trainable in this QLoRA configuration?"
-choices = ["Every NF4 base weight", "The GGUF metadata header", "The FAISS index vectors", "The bfloat16 LoRA adapter parameters"]
-answer = 3
+choices = [
+  "Every NF4 base weight",
+  "The bfloat16 LoRA adapter parameters",
+  "The GGUF metadata header",
+  "The FAISS index vectors",
+]
+answer = 1
 whyWrong = "The base is frozen; GGUF and FAISS belong to later serving and retrieval stages."
 explain = "QLoRA stores the large base cheaply while retaining higher-precision trainable adapters."
 hint = "The Q compresses the frozen part; LoRA names the learned part."
@@ -74,8 +79,13 @@ id = "s05-l02-e4"
 type = "mc"
 points = 20
 prompt = "What is the acceptance evidence that adapters attached?"
-choices = ["print_trainable_parameters reports a nonzero, small trainable fraction", "The model download completes", "The baseline report exists", "Ollama lists qwen3:8b"]
-answer = 0
+choices = [
+  "The model download completes",
+  "The baseline report exists",
+  "print_trainable_parameters reports a nonzero, small trainable fraction",
+  "Ollama lists qwen3:8b",
+]
+answer = 2
 whyWrong = "Those checks prove other boundaries but do not inspect the prepared PEFT model."
 explain = "Trainable-parameter reporting directly observes the adapter attachment."
 hint = "Inspect the parameters that require gradients."

@@ -3,17 +3,17 @@ id = "s05-l01"
 teaches = ["lora-math"]
 title = "A Low-Rank Delta"
 body = '''
-<p>The bind is not a second vessel. It is a low-rank delta pressed onto the base model, small enough to fit the memory budget and powerful enough to move the behavior. The seventh rite begins where every deep-learning fine-tune begins — with the shape of the weights — because the binding rite is a <strong>parameter-efficient</strong> rite by necessity, not by fashion.</p>
+<p>The bind is not a second vessel. It is a low-rank delta pressed onto the base model, small enough to fit the measured memory budget and powerful enough to move behavior. Section V begins with the shape of the targeted weights because “parameter efficient” is a count to verify, not a slogan.</p>
 <div class="callout"><strong>Reading with Chapters I-II under your belt:</strong> this chapter's ideas are heavy, but its <em>code</em> stays light — every write exercise is a loop over a list of dicts, an <code>if</code>, and an f-string, exactly the toolkit you already have. Two small built-ins show up when you compare a list of numbers: <code>min(nums)</code> returns the smallest value, and <code>nums.index(v)</code> gives the position where <code>v</code> first appears. Where a number needs rounding for display, the <code>f"{x:.2f}"</code> form from the memory-budget chapter returns. Nothing else here is new Python — only new vocabulary for the machine.</div>
 <p>A transformer layer has weight matrices — dense slabs of floating-point numbers the model learned during pre-training. A full fine-tune updates every one of those numbers: billions of parameters receiving gradient updates, each demanding its own optimizer state (momentum, variance), consuming the 6× multiplier the memory-budget section already proved. On a 16 GB card, that path is closed before the first batch — a 7 B-parameter model at 16-bit precision alone costs 14 GB in weights, leaving nothing for gradients, optimizer state, or activations.</p>
-<p>LoRA — <strong>Low-Rank Adaptation</strong> — does not update the base weights at all. It freezes every original parameter, then inserts a pair of small trainable matrices <em>alongside</em> each targeted weight: <code>A ∈ ℝ<sup>d×r</sup></code> and <code>B ∈ ℝ<sup>r×k</sup></code>, where the rank <code>r</code> is tiny (typically 8–64, compared to the original dimension of 4096 or more). The forward pass becomes <code>h = Wx + (BA)x</code> — the base output plus a low-rank correction term. Only A and B receive gradients; W stays frozen. The parameter count of the adapter is <code>r × (d + k)</code>, not <code>d × k</code> — a rank-16 adapter on a 4096-dimensional weight adds roughly 131 thousand trainable parameters where the original weight held 16.8 million.</p>
+<p>For a weight <code>W ∈ ℝ<sup>out×in</sup></code>, LoRA freezes W and learns <code>A ∈ ℝ<sup>r×in</sup></code> plus <code>B ∈ ℝ<sup>out×r</sup></code>. The forward pass is <code>h = Wx + (α/r)BAx</code>. Those shapes multiply cleanly: A maps the input into r coordinates and B maps those coordinates to the output. One targeted matrix adds <code>r × (in + out)</code> parameters.</p>
 <pre><code><span class="c"># The LoRA forward pass, decomposed:</span>
 <span class="c"># original:  h = W @ x          (W frozen, no gradients)</span>
 <span class="c"># adapted:   h = W @ x + B @ A @ x   (only A and B train)</span>
 <span class="c"># A shape:   (rank, in_features)     — small</span>
 <span class="c"># B shape:   (out_features, rank)    — small</span></code></pre>
-<p>QLoRA adds one more compression: the frozen base model W is <strong>4-bit quantized</strong> — stored at ~4.5 bits per weight instead of 16, which the fifth rite proved brings a 7 B model from 14 GB down to roughly 4 GB, reclaiming room for the optimizer state and activation memory the training pass actually needs. The quantization is NF4 (NormalFloat4), a data-aware scheme that respects the weight distribution rather than clamping it into uniform bins, and the forward-pass dequantization is fused into the compute — the weight spends training in VRAM as 4-bit integers and only gets promoted to 16-bit for the actual matrix multiply, then discarded.</p>
-<p>There is no binder ("LoRA") without a quantized base ("Q") — that is why the piece the artificer is training is called a <strong>QLoRA adapter</strong>, and why the entire op is the binding rite, not a rebuilding rite. The vessel stays intact, frozen in 4-bit; only the seam — the A·B low-rank correction spanning a few tens of megabytes — moves.</p>
+<p>The actual configuration uses <code>target_modules="all-linear"</code>. For the pinned Qwen3-8B graph—36 layers with 4096 hidden size, 12288 intermediate size, and grouped-query attention—the simple rank-16 total across q, k, v, o, gate, up, and down projections is 43,646,976 trainable parameters, about 0.53% of the 8.19B base. Do not substitute a one-layer, four-projection sketch. Enumerate the instantiated PEFT target names and shapes, then preserve <code>print_trainable_parameters()</code> output as the authoritative count.</p>
+<p>QLoRA stores the frozen training base with bitsandbytes NF4 plus its quantization metadata; Q4_K_M belongs to the later GGUF serving path. The adapter's training footprint includes its weights, gradients, optimizer state, and any precision copies used by the optimizer. Measure the real peak rather than borrowing a GGUF file-size estimate.</p>
 <div class="field-notes"><div class="fn-head">FIELD NOTES // RANK, NOT RANK — THE MATH VS. THE KNOB</div>
 <p>The rank in "low-rank adaptation" is the mathematical rank of the product BA—the maximum number of independent directions that layer's delta can express. Setting <code>r=16</code> constrains capacity; it does not make the adapter inherently style-only or regression-proof. A LoRA can still alter facts, formatting, refusals, and general capability, especially with poor data or aggressive training. That is why the course preserves a base comparison and requires the Section VI regression gate.</p></div>
 '''
@@ -43,62 +43,69 @@ code = '''# The LoRA forward pass, decomposed:
 id = "s05-l01-e2"
 type = "mc"
 points = 20
-prompt = "Per this rite, why is a full fine-tune of a 7B-parameter model impossible on a 16 GB card, while QLoRA succeeds on the same hardware?"
+prompt = "Why does a full fine-tune of the pinned 8B model exceed a 16 GB card while its measured QLoRA plan can fit?"
 choices = [
   "QLoRA runs the base model on the CPU while only the adapter trains on the GPU, splitting the memory across both devices automatically",
   "QLoRA compresses the optimizer state to 4-bit as well, so both weights and gradients fit in a single 16 GB allocation",
-  "Full fine-tune needs gradients + optimizer state (~6× the weight memory) — QLoRA freezes the base at 4-bit (~4 GB) and only trains a tiny adapter whose optimizer cost is negligible by comparison, leaving room for activations and the forward pass",
   "Full fine-tune would work on 16 GB if you reduce the batch size to 1, but QLoRA is chosen because it converges in fewer steps",
+  "Full fine-tuning allocates trainable state for every base parameter; QLoRA freezes the NF4 base and limits trainable state to the measured 43,646,976-parameter adapter, leaving capacity that the dry run must verify",
 ]
-answer = 2
-whyWrong = "QLoRA does not split between CPU and GPU — both base and adapter sit on the GPU, but the base is frozen and quantized to ~4 GB, not updated. The optimizer state is not quantized (only the frozen weights are), and reducing batch size does not shrink the optimizer memory — the 6× multiplier from the memory-budget rite applies regardless of batch size. The difference is that QLoRA's trainable parameters are a fraction of a percent of the total, so their optimizer footprint is tiny, not that it quantizes the optimizer."
-hint = "The memory-budget section's fifth rite proved the 6× multiplier: full fine-tune needs weight + gradient + optimizer-state memory per parameter. QLoRA freezes the base at 4-bit and only trains the adapter's tiny set of parameters — the correct choice names both the quantization of the frozen base AND the tiny optimizer cost of the trainable adapter."
-explain = "Full fine-tune requires storing the gradient and two optimizer-state tensors (momentum and variance for Adam) for every parameter — 4 bytes each — plus the weight itself. For 7 B parameters at 16-bit weights that's ~14 GB + 14 GB (gradients) + 28 GB (optimizer) = 56 GB total, not counting activations. QLoRA sidesteps this: the 7 B frozen weights are 4-bit (~4 GB), the adapter adds ~0.1% trainable parameters whose optimizer cost is ~50 MB, and the remaining VRAM goes to activations and the forward pass."
+answer = 3
+whyWrong = "QLoRA does not automatically offload the base, quantize every optimizer tensor, or make full-model training state disappear through batch size. It freezes the quantized base and trains only the instantiated adapter graph."
+hint = "Return to the memory ledger: identify which tensors remain frozen and quantized, then identify which much smaller tensors receive gradients and optimizer state."
+explain = "The simplified full-fine-tune ledger is about 96 GB for 8B parameters before activations. The rank-16 all-linear adapter is 43,646,976 parameters (about 0.53% of the base) and about 524 MB under the same 12-byte trainable-state ledger; a real dry step measures the remaining NF4, activation, and framework costs."
 
 [[lessons.exercises]]
 id = "s05-l01-e3"
 type = "text"
 points = 18
-prompt = "In the LoRA forward pass <code>h = Wx + (BA)x</code>, which two matrices are trainable — the ones that receive gradient updates during the binding rite?"
+prompt = "In <code>h = Wx + (α/r)BAx</code>, which two matrices are trainable?"
 answer = "A and B"
 accept = ["B and A", "A, B", "B, A", "matrices A and B", "the A and B matrices"]
-hint = "The lesson's code block marks W as 'frozen, no gradients' and says 'only A and B train' — those are the two small matrices that form the low-rank delta."
+hint = "In the equation, separate the original weight matrix from the two factors composing the added low-rank path."
 
 [[lessons.exercises]]
 id = "s05-l01-e4"
 type = "mc"
 points = 20
-prompt = "A 7B-parameter model with 4096 hidden dimensions. A LoRA adapter targets the query and value projections with rank 16. Roughly what fraction of the base model's total parameter count does this adapter add?"
+prompt = "For the pinned Qwen3-8B graph with <code>target_modules=\"all-linear\"</code>, what is the reliable way to establish adapter size?"
 choices = [
-  "About 0.1–0.2% — the adapter's parameter count is <code>r × (d_in + d_out)</code> summed across target modules, which for rank 16 on a few linear layers is tens of millions of parameters in a model of several billion",
+  "Enumerate every instantiated targeted module and shape, sum <code>r × (in + out)</code> across all layers, and confirm PEFT's trainable-parameter report",
   "About 50% — LoRA inserts a full copy of each targeted weight matrix alongside the original",
   "About 5–10% — LoRA must match the full parameter count of all attention layers",
   "Less than 0.001% — rank 16 means exactly 16 new parameters total, independent of the model's dimensions",
 ]
 answer = 0
-whyWrong = "Rank 16 does not mean 16 total parameters — each targeted weight adds r × (d_in + d_out) parameters, two per dimension times the rank. For a 4096-dim model targeting four linear layers (Q, K, V, O), that's ~4 × 16 × (4096 + 4096) ≈ 524k parameters, which is ~0.007% of 7B — in the 0.01–0.2% range. The other choices misrepresent the adapter as a full copy (50%), a magnitude too high (5–10%), or a fixed constant with no dimensional dependence (0.001%)."
-hint = "The lesson's formula is r × (d + k): multiply the rank by the sum of the input and output dimensions for one matrix, then sum across all target modules. For rank 16 on a few 4096-dim layers, the adapter is hundreds of thousands of parameters — a fraction of a percent of 7 billion, not a fixed count or a full copy."
-explain = "The adapter parameter count scales with the target weight's dimensions — r × (d_in + d_out) per matrix — so even at rank 16, a 4096-dimensional weight pair produces ~131k trainable parameters. Across four attention projections, that's roughly half a million, or 0.01% of a 7B model. The key insight: the adapter grows with the model's width, not its depth, so the ratio shrinks as models get larger."
+whyWrong = "LoRA does not add a full copy or a fixed number of parameters. The count depends on rank, each targeted module's input/output shape, how many modules are selected, and how many layers contain them."
+hint = "Account for module shape, number of targeted modules, and number of layers before trusting a percentage."
+explain = "The count grows with width, targeted module set, and depth. The all-linear rank-16 course configuration is about 43.65M trainable parameters, and PEFT's instantiated report must confirm it."
 
 [[lessons.exercises]]
 id = "s05-l01-e5"
 type = "write"
 points = 35
-prompt = "Given <code>d = 4096</code> (hidden dimension), <code>rank = 16</code>, and the four target modules below — query, key, value, output projections, each with in_features = out_features = d — compute the total trainable parameter count of the LoRA adapter (sum of <code>rank × (in_features + out_features)</code> for all four). Print <code>ADAPTER PARAMS &lt;n&gt;</code> — computed from the variables, not hardcoded."
-starter = '''d = 4096
+prompt = "Compute the rank-16 all-linear LoRA count for 36 Qwen3-8B layers from the seven projection shapes below. Print <code>ADAPTER PARAMS 43646976</code>."
+starter = '''layers = 36
 rank = 16
-modules = 4  # q_proj, k_proj, v_proj, o_proj — each in_features == out_features == d
+shapes = [
+    (4096, 4096), (4096, 1024), (4096, 1024), (4096, 4096),
+    (4096, 12288), (4096, 12288), (12288, 4096),
+]
 
-# For each module, the adapter adds rank * (d + d) = rank * 2 * d parameters.
-# Sum across all modules and print ADAPTER PARAMS <total>.
+total = 0
 print("ADAPTER PARAMS 0")
 '''
-expect = "ADAPTER PARAMS 524288"
-solution = '''d = 4096
+expect = "ADAPTER PARAMS 43646976"
+solution = '''layers = 36
 rank = 16
-modules = 4
+shapes = [
+    (4096, 4096), (4096, 1024), (4096, 1024), (4096, 4096),
+    (4096, 12288), (4096, 12288), (12288, 4096),
+]
 
-total = modules * rank * 2 * d
+per_layer = sum(rank * (in_features + out_features)
+                for in_features, out_features in shapes)
+total = layers * per_layer
 print(f"ADAPTER PARAMS {total}")
 '''
-hint = "Each module contributes rank * 2 * d parameters. With 4 modules, the total is 4 * rank * 2 * d = 8 * rank * d = 8 * 16 * 4096 = 524288. Use integer arithmetic: params_per_module = rank * 2 * d, then total = modules * params_per_module."
+hint = "Sum rank times input-plus-output for the seven shapes in one layer, then multiply by 36."

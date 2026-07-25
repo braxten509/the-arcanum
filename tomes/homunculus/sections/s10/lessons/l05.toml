@@ -15,7 +15,7 @@ python -m homunculus.pipeline seal --run-id 2026-07-13-bind-002
 python -m homunculus.pipeline publish --run-id 2026-07-13-bind-002
 
 # Daily delivery:
-python -m homunculus.assistant --query "..." --out outbox/note.md</code></pre>
+python -m homunculus.assistant --query "..." --out private/outbox/note.md</code></pre>
 <p><code>build</code> verifies the doctor, curation, RAG build/evaluation, one-step memory gate, full training, and paired evaluation generation, then stops for blind human scores. <code>seal</code> verifies the hash-bound decisions, merges, converts, quantizes, and renders the Modelfile. <code>publish</code> imports into Ollama, runs every served suite, and writes the release manifest. Use <code>subprocess.run([...], check=True)</code> with argument lists, stage logs, and no <code>shell=True</code>. A failure marks the manifest and prevents later stages.</p>
 <p>Refactor paths through a <code>ProjectPaths</code> configuration with a read-only logical input root and a separate derived-output root. Then prove a cold rebuild without deleting anything:</p>
 <pre><code>python -m homunculus.pipeline build \
@@ -36,17 +36,6 @@ label = "Notion import data"
 url = "https://www.notion.com/help/import-data-into-notion"
 
 [[lessons.exercises]]
-id = "s10-l05-e1"
-type = "mc"
-points = 20
-prompt = "Why are build, seal, and publish separate commands?"
-choices = ["They cross human approval and environment boundaries that must not be hidden", "Python permits only one stage per file", "Ollama cannot use manifests", "FAISS requires deletion"]
-answer = 0
-whyWrong = "The separation is a workflow and safety contract, not a language or library limitation."
-explain = "Automation stops where new evidence or authority is required."
-hint = "Blind scoring and host Ollama happen at different boundaries."
-
-[[lessons.exercises]]
 id = "s10-l05-e2"
 type = "text"
 points = 15
@@ -63,6 +52,22 @@ prompt = "Complete the safe subprocess option that turns a nonzero child exit in
 code = '''subprocess.run(command, ____=True)'''
 answer = "check"
 hint = "It prevents a failed stage from silently continuing."
+
+[[lessons.exercises]]
+id = "s10-l05-e1"
+type = "mc"
+points = 20
+prompt = "Why are build, seal, and publish separate commands?"
+choices = [
+  "Python permits only one stage per file",
+  "They cross human approval and environment boundaries that must not be hidden",
+  "Ollama cannot use manifests",
+  "FAISS requires deletion",
+]
+answer = 1
+whyWrong = "The separation is a workflow and safety contract, not a language or library limitation."
+explain = "Automation stops where new evidence or authority is required."
+hint = "Blind scoring and host Ollama happen at different boundaries."
 
 [[lessons.exercises]]
 id = "s10-l05-e4"
@@ -85,3 +90,19 @@ print(f"STOP {failed}")
 '''
 expect = "STOP train"
 hint = "Loop in order, assign the first false stage, and break."
+
+[[lessons.exercises]]
+id = "s10-l05-e5"
+type = "mc"
+points = 20
+prompt = "Which snapshot is safe to submit for automated verification?"
+choices = [
+  "The whole workspace, because the grader needs raw prompts",
+  "Only the trained adapter, because model weights cannot retain private material",
+  "A sanitized evidence snapshot containing hashes, counts, redaction statistics, and pass/fail receipts while excluded private and artifact directories remain outside it",
+  "A zip of private data with credentials removed",
+]
+answer = 2
+whyWrong = "Raw personal material and derived artifacts stay excluded; removing credentials alone does not sanitize prompts, completions, or retained content."
+explain = "Assessment consumes narrow receipts and identities, not the learner's private corpus or model artifacts."
+hint = "Return to the boundary established before any personal material entered the project."

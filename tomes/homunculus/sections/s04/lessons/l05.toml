@@ -3,7 +3,7 @@ id = "s04-l05"
 teaches = ["dataset-curation"]
 title = "Freeze a Corpus You Can Defend"
 body = '''
-<p>Create <code>src/homunculus/curate.py</code> as a separate command. Its contract is strict: read <code>data/drafts.jsonl</code>; accept only human-approved prompt-completion rows; reject duplicate ids, duplicate normalized completions, malformed roles, unknown splits, missing source hashes, and obvious secret patterns; write <code>data/curated/train.jsonl</code>, <code>data/curated/eval.jsonl</code>, and <code>reports/curation.json</code>. It never trains.</p>
+<p>Create <code>src/homunculus/curate.py</code> as a separate command. Its contract is strict: read <code>private/dataset/drafts.jsonl</code>; accept only human-approved prompt-completion rows; reject duplicate ids, duplicate normalized completions, malformed roles, unknown splits, missing source hashes, and obvious secret patterns; write <code>private/dataset/train.jsonl</code>, <code>private/dataset/eval.jsonl</code>, and <code>reports/curation.json</code>. It never trains.</p>
 <pre><code>import hashlib
 import json
 import re
@@ -28,7 +28,7 @@ def validate(row):
     assert not any(pattern.search(full_text) for pattern in SECRET_PATTERNS)
 
 def main():
-    rows = [json.loads(line) for line in Path("data/drafts.jsonl").read_text(encoding="utf-8").splitlines() if line.strip()]
+    rows = [json.loads(line) for line in Path("private/dataset/drafts.jsonl").read_text(encoding="utf-8").splitlines() if line.strip()]
     ids = set()
     completions = set()
     accepted = {"train": [], "eval": []}
@@ -40,29 +40,31 @@ def main():
         ids.add(row["id"])
         completions.add(key)
         accepted[row["split"]].append(row)
-    Path("data/curated").mkdir(parents=True, exist_ok=True)
+    Path("private/dataset").mkdir(parents=True, exist_ok=True)
     for split, items in accepted.items():
         text = "".join(json.dumps(item, ensure_ascii=False) + "\n" for item in items)
-        Path(f"data/curated/{split}.jsonl").write_text(text, encoding="utf-8")
+        Path(f"private/dataset/{split}.jsonl").write_text(text, encoding="utf-8")
     summary = {"counts": {k: len(v) for k, v in accepted.items()},
-               "draft_sha256": hashlib.sha256(Path("data/drafts.jsonl").read_bytes()).hexdigest()}
+               "draft_sha256": hashlib.sha256(Path("private/dataset/drafts.jsonl").read_bytes()).hexdigest()}
     Path("reports/curation.json").write_text(json.dumps(summary, indent=2) + "\n", encoding="utf-8")
 
 if __name__ == "__main__":
     main()</code></pre>
-<p>Regex is triage, not a privacy guarantee. Read every accepted completion and inspect the exported attachments. Remove secrets, private third-party material, boilerplate, low-effort fragments, and facts you do not want reflected in weights. Keep a source page wholly in one split, and compare source hashes to catch sibling leakage. Reserve enough evaluation examples to cover every category; do not move weak examples into training merely to improve the score.</p>
-<p>Run <code>python -m homunculus.curate</code>, reopen both output files, and validate each line with <code>python -m json.tool</code> or a short loader. Save a human checklist in <code>reports/curation-review.md</code>. Quality matters more than a magical row count, but a handful of examples cannot establish a stable personal style; keep collecting until the categories and variations in the real daily workflow are represented.</p>
+<p>Regex is triage, not a privacy guarantee. Before approval, apply a governance checklist:</p>
+<ul><li>confirm ownership, license, or consent for the text and every attachment;</li><li>remove personal identifiers, confidential entities, client facts, secrets, and quoted third-party material;</li><li>record source provenance, allowed use, retention date, and the person responsible for deletion;</li><li>keep the raw export, backups, version-control history, curated rows, adapters, merged models, and delivery drafts in the deletion map.</li></ul>
+<p>Read every accepted completion and a documented sample of rejected material without copying sensitive text into the rejection ledger. Keep a source page wholly in one split and compare hashes to catch sibling leakage. “I wrote this page” does not grant permission over every embedded name, quotation, attachment, or business fact.</p>
+<p>Run <code>python -m homunculus.curate</code>, reopen both private output files, and validate every line. Save the full manual checklist privately. The sanitized Section IV receipt contains only corpus and rejection counts, schema results, source-group leakage result, hash identities, review coverage, and redaction categories. It also records the retention deadline and deletion propagation plan. A deleted source must be removed from curated splits, caches, adapters, merged models, GGUFs, Ollama imports, backups under your control, and future releases; learned derivatives generally require rebuilding rather than pretending a row can be subtracted.</p>
 <div class="field-notes"><div class="fn-head">FIELD NOTES // CURATION NEEDS A REJECTION LOG</div>
-<p>Keep rejected row IDs and reason codes without retaining the secret or unwanted content itself. Counts such as <code>secret-pattern</code>, <code>too-short</code>, <code>duplicate</code>, and <code>source-leakage</code> show whether a rebuild changed the corpus for a legitimate reason. They also make manual review finite: inspect the exceptions, not every byte again.</p></div>
+<p>Keep rejected row IDs and reason codes without retaining the secret or unwanted content itself. Counts such as <code>secret-pattern</code>, <code>pii</code>, <code>no-consent</code>, <code>confidential-third-party</code>, <code>attachment</code>, <code>duplicate</code>, and <code>source-leakage</code> show why material was excluded. Later evaluation must include memorization and extraction probes because curation lowers risk but cannot guarantee that an adapter never reproduces source text.</p></div>
 '''
 
 [[lessons.readings]]
 label = "Notion export documentation"
-url = "https://www.notion.com/help/workspace-settings"
+url = "https://www.notion.com/help/export-your-content"
 
 [[lessons.readings]]
 label = "Hugging Face Datasets JSON loading"
-url = "https://huggingface.co/docs/datasets/loading"
+url = "https://huggingface.co/docs/datasets/v5.0.0/loading"
 
 [[lessons.exercises]]
 id = "s04-l05-e1"
@@ -70,12 +72,12 @@ type = "mc"
 points = 20
 prompt = "Why is approved=true insufficient by itself?"
 choices = [
-  "Automated validation and a final human review still need to catch schema, duplication, provenance, and privacy failures",
   "JSON booleans are ignored by Python",
+  "Automated validation and a final human review still need to catch schema, duplication, provenance, and privacy failures",
   "TRL requires approved=false",
   "Approval automatically quantizes the row",
 ]
-answer = 0
+answer = 1
 whyWrong = "Python reads booleans normally; approval is project metadata, not a trainer or quantizer switch."
 explain = "Curation combines an accountable human decision with repeatable mechanical gates."
 hint = "One field cannot prove every property of a row."
@@ -105,12 +107,12 @@ type = "mc"
 points = 20
 prompt = "A page produced three examples. Where should they be assigned?"
 choices = [
-  "All to train or all to eval, never across both",
   "Round-robin across both splits",
   "Copy all three into both",
+  "All to train or all to eval, never across both",
   "Choose randomly during each epoch",
 ]
-answer = 0
+answer = 2
 whyWrong = "Cross-split siblings and duplicates leak source language into evaluation; mutable assignment breaks reproducibility."
 explain = "The source document is the grouping unit for a leak-resistant split."
 hint = "Split by source, not by fragment."

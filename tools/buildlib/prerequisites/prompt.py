@@ -22,13 +22,14 @@ def result_schema():
         "properties": {
             "id": {"type": "string"}, "label": {"type": "string"},
             "kind": {"type": "string"}, "owner": {"type": "string"},
+            "detect": {"type": "array", "items": {"type": "string"}},
             "demands": {"type": "array", "items": {"type": "string"},
                         "minItems": 1},
             "closestExisting": {"type": "array", "items": {"type": "string"},
                                 "minItems": 1, "maxItems": 3},
             "semanticDelta": {"type": "string"},
         },
-        "required": ["id", "label", "kind", "owner", "demands",
+        "required": ["id", "label", "kind", "owner", "detect", "demands",
                      "closestExisting", "semanticDelta"],
     }
     node_review = {
@@ -89,7 +90,7 @@ def prerequisite_prompt(packet, sid, sources, prior, start, depth=0, mastery=0):
         "reasons": ["A concise evidence-based reason."],
         "missingMechanisms": [{
             "id": "example-mechanism", "label": "Example mechanism",
-            "kind": "syntax-form", "owner": "s01.l01",
+            "kind": "syntax-form", "owner": "s01.l01", "detect": ["example("],
             "demands": ["s01.l01", "s01.working"],
             "closestExisting": ["nearest-sealed-mechanism"],
             "semanticDelta": "The new responsibility changes state in a way the nearest owner does not cover.",
@@ -128,12 +129,16 @@ mechanism amendments automatically:
 - outcome: PASS or FAIL.
 - citations: source path and node pairs.
 - reasons: a non-empty array of strings.
-- missingMechanisms: objects identifying id, label, kind, owner,
+- missingMechanisms: objects identifying id, label, kind, owner, detect,
   demands, closestExisting, and semanticDelta. id, label, kind, owner, and semanticDelta are
   strings. demands is ALWAYS a JSON ARRAY of one or more exact node-ID strings, even when there is
   only one demand. closestExisting is an array of one to three exact ids from the sealed mechanism
   ledger. semanticDelta states the distinct responsibility those nearest owners cannot cover.
-  Never put a prose description or a bare string in either array.
+  detect is an array of the literal spellings a learner types for this mechanism, exactly as they
+  appear in code and with significant whitespace kept ("print(", "import ", "#"); give it the empty
+  array only for a mechanism with no fixed spelling. Every spelling you supply here is scanned
+  mechanically from then on, so this finding never has to be rediscovered by reading code again.
+  Never put a prose description or a bare string in any of these arrays.
 - nodeReviews: one review for every VALID SOURCE/NODE PAIR, preferably in the given order, identifying
   path, node, judgment, evidenceLines, and evidence. evidenceLines is a
   two-integer inclusive [first,last] line range inside that source. evidence names concrete

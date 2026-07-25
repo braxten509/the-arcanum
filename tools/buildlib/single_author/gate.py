@@ -11,8 +11,7 @@ import time
 from .. import BUILD_DIR, REPO
 from ..ai_costs import completed_cost_line
 from ..authoring import standard_phase_registry
-from ..measure import (ValidatorInfrastructureError, preflight_validator_runtime,
-                       run_harness_command,
+from ..measure import (preflight_validator_runtime, run_harness_command,
                        phase3_validator_argv, section_validator_argv, validate_phase3,
                        validate_section)
 from ..workflow.prompts import LEARNER_CONSTRUCTION_INSTRUCTION, read_tooling
@@ -20,7 +19,7 @@ from ..workflow.phase_reset import capture_phase_snapshot
 from ..workflow.section_progress import write_section_progress
 from ..continuity import continuity_prompt, prepare_handoff
 from ..course.control import append_course_control
-from ..course_map import CourseMapError, load_course_map, map_path, seed_path
+from ..course_map import load_course_map, map_path, seed_path
 from ..course_map.author_spec import initialize_author_spec, spec_root
 from ..phase2_audit import audit_path, initialize_audit
 from ..phase2.research import initialize_ledger, ledger_path
@@ -29,15 +28,10 @@ from ..section_quality_contract import (section_quality_authority,
 from ..course.state import (derive_course_state, record_section_failure,
                            record_section_verification)
 from .section_review import review_section
-from .prompts.continuation import (
-    LESSON_BATCH_INSTRUCTION,
-    continue_prompt as render_continue_prompt,
-    interrupted_prompt,
-)
+from .prompts.continuation import (LESSON_BATCH_INSTRUCTION,
+                                   continue_prompt as render_continue_prompt)
 from .validation_messages import (
-    validation_failure_message as render_validation_failure_message,
-    validation_issue_count,
-)
+    validation_failure_message as render_validation_failure_message)
 from ..planning_review import (planning_authority, planning_dynamic_authority,
                                review_planning_phase,
                                review_report as planning_review_report)
@@ -303,64 +297,6 @@ def validate_author_self_check(build_id, unit):
     return True, "\n".join(reports)
 
 
-def author_blocked_command(text):
-    """Parse the exact command named by a structured HARNESS_BLOCKED report."""
-    for line in str(text or "").splitlines():
-        match = re.match(r"^\s*COMMAND:\s*(.*?)\s*$", line)
-        if not match:
-            continue
-        rendered = match.group(1).strip()
-        if len(rendered) >= 2 and rendered[0] == rendered[-1] == "`":
-            rendered = rendered[1:-1]
-        try:
-            return shlex.split(rendered)
-        except ValueError as exc:
-            raise ValidatorInfrastructureError(
-                "HARNESS_BLOCKED report",
-                f"could not parse COMMAND line: {exc}") from exc
-    raise ValidatorInfrastructureError(
-        "HARNESS_BLOCKED report",
-        "missing required `COMMAND: <exact command>` line")
-
-
-def author_bootstrap_argv(build_id, unit):
-    """Return the one bounded context command allowed before this unit's authoring."""
-    if unit["kind"] == "section":
-        return ["python3", "tools/workflow/context/render_section_context.py",
-                build_id, unit["section"]]
-    if int(unit.get("phase") or 0) == 2:
-        return ["python3", "tools/workflow/context/render_phase2_context.py", build_id]
-    return []
-
-
-def validate_author_blocked_check(build_id, unit, claim):
-    """Reproduce the command an author says was blocked.
-
-    Returns ``("self-check", None, "")`` for an allowlisted unit validator or
-    ``("bootstrap", True, report)`` for a clean bounded-context command.
-    Unstructured command failures raise ``ValidatorInfrastructureError`` through
-    ``run_harness_command`` and pause without substituting a different check.
-    """
-    command = author_blocked_command(claim)
-    self_checks = self_validation_argvs(build_id, unit)
-    if command in self_checks:
-        # The orchestrator invokes its injected self-check dependency so tests,
-        # alternate registries, and the complete multi-command aggregate retain
-        # the same behavior as an ordinary handoff.
-        return "self-check", None, ""
-    bootstrap = author_bootstrap_argv(build_id, unit)
-    if bootstrap and command == bootstrap:
-        ctx = context(build_id)
-        process = run_harness_command(command, ctx["tid"])
-        report = ((process.stdout or "") + (process.stderr or "")).strip()
-        return "bootstrap", True, report
-    allowed = [shlex.join(item) for item in [*self_checks, *([bootstrap] if bootstrap else [])]]
-    raise ValidatorInfrastructureError(
-        shlex.join(command),
-        "HARNESS_BLOCKED named a command outside the assigned exact command set; "
-        f"allowed commands: {', '.join(allowed)}")
-
-
 def mark_unit_validating(build_id, unit):
     """Trusted marker used after independently reproducing a clean author self-check."""
     if unit["kind"] == "section":
@@ -472,18 +408,62 @@ def continue_prompt(build_id, unit):
 
 
 def unit_prompt(build_id, unit):
-    from .prompts.unit import render_unit_prompt
-    return render_unit_prompt(build_id, unit, {
-        "REPO": REPO,
-        "LEARNER_CONSTRUCTION_INSTRUCTION": LEARNER_CONSTRUCTION_INSTRUCTION,
-        "LESSON_BATCH_INSTRUCTION": LESSON_BATCH_INSTRUCTION,
-        "append_course_control": append_course_control,
-        "context": context,
-        "continuity_prompt": continuity_prompt,
-        "label": label,
-        "load_course_map": load_course_map,
-        "map_path": map_path,
-        "mechanical_validation_prompt": mechanical_validation_prompt,
-        "prepare_handoff": prepare_handoff,
-        "unit_semantic_authority": unit_semantic_authority,
-    })
+    marker = ((f"python3 tools/workflow/report_section_progress.py {build_id} {unit['section']} "
+               f"{unit['index']} {unit['total']} validating")
+              if unit["kind"] == "section" else
+              f"python3 tools/workflow/report_tome_progress.py {build_id} {unit['phase']} validating")
+    construction = (f" {LEARNER_CONSTRUCTION_INSTRUCTION}" if unit["kind"] == "section" else "")
+    rhythm = (f" {LESSON_BATCH_INSTRUCTION}" if unit["kind"] == "section" else "")
+    prompt = (f"Continue with {label(unit)}. Read its phase guide, then complete exactly this unit."
+              f"{construction}{rhythm} "
+              f"{mechanical_validation_prompt(build_id, unit)} Then run exactly `{marker}` and stop so the harness "
+              "can validate it.")
+    authority = unit_semantic_authority(build_id, unit)
+    if authority:
+        prompt += "\n\n" + authority
+    if unit["kind"] != "section":
+        phase = int(unit.get("phase") or 0)
+        if phase == 2:
+            prompt += (
+                f" Begin with exactly `python3 tools/workflow/context/render_phase2_context.py {build_id}`. "
+                "That bounded packet replaces broad repository discovery. Edit only the compact "
+                "Phase-2 sources and other repairable paths it names. Its authority block controls "
+                "family meaning, same-lesson prerequisite order, artifact-production modes, source "
+                "budget, and repair ownership. Complete audit.json v2 with one exact family, "
+                "teaching-prerequisite list, and production-prerequisite list per mechanism; one "
+                "component-mechanism row per taught capability; one preserved-mechanism row per "
+                "planned continuity obligation; every failure-path role; and one "
+                "production row per sealed artifact. External installation and verification must "
+                "precede project source editing. This "
+                "is mechanically checked author work, not an optional prose checklist. The harness "
+                "deterministically materializes the full "
+                "proposal after handoff. Complete every section plan in one coherent batch. If external "
+                "tooling is selected, use web search only for facts that affect installation, current "
+                "commands, APIs, compatibility, or delivery; cite no more than six official or primary "
+                "sources in the research ledger. Later authors reuse that ledger. Target no more than "
+                "$2 API-equivalent for initial Phase 2 planning; avoid rereading generated proposal JSON."
+            )
+        return prompt
+    prompt += (
+        f" Begin with exactly `python3 tools/workflow/context/render_section_context.py {build_id} "
+        f"{unit['section']}`; that bounded packet replaces scattered initial discovery reads. "
+        "Its `sectionQualityContract` is the exact binding policy used by the Validator AI; apply "
+        "it before drafting lessons or the Working. "
+        "After it, batch independent file reads and searches into one tool call and group related "
+        "file edits into one coherent edit pass using small valid patch operations. Do not inspect one "
+        "known file per tool round trip. The operating target for the Phase 3 author plus its "
+        "mandatory Validator AI is $1–2 API-equivalent per section for Codex authors; Claude "
+        "authors may use up to $4. Meet the complete quality "
+        "contract within that target by using this bounded packet once and avoiding redundant "
+        "discovery or speculative rewrites."
+    )
+    if not os.path.isfile(map_path(build_id)):
+        return prompt  # direct legacy/test helper; ensure_unit blocks real Phase 3 entry
+    ctx = context(build_id)
+    course = load_course_map(build_id)
+    ids = [section["id"] for section in course["sections"]]
+    prepare_handoff(ctx["tid"], unit["section"], ids=ids,
+                    plan_path=os.path.join(REPO, ctx["plan"]))
+    prompt += continuity_prompt(ctx["tid"], unit["section"], ids,
+                                os.path.join(REPO, ctx["plan"]))
+    return append_course_control(prompt, build_id, unit["section"])

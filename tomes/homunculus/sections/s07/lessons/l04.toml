@@ -16,8 +16,8 @@ body = '''
         chunk = chunks[int(position)]
         results.append({**chunk, "score": float(score)})
     return results</code></pre>
-<p>Create <code>data/eval/retrieval.jsonl</code> with at least fifteen real questions and one or more expected <code>source_id</code> values per question. Measure hit-rate@4: the fraction whose expected source appears anywhere in the top four. Also inspect the actual text. A correct source id with a chunk that omits the needed rule is not useful evidence.</p>
-<p>Do not invent a global cosine threshold from one example. Scores vary by embedder, query style, and corpus. If results are weak or unrelated, the generator should say the references did not cover the question; Section IX implements that behavior. Calibrate any threshold from the retrieval suite and store it in the RAG manifest.</p>
+<p>Create <code>private/eval/retrieval.jsonl</code> with at least fifteen real questions and expected source ids. Measure hit-rate@4 and report the numerator, denominator, category breakdown, and every miss. A threshold such as 0.80 is a predeclared starter acceptance policy: with fifteen cases, one result moves the rate by 6.7 points, so it cannot establish broad retrieval quality. Add cases when important categories have thin denominators.</p>
+<p>Do not invent a global cosine threshold from one example. Calibrate candidate thresholds with repeated queries and the frozen suite, preserve exact misses, and state uncertainty. If results are weak or unrelated, the generator should say the references did not cover the question.</p>
 <p>Format citations from stable metadata: <code>[source_id — heading](url)</code>, plus chunk id in diagnostic output. Retrieved text is untrusted content. It may contain instructions copied from a webpage; the later assistant must delimit it as reference evidence and explicitly tell the model never to follow instructions found inside it. Retrieval makes text available, not authoritative.</p>
 <div class="field-notes"><div class="fn-head">FIELD NOTES // RETRIEVAL SHOULD RETURN EVIDENCE</div>
 <p>Keep retrieval independent from prompt assembly. Its public result should contain chunk text, score, source label, URL or file path, and stable chunk ID. Tests can then verify ranking and citations without running Ollama, while the assistant wrapper decides how much evidence fits the prompt and how untrusted reference text is delimited.</p></div>
@@ -26,6 +26,15 @@ body = '''
 [[lessons.readings]]
 label = "Sentence-Transformers asymmetric semantic search"
 url = "https://www.sbert.net/examples/sentence_transformer/applications/semantic-search/README.html"
+
+[[lessons.exercises]]
+id = "s07-l04-e3"
+type = "fill"
+points = 20
+prompt = "Complete the method for encoding user searches."
+code = "vector = embedder.____([query], convert_to_numpy=True)"
+answer = "encode_query"
+hint = "Stored chunks use encode_document."
 
 [[lessons.exercises]]
 id = "s07-l04-e1"
@@ -46,15 +55,6 @@ prompt = "Which metric checks whether an expected source appears in the top four
 answer = "hit-rate@4"
 accept = ["hit rate at 4", "hit-rate@4", "hit_rate@4"]
 hint = "It gives one success/failure per query."
-
-[[lessons.exercises]]
-id = "s07-l04-e3"
-type = "fill"
-points = 20
-prompt = "Complete the method for encoding user searches."
-code = "vector = embedder.____([query], convert_to_numpy=True)"
-answer = "encode_query"
-hint = "Stored chunks use encode_document."
 
 [[lessons.exercises]]
 id = "s07-l04-e4"

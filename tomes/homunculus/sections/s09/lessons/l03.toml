@@ -25,20 +25,16 @@ id = "s09-l03-e1"
 type = "mc"
 points = 20
 prompt = "What does the file-size ratio prove?"
-choices = ["Only a broad artifact sanity check, not output quality", "The style score", "The policy boundary", "The adapter was trained"]
-answer = 0
+choices = [
+  "The style score",
+  "Only a broad artifact sanity check, not output quality",
+  "The policy boundary",
+  "The adapter was trained",
+]
+answer = 1
 whyWrong = "Behavior and training provenance require their own reports; bytes cannot measure them."
 explain = "Quantized output must still pass endpoint evaluation."
 hint = "A smaller valid file can still be a worse model."
-
-[[lessons.exercises]]
-id = "s09-l03-e2"
-type = "text"
-points = 15
-prompt = "What exact quant type does the starting artifact use?"
-answer = "Q4_K_M"
-accept = ["q4_k_m", "Q4_K_M"]
-hint = "Use the spelling passed to llama-quantize."
 
 [[lessons.exercises]]
 id = "s09-l03-e3"
@@ -71,3 +67,12 @@ print(f"RATIO {ratio:.2f} {status}")
 '''
 expect = "RATIO 0.31 PASS"
 hint = "Divide quantized bytes by F16 bytes, then apply both range bounds."
+
+[[lessons.exercises]]
+id = "s09-l03-e2"
+type = "text"
+points = 15
+prompt = "What exact quant type does the starting artifact use?"
+answer = "Q4_K_M"
+accept = ["q4_k_m", "Q4_K_M"]
+hint = "Use the spelling passed to llama-quantize."

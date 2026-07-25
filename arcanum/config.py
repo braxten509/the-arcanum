@@ -14,7 +14,7 @@ CACHE_DIR = os.path.join(ROOT, ".cache")         # ephemera only: snippet scratc
 BUILD_DIR = os.path.join(ROOT, ".tome-build")    # build_tome cross-phase state + runner handshake
 PORT = 8777
 
-GRADER_MODELS = ["claude-opus-4-8", "opus"]  # first that works wins
+GRADER_MODELS = ["claude-opus-5", "claude-opus-4-8", "opus"]  # first that works wins
 CLAUDE_BIN = shutil.which("claude") or os.path.expanduser("~/.local/bin/claude")
 AGY_BIN = shutil.which("agy") or os.path.expanduser("~/.local/bin/agy")
 
@@ -51,12 +51,13 @@ ORACLE_TIMEOUT = 180  # seconds for one oracle question (any backend)
 # /api/models. One source of truth — the browser pickers fetch these.
 CLI_MODELS = {
     "claude-cli": ["claude-haiku-4-5", "claude-sonnet-5", "claude-opus-4-7",
-                   "claude-opus-4-8", "claude-fable-5"],
+                   "claude-opus-4-8", "claude-opus-5", "claude-fable-5"],
     # Fallback only: /api/models normally reads the installed Codex CLI's live catalog.
     # Keep this cheapest-to-frontier list current enough for an offline CLI startup.
     "codex-cli": ["gpt-5.4-mini", "gpt-5.6-luna", "gpt-5.4", "gpt-5.6-terra",
                   "gpt-5.5", "gpt-5.6-sol"],
-    "anthropic": ["claude-opus-4-8", "claude-opus-4-7", "claude-sonnet-5", "claude-haiku-4-5", "claude-fable-5"],
+    "anthropic": ["claude-opus-5", "claude-opus-4-8", "claude-opus-4-7", "claude-sonnet-5",
+                  "claude-haiku-4-5", "claude-fable-5"],
     "openai": ["gpt-5.6-sol", "gpt-5.6-terra", "gpt-5.6-luna", "gpt-5.1", "gpt-5", "gpt-4.1", "o3"],
 }
 # Reasoning-effort levels each login CLI accepts (claude: `--effort`, per its own
@@ -78,6 +79,7 @@ CLI_EFFORTS = {
 CLI_MODEL_EFFORTS = {
     "claude-cli": {
         "claude-fable-5": CLI_EFFORTS["claude-cli"],
+        "claude-opus-5": CLI_EFFORTS["claude-cli"],
         "claude-opus-4-8": CLI_EFFORTS["claude-cli"],
         "claude-opus-4-7": CLI_EFFORTS["claude-cli"],
         "claude-sonnet-5": CLI_EFFORTS["claude-cli"],

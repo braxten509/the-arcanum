@@ -5,6 +5,7 @@ import tomllib
 from ..course_map import load_course_map
 from ..language_mastery import authored_mastery_problems
 from ..mechanism_contract import authored_problems as authored_mechanism_problems
+from .surface import surface_problems
 
 
 def actual_lesson_id(node_id):
@@ -57,5 +58,6 @@ def validate_tome_alignment(build_id, tome_path, through=None):
                 working.get("masteryPerformances") or []):
             problems.append(f"{sid}.working mastery performances drifted from the sealed map")
         problems += authored_mechanism_problems(course, actual, sid)
+        problems += surface_problems(course, actual, sid)
     problems += authored_mastery_problems(course, tome_path, through)
     return (not problems, "" if not problems else "course-map alignment:\n- " + "\n- ".join(problems))

@@ -8,18 +8,18 @@ body = '''
 <p>First check the host boundary:</p>
 <pre><code>ls -l /dev/kfd /dev/dri/render*
 rocminfo | grep -m1 gfx1201</code></pre>
-<p>Then, from the <code>Homunculus/</code> root, launch AMD's tested image with the project mounted at <code>/workspace</code>:</p>
+<p>Pull and inspect AMD's tested image before personal material enters the project. The course-tested Linux image digest is <code>sha256:96a2fb24dec9896e2f8238178f0c49d0dcc4c7dcc597be09e4564316bd86d191</code>; record the full repository digest returned on your machine. Then, from the <code>Homunculus/</code> root, launch it with the project mounted at <code>/workspace</code> and networking disabled:</p>
 <pre><code>docker run --rm -it \
   --device=/dev/kfd --device=/dev/dri \
   --group-add video --ipc=host --shm-size 8g \
-  --network=host \
+  --network=none \
   -v "$PWD:/workspace" -w /workspace \
-  rocm/pytorch:rocm7.2.1_ubuntu24.04_py3.12_pytorch_release_2.9.1 bash</code></pre>
+  rocm/pytorch@sha256:96a2fb24dec9896e2f8238178f0c49d0dcc4c7dcc597be09e4564316bd86d191 bash</code></pre>
 <p>Inside the container, ask PyTorch three different questions:</p>
 <pre><code>python -c 'import torch; print("HIP", torch.version.hip); print("GPU", torch.cuda.get_device_name(0)); print("ARCH", torch.cuda.get_device_properties(0).gcnArchName)'
 python -c 'import torch; x=torch.arange(1, 5, device="cuda"); print("TENSOR", x.sum().item())'</code></pre>
 <p>On ROCm, PyTorch retains the historical <code>torch.cuda</code> namespace; it does not mean NVIDIA CUDA is installed. A valid proof names a HIP version, names the Radeon, reports a <code>gfx1201</code> architecture, and prints <code>TENSOR 10</code> after real device work.</p>
-<p>Diagnose bottom-up. Missing <code>/dev/kfd</code> or <code>gfx1201</code> in <code>rocminfo</code> is a host driver or permission problem. A host pass but container failure points to device mapping or the image. A tensor failure after the device is named points to the runtime/kernel layer. If your host distribution is outside AMD's published support list and these checks fail, the course's reliable recovery is a supported Ubuntu installation—not a pile of undocumented environment overrides.</p>
+<p>Diagnose bottom-up. Missing <code>/dev/kfd</code> or <code>gfx1201</code> in <code>rocminfo</code> is a host driver or permission problem. A host pass but container failure points to device mapping or the image. A tensor failure after the device is named points to the runtime/kernel layer. Run the Ollama version/API checks separately on the host; do not restore host networking to a container holding the personal corpus. If a later acquisition genuinely needs a network, stage it before mounting <code>private/</code>, verify its hash, then return to <code>--network=none</code>.</p>
 <div class="field-notes"><div class="fn-head">FIELD NOTES // SUPPORT IS A COMPLETE CHAIN</div>
 <p>A supported GPU name does not prove a training stack. The kernel driver, ROCm runtime, PyTorch build, bitsandbytes wheel, and model operation must all agree on <code>gfx1201</code>. Record each layer separately so a failure has an owner. An architecture override hides evidence; a tensor allocation and one-step QLoRA run create evidence.</p></div>
 '''
@@ -30,7 +30,7 @@ url = "https://rocm.docs.amd.com/projects/radeon-ryzen/en/latest/docs/compatibil
 
 [[lessons.readings]]
 label = "bitsandbytes installation and ROCm targets"
-url = "https://huggingface.co/docs/bitsandbytes/installation"
+url = "https://huggingface.co/docs/bitsandbytes/v0.49.2/installation"
 
 [[lessons.exercises]]
 id = "s01-l02-e1"
@@ -39,11 +39,11 @@ points = 20
 prompt = "What is the correct 2026 treatment of gfx1201 on this course's supported path?"
 choices = [
   "Always export HSA_OVERRIDE_GFX_VERSION=11.0.0",
-  "Use the real gfx1201 target and verify that every binary layer supports it",
   "Install NVIDIA CUDA beside ROCm",
+  "Use the real gfx1201 target and verify that every binary layer supports it",
   "Assume any wheel mentioning AMD supports every Radeon target",
 ]
-answer = 1
+answer = 2
 whyWrong = "The override disguises supported hardware, CUDA is not the AMD backend, and binary wheels still have explicit architecture contracts."
 explain = "Both the card and the installed kernels must agree on gfx1201; the checks preserve that truth end to end."
 hint = "The lesson explicitly retires an old override workaround."
@@ -73,12 +73,12 @@ type = "mc"
 points = 20
 prompt = "The host has no /dev/kfd entry. Where should diagnosis begin?"
 choices = [
-  "At the host driver, supported-OS, and device-permission layer",
   "By changing the model's chat template",
   "By lowering LoRA rank",
   "By reinstalling the Notion export",
+  "At the host driver, supported-OS, and device-permission layer",
 ]
-answer = 0
+answer = 3
 whyWrong = "Model, training, and data settings live above the missing device boundary and cannot create a host compute device."
 explain = "No Python or model-level action can repair a device node the operating-system layer never exposed."
 hint = "Diagnose from the lowest failing layer upward."

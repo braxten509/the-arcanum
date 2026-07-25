@@ -30,12 +30,12 @@ type = "mc"
 points = 20
 prompt = "An 8-billion-parameter model is loaded at <code>fp16</code> (2 bytes per weight). Per the lesson's math, roughly how much of a 16 GB card do the weights alone consume?"
 choices = [
+  "About 16 GB — effectively the entire card, before context or training state",
   "About 4 GB, leaving 12 GB free for everything else",
   "About 8 GB, leaving half the card free",
-  "About 16 GB — effectively the entire card, before context or training state",
   "Under 1 GB, since fp16 is already a compressed format",
 ]
-answer = 2
+answer = 0
 whyWrong = "fp16 spends 2 full bytes per weight, not a fraction of one — it is half precision relative to fp32, not a compression scheme, so 8B params at 2 bytes each lands at the full 16 GB the lesson works out, not a smaller fraction of the card."
 explain = "8,000,000,000 params × 2 bytes = 16,000,000,000 bytes ≈ 16 GB — the exact number the lesson uses to show why quantization isn't optional on this card."
 hint = "The lesson works out the math: params_b × bytes_per_param directly. 8 billion × 2 is not 4, not 8, and certainly not under 1 — run the multiplication and the result is the entire 16 GB card, which is exactly why the lesson says quantization is 'not an optional optimization' on this hardware."
@@ -83,4 +83,4 @@ print(f"WEIGHTS {size_gb:.1f} GB")
 hint = "size_gb should be a float — multiply the two variables and format with one decimal place, e.g. `f\"WEIGHTS {size_gb:.1f} GB\"`."
 [[lessons.readings]]
 label = "bitsandbytes installation and ROCm targets"
-url = "https://huggingface.co/docs/bitsandbytes/installation"
+url = "https://huggingface.co/docs/bitsandbytes/v0.49.2/installation"

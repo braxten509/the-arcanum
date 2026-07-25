@@ -3,16 +3,16 @@ id = "s06-l02"
 teaches = ["style-rubric"]
 title = "Score Voice Without Confusing It with Topic"
 body = '''
-<p>Embedding similarity and n-gram overlap mostly measure meaning and shared wording. They can reward a copied answer and penalize a faithful voice applied to a new topic. Personal style needs a rubric grounded in your actual habits. Before revealing A/B identity, score every response from 0–2 on four axes: <strong>correctness</strong>, <strong>requested format</strong>, <strong>usefulness</strong>, and <strong>voice fidelity</strong>.</p>
-<p>Define voice fidelity in <code>data/eval/style-rubric.md</code> with observable traits extracted from your held-out writing: preferred paragraph length, when headings or bullets appear, tolerance for preambles, directness, vocabulary, and how decisions or caveats are stated. Include positive and negative anchors. “2: would plausibly paste into my Notion page with no voice edit” is stronger than “2: sounds good.” Do not reward a model for repeating a private phrase or sentence from training; flag any suspicious memorized span as a critical failure.</p>
+<p>Embedding similarity and n-gram overlap mostly measure meaning and shared wording. Personal style needs a rubric grounded in observable habits. Freeze case ids, generate a seeded random A/B presentation order, keep the reveal key separate, and score every response from 0–2 on correctness, requested format, usefulness, and voice fidelity.</p>
+<p>Define voice fidelity in <code>private/eval/style-rubric.md</code> with observable traits extracted from your held-out writing: preferred paragraph length, when headings or bullets appear, tolerance for preambles, directness, vocabulary, and how decisions or caveats are stated. Include positive and negative anchors. “2: would plausibly paste into my Notion page with no voice edit” is stronger than “2: sounds good.” Do not reward a model for repeating a private phrase or sentence from training; flag any suspicious memorized span as a critical failure.</p>
 <pre><code>| id | response | correct | format | useful | voice | critical |
 |---|---|---:|---:|---:|---:|---|
 | rewrite-01 | A | 2 | 2 | 2 | 1 | none |
 | rewrite-01 | B | 2 | 2 | 2 | 2 | none |</code></pre>
-<p>Store scores as data, not only Markdown prose, in <code>reports/eval-bind-001-scores.jsonl</code>. Each row names the prompt id, anonymous response label, four integer scores, and a short evidence note. After scoring, reveal which response was base versus adapted and aggregate by category and axis. The adapter succeeds on voice only if its improvement is broad across categories; one spectacular response cannot hide regressions elsewhere.</p>
-<p>Keep automatic format assertions where possible—for example, exact heading count, required keys, or maximum bullets. They complement human review but do not replace it. The finished report should retain raw outputs, blind scores, the reveal key, and aggregated results.</p>
+<p>Store scores as private data with anonymous labels and evidence notes. Rescore a randomized subset after a delay; where practical, ask a second reviewer to use the same anchors without seeing the first scores. Report agreement/disagreement, category denominators, exact critical failures, and the influence of each case. Ten or twenty self-scored examples are starter acceptance tests, not proof of broad generalization or safety.</p>
+<p>Calibrate any numerical tolerance against repeated frozen-base runs before unblinding. Keep automatic format assertions where possible. The sanitized receipt contains suite and reveal-key hashes, randomization seed, counts by category, aggregate scores, repeat/second-reviewer disagreement, limitations, and redacted failure ids—never raw private text.</p>
 <div class="field-notes"><div class="fn-head">FIELD NOTES // STYLE NEEDS OBSERVABLE TRAITS</div>
-<p>“Sounds like me” is too vague to grade consistently. Turn it into a compact rubric: heading habits, sentence length, directness, bullet density, qualification style, and forbidden mannerisms. Blind the reviewer to model identity where possible. Embedding similarity may support the review, but it cannot replace judgments tied to those named traits.</p></div>
+<p>“Sounds like me” is too vague to grade consistently. Use concrete anchors, blind identity and order, repeat enough scoring to expose rubric drift, and state uncertainty. Embedding similarity may support the review, but it cannot replace judgments tied to named traits.</p></div>
 '''
 
 [[lessons.readings]]
@@ -20,15 +20,13 @@ label = "Hugging Face evaluation concepts"
 url = "https://huggingface.co/docs/evaluate/index"
 
 [[lessons.exercises]]
-id = "s06-l02-e1"
-type = "mc"
+id = "s06-l02-e3"
+type = "fill"
 points = 20
-prompt = "Why is cosine similarity alone a weak voice metric?"
-choices = ["It is strongly affected by semantic content and does not directly encode the learner's style rubric", "It cannot compare vectors", "It always returns zero", "It measures GPU memory"]
-answer = 0
-whyWrong = "Cosine can compare vectors, but it does not provide a personal style definition and is unrelated to memory."
-explain = "Voice judgment needs observable, learner-specific anchors."
-hint = "Same meaning and same voice are different properties."
+prompt = "Complete the highest voice anchor."
+code = '''2 = would plausibly paste into my Notion page with no voice ____'''
+answer = "edit"
+hint = "The response needs no stylistic revision."
 
 [[lessons.exercises]]
 id = "s06-l02-e2"
@@ -40,13 +38,15 @@ accept = ["four", "4"]
 hint = "Correctness, format, usefulness, and voice."
 
 [[lessons.exercises]]
-id = "s06-l02-e3"
-type = "fill"
+id = "s06-l02-e1"
+type = "mc"
 points = 20
-prompt = "Complete the highest voice anchor."
-code = '''2 = would plausibly paste into my Notion page with no voice ____'''
-answer = "edit"
-hint = "The response needs no stylistic revision."
+prompt = "Why is cosine similarity alone a weak voice metric?"
+choices = ["It is strongly affected by semantic content and does not directly encode the learner's style rubric", "It cannot compare vectors", "It always returns zero", "It measures GPU memory"]
+answer = 0
+whyWrong = "Cosine can compare vectors, but it does not provide a personal style definition and is unrelated to memory."
+explain = "Voice judgment needs observable, learner-specific anchors."
+hint = "Same meaning and same voice are different properties."
 
 [[lessons.exercises]]
 id = "s06-l02-e4"

@@ -1,103 +1,119 @@
 [[lessons]]
 id = "s05-l06"
-teaches = ["adapter-artifact"]
-title = "Prove and Fingerprint the Adapter"
+teaches = ["rocm-training"]
+title = "Dry-Step, Measure, Then Bind"
 body = '''
-<p>The successful bind produces <code>artifacts/adapters/bind-001/</code>, not a second copy of Qwen. The directory must contain <code>adapter_config.json</code>, adapter weights such as <code>adapter_model.safetensors</code>, and tokenizer/template files saved by the course command. Open the config and confirm <code>base_model_name_or_path</code> identifies <code>Qwen/Qwen3-8B</code>, rank and alpha match the run, and the weight file is nonempty.</p>
-<p>Now make the artifact accountable. Hash every file with SHA-256 and write <code>runs/bind-001/artifact-manifest.json</code> containing the run id, base id, curated train/eval hashes, training configuration, package versions, metrics path, and adapter-file hashes. A directory name like <code>r16-final-final</code> is not provenance. The manifest is how the merge stage proves it is sealing the adapter that passed evaluation.</p>
-<pre><code>import hashlib
-import json
-from pathlib import Path
+<p>Finish <code>train.py</code> with a CLI that makes the one-step proof and the full run the same code path:</p>
+<pre><code>def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--run-id", required=True)
+    parser.add_argument("--max-steps", type=int, default=-1)
+    cli = parser.parse_args()
+    trainer, tokenizer = build_trainer(cli.run_id, cli.max_steps)
+    trainer.model.print_trainable_parameters()
+    torch.cuda.reset_peak_memory_stats()
+    result = trainer.train()
+    torch.cuda.synchronize()
+    adapter_dir = Path("artifacts/adapters") / cli.run_id
+    trainer.save_model(adapter_dir)
+    tokenizer.save_pretrained(adapter_dir)
+    metrics = dict(result.metrics)
+    metrics["max_memory_allocated_gib"] = torch.cuda.max_memory_allocated() / 1024**3
+    metrics["max_memory_reserved_gib"] = torch.cuda.max_memory_reserved() / 1024**3
+    metrics["gpu"] = torch.cuda.get_device_name(0)
+    metrics["architecture"] = torch.cuda.get_device_properties(0).gcnArchName
+    run_dir = Path("runs") / cli.run_id
+    run_dir.mkdir(parents=True, exist_ok=True)
+    (run_dir / "training-metrics.json").write_text(
+        json.dumps(metrics, indent=2, default=str) + "\n", encoding="utf-8")
 
-def sha256(path):
-    return hashlib.sha256(path.read_bytes()).hexdigest()
-
-adapter_dir = Path("artifacts/adapters/bind-001")
-files = {str(path.relative_to(adapter_dir)): sha256(path)
-         for path in sorted(adapter_dir.rglob("*")) if path.is_file()}
-manifest = {
-    "run_id": "bind-001",
-    "base_id": "Qwen/Qwen3-8B",
-    "adapter_files": files,
-}
-Path("runs/bind-001/artifact-manifest.json").write_text(
-    json.dumps(manifest, indent=2) + "\n", encoding="utf-8")</code></pre>
-<p>Reload the adapter onto the same quantized base in a fresh process and run one held-out prompt. The purpose is not to declare quality from one answer; it is to prove that the saved artifact is loadable and changes inference without relying on the in-memory trainer. Keep the standalone adapter even after merging. Section IX loads a fresh full-precision base on CPU, attaches this proved adapter, and merges a copy. It must not merge the four-bit training object and assume a full-precision model appeared.</p>
-<div class="callout">Exit bar: saved config and safetensors, base identity match, fresh-process reload, manifest hashes, finite metrics, and no evaluation prompt copied into training.</div>
-<div class="field-notes"><div class="fn-head">FIELD NOTES // RELOAD BREAKS HIDDEN DEPENDENCIES</div>
-<p>Testing inside the trainer process can accidentally rely on in-memory state, an unsaved tokenizer, or a modified model object. Exit, start a fresh process, load the pinned base and only the saved adapter directory, then run a known prompt. That procedure defines what the artifact actually contains and what a later merge can reproduce.</p></div>
+if __name__ == "__main__":
+    main()</code></pre>
+<p>Inside the tested ROCm container, run <code>python -m homunculus.doctor training</code>, then <code>python -m homunculus.train --run-id dry-001 --max-steps 1</code>. Inspect the report rather than guessing from fan noise. It must name <code>gfx1201</code>, report a finite training loss, save a reloadable adapter, and leave at least two GiB between physical VRAM and peak reserved memory. A one-step adapter is disposable evidence, not the product.</p>
+<p>If the dry step fails, preserve the traceback. An out-of-memory error calls for the Section III recovery order: reduce <code>max_length</code>, confirm gradient checkpointing and batch size one, then reconsider the base. An import or missing-kernel error calls for the doctor and pinned-environment checks. A NaN loss calls for inspecting the data boundary and compute dtype. Do not change five knobs together.</p>
+<p>After the dry step passes, run <code>python -m homunculus.train --run-id bind-001</code>. There is no universal “correct starting loss” or guaranteed runtime. Judge the run by finite loss, completed evaluation, measured peaks, saved artifacts, and later held-out behavior. Hardware speed, corpus length, sequence distribution, and library kernels all affect elapsed time.</p>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // ONE STEP CROSSES MANY BOUNDARIES</div>
+<p>A real dry step proves far more than an import test: the model quantizes, adapters attach, rows tokenize, labels contain supervised tokens, forward and backward kernels execute, the optimizer updates, peak memory is measured, and an adapter checkpoint is written. Preserve its report and traceback because it is the smallest reproducible version of the full bind.</p></div>
 '''
 
 [[lessons.readings]]
-label = "PEFT checkpoint format"
-url = "https://huggingface.co/docs/peft/developer_guides/checkpoint"
+label = "AMD PyTorch verification"
+url = "https://rocm.docs.amd.com/projects/radeon-ryzen/en/latest/docs/install/installrad/native_linux/install-pytorch.html"
+
+[[lessons.readings]]
+label = "PyTorch CUDA memory APIs used by ROCm"
+url = "https://docs.pytorch.org/docs/stable/cuda.html#memory-management"
 
 [[lessons.exercises]]
 id = "s05-l06-e1"
 type = "mc"
 points = 20
-prompt = "What does the adapter directory deliberately omit?"
-choices = ["A full duplicate of the frozen 8B base weights", "adapter_config.json", "adapter_model.safetensors", "tokenizer configuration"]
-answer = 0
-whyWrong = "The configuration and learned adapter weights are the artifact; only the unchanged multi-gigabyte base is referenced rather than duplicated."
-explain = "PEFT stores the learned delta and the information needed to attach it."
-hint = "Which part never changed during training?"
+prompt = "Why must the dry step use the same train.py path as the full bind?"
+choices = [
+  "So the one-step adapter becomes the final model",
+  "So evaluation data enters training",
+  "So Ollama can merge during the step",
+  "So its compatibility and memory proof covers the code that will actually train",
+]
+answer = 3
+whyWrong = "The dry artifact is disposable; evaluation leakage and Ollama merging would break stage boundaries."
+explain = "A separate toy smoke script can pass while the real trainer still fails."
+hint = "The proof is valuable only if it exercises the production path."
 
 [[lessons.exercises]]
 id = "s05-l06-e2"
 type = "text"
 points = 15
-prompt = "Which hash algorithm fingerprints the adapter files?"
-answer = "SHA-256"
-accept = ["sha256", "sha-256"]
-hint = "It is the hashlib function in the manifest snippet."
+prompt = "Which metric is compared with physical VRAM for the conservative headroom gate?"
+answer = "max_memory_reserved_gib"
+accept = ["peak reserved memory", "torch.cuda.max_memory_reserved", "max_memory_reserved_gib"]
+hint = "Reserved includes memory held by the allocator."
 
 [[lessons.exercises]]
 id = "s05-l06-e3"
 type = "fill"
 points = 20
-prompt = "Complete the required base identity in the manifest."
-code = '''manifest = {
-    "base_id": "____",
-}'''
-answer = "Qwen/Qwen3-8B"
-hint = "An adapter must attach to the exact base used for training."
+prompt = "Complete the CLI option that limits the smoke run to one optimizer step."
+code = "python -m homunculus.train --run-id dry-001 ____ 1"
+answer = "--max-steps"
+hint = "It maps to SFTConfig.max_steps."
 
 [[lessons.exercises]]
 id = "s05-l06-e4"
 type = "mc"
 points = 20
-prompt = "Why reload in a fresh process?"
-choices = ["It proves the on-disk adapter is sufficient and not accidentally relying on trainer memory", "It increases LoRA rank", "It moves eval rows into train", "It quantizes to GGUF"]
+prompt = "The dry step hits OOM at max_length 1024. What is the first narrow change?"
+choices = [
+  "Reduce max_length and rerun the identical measurement",
+  "Set a false HSA architecture override",
+  "Move evaluation rows into training",
+  "Switch to an unrelated base without recording it",
+]
 answer = 0
-whyWrong = "Reload verification does not change configuration, data splits, or serving format."
-explain = "A persisted artifact must survive process boundaries before downstream stages trust it."
-hint = "The thing being tested is persistence."
+whyWrong = "Overrides, leakage, and silent base changes do not address the measured activation budget honestly."
+explain = "Sequence length is the first configured activation lever in the recovery order."
+hint = "Change the term most directly tied to retained activations."
 
 [[lessons.exercises]]
 id = "s05-l06-e5"
 type = "write"
 points = 35
-prompt = "Select nonempty required files and print exactly: VERIFIED 2"
-starter = '''sizes = {
-    "adapter_config.json": 912,
-    "adapter_model.safetensors": 42_000_000,
-    "README.md": 0,
-}
-required = {"adapter_config.json", "adapter_model.safetensors"}
+prompt = "Compute measured headroom and print exactly: DRY PASS headroom=2.4"
+starter = '''physical = 16.0
+reserved = 13.6
+required = 2.0
 
-verified = []
-print(f"VERIFIED {len(verified)}")
+headroom = 0
+status = "FAIL"
+print(f"DRY {status} headroom={headroom:.1f}")
 '''
-solution = '''sizes = {
-    "adapter_config.json": 912,
-    "adapter_model.safetensors": 42_000_000,
-    "README.md": 0,
-}
-required = {"adapter_config.json", "adapter_model.safetensors"}
+solution = '''physical = 16.0
+reserved = 13.6
+required = 2.0
 
-verified = [name for name in required if sizes.get(name, 0) > 0]
-print(f"VERIFIED {len(verified)}")
+headroom = physical - reserved
+status = "PASS" if headroom >= required else "FAIL"
+print(f"DRY {status} headroom={headroom:.1f}")
 '''
-expect = "VERIFIED 2"
-hint = "Keep required names whose recorded size is greater than zero."
+expect = "DRY PASS headroom=2.4"
+hint = "Subtract peak reserved from physical, then apply the required threshold."

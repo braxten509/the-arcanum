@@ -30,7 +30,7 @@ body = '''
     return response.json()["message"]["content"], references, policy_hash</code></pre>
 <p>The CLI accepts <code>--query</code> and <code>--out</code>. It writes the response followed by <code>## Sources</code> containing only retrieved source ids actually cited in the response, with Markdown links to their canonical URLs. If a factual, reference-required test yields no valid citation or cites an unknown id, the command exits nonzero and preserves a debug JSON file with hashes, retrieved chunks, messages, and raw response. Never expose that debug file as the Notion-ready answer because it contains internal context.</p>
 <p>Create a separate host environment for daily use: <code>python3 -m venv .venv-assistant</code>, activate it, then <code>python -m pip install -e '.[rag]'</code>. This installs the CPU retrieval stack without replacing the tested ROCm training environment. Ollama remains the GPU-backed model service.</p>
-<p>Use only standard Markdown headings, lists, emphasis, links, and fenced code in <code>outbox/</code>. Notion imports those reliably; advanced extensions and custom HTML are not part of the delivery contract. The wrapper is the useful product—not merely a model file—because it joins personal voice, current references, visible policy, citations, and a saved answer.</p>
+<p>Use only standard Markdown headings, lists, emphasis, links, and fenced code in <code>private/outbox/</code>. Notion imports those reliably; advanced extensions and custom HTML are not part of the delivery contract. The wrapper is the useful product—not merely a model file—because it joins personal voice, current references, visible policy, citations, and a saved answer.</p>
 <div class="field-notes"><div class="fn-head">FIELD NOTES // THE WRAPPER IS THE ASSISTANT</div>
 <p>Ollama supplies generation, but the useful product is the wrapper that loads policy, retrieves evidence, labels it untrusted, calls the model, validates Markdown, and writes a cited file. Keep those stages explicit and testable. A direct chat command is a useful diagnostic; it is not the finished Notion workflow the objective promises.</p></div>
 '''
@@ -44,23 +44,12 @@ label = "Notion importing Markdown"
 url = "https://www.notion.com/help/import-data-into-notion"
 
 [[lessons.exercises]]
-id = "s09-l05-e1"
-type = "mc"
-points = 20
-prompt = "Why is retrieved text labeled untrusted data?"
-choices = ["A reference can contain prompt injection and must provide evidence without controlling the assistant", "FAISS results are encrypted", "Ollama cannot read headings", "The adapter is untrained"]
-answer = 0
-whyWrong = "Retrieval output is ordinary text; its risk is instruction-like content, not encryption or model state."
-explain = "The application preserves the authority boundary between policy/user request and evidence."
-hint = "A webpage may say 'ignore previous instructions.'"
-
-[[lessons.exercises]]
 id = "s09-l05-e2"
 type = "text"
 points = 15
 prompt = "Which directory receives Notion-ready Markdown answers?"
 answer = "outbox"
-accept = ["outbox/", "Homunculus/outbox"]
+accept = ["private/outbox/", "Homunculus/private/outbox"]
 hint = "It was created in Section I."
 
 [[lessons.exercises]]
@@ -71,6 +60,22 @@ prompt = "Complete the Ollama endpoint used by the wrapper."
 code = "http://127.0.0.1:11434/api/____"
 answer = "chat"
 hint = "The payload contains a messages list."
+
+[[lessons.exercises]]
+id = "s09-l05-e1"
+type = "mc"
+points = 20
+prompt = "Why is retrieved text labeled untrusted data?"
+choices = [
+  "FAISS results are encrypted",
+  "Ollama cannot read headings",
+  "The adapter is untrained",
+  "A reference can contain prompt injection and must provide evidence without controlling the assistant",
+]
+answer = 3
+whyWrong = "Retrieval output is ordinary text; its risk is instruction-like content, not encryption or model state."
+explain = "The application preserves the authority boundary between policy/user request and evidence."
+hint = "A webpage may say 'ignore previous instructions.'"
 
 [[lessons.exercises]]
 id = "s09-l05-e4"

@@ -68,22 +68,42 @@ old_report = full_review.validate_report
 old_shipping, old_smoke, old_context = (review_session.validate_shipping,
                                         review_session.validate_live_smoke,
                                         review_session.context)
-old_append = review_session.append_conversation
+old_sections, old_append = (review_session.validate_every_section,
+                            review_session.append_conversation)
+old_adopt = review_session.adopt_build
 try:
     full_review.validate_report = lambda *_args: (True, "complete inventory")
     review_session.validate_report = lambda *_args: (True, "complete inventory")
     review_session.validate_shipping = lambda *_args: (True, "strict clean")
+    review_session.validate_every_section = lambda *_args: (True, "")
     review_session.validate_live_smoke = lambda *_args: (True, "smoke clean")
     review_session.context = lambda _bid: {"tooling": "both", "plan": ".tome-build/demo.plan.md"}
     review_session.append_conversation = lambda *_args, **_kwargs: None
+    review_session.adopt_build = lambda *_args: []
     assert session.run_reviewer() == 0
     assert (session.role, session.kind, session.model, session.session_id) == (
         "reviewer", "codex-cli", "gpt-5.6-sol", "")
+
+    # The per-section sweep is a gate in its own right: a defect it alone can see --
+    # answer-position clustering inside one section -- must block completion even
+    # when the pooled tome-wide pass and every other check are clean.
+    session.stop = False
+    review_session.validate_every_section = lambda *_args: (
+        False, "section s01:\nERROR anti-template: mc answers never land on index [3]")
+    assert session.run_reviewer() == 130
 finally:
     full_review.validate_report = old_report
     review_session.validate_report = old_report
     review_session.validate_shipping, review_session.validate_live_smoke = old_shipping, old_smoke
+    review_session.validate_every_section = old_sections
     review_session.context = old_context
     review_session.append_conversation = old_append
+    review_session.adopt_build = old_adopt
+    # run_reviewer truncates its evidence packet in the real build dir; the demo
+    # build id is not one, so take the file back off disk.
+    try:
+        os.remove(full_review.evidence_path("demo"))
+    except OSError:
+        pass
 
 print("same-session Phase 8 plus optional exhaustive review: OK")

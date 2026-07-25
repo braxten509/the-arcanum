@@ -1,8 +1,8 @@
 """Verified vendor prices shared by runtime estimates and build accounting."""
 
-PRICING_VERSION = "openai-anthropic-standard-2026-07-21"
+PRICING_VERSION = "openai-anthropic-standard-2026-07-24"
 PRICING_SOURCE = ("https://developers.openai.com/api/docs/pricing ; "
-                  "https://www.anthropic.com/pricing")
+                  "https://platform.claude.com/docs/en/about-claude/pricing")
 
 # USD per one million tokens. Unknown models stay unpriced.
 MODEL_PRICES = {
@@ -20,6 +20,10 @@ MODEL_PRICES = {
                         "cacheWriteInput": 6.25, "output": 25.0},
     "claude-opus-4-8": {"freshInput": 5.0, "cachedInput": 0.5,
                         "cacheWriteInput": 6.25, "output": 25.0},
+    # Opus 5 ships at the unchanged Opus rate card. Fast mode ($10/$50) is a per-request
+    # premium, not a separate model id, so it is not priced as one here.
+    "claude-opus-5": {"freshInput": 5.0, "cachedInput": 0.5,
+                      "cacheWriteInput": 6.25, "output": 25.0},
     "claude-fable-5": {"freshInput": 10.0, "cachedInput": 1.0,
                        "cacheWriteInput": 12.5, "output": 50.0},
 }

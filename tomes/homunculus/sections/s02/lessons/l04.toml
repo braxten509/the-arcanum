@@ -4,30 +4,30 @@ teaches = ["sampling-contract"]
 title = "Sampling: Temperature, Top-p, and the Rest"
 body = '''
 <p>The same vessel, the same prompt, the same chat template — and yet two runs can answer differently. That is not noise to be feared; it is <strong>sampling</strong>, a deliberate knob most serving tools expose, and reading it correctly is the difference between a vessel that seems inconsistent and one you've simply tuned wrong for the task.</p>
-<p>A model does not output a single next token — it outputs a probability over its whole vocabulary for what token comes next. <strong>Temperature</strong> reshapes that distribution before a token is drawn from it. At <code>temperature=0</code>, sampling collapses to always taking the single highest-probability token — fully deterministic, same input always gives the same output, useful for anything you need to reproduce exactly. Raise it above <code>1.0</code> and the distribution flattens, low-probability tokens get picked more often, and output gets more varied and more prone to nonsense. Most chat defaults sit around <code>0.7</code>–<code>0.8</code>, a middle ground.</p>
+<p>A model does not output a single next token — it outputs a probability over its whole vocabulary for what token comes next. <strong>Temperature</strong> reshapes that distribution before a token is drawn from it. At <code>temperature=0</code>, the backend uses greedy selection instead of sampling, which removes one major source of variation and makes comparisons more reproducible. It does not guarantee bit-for-bit repetition across backend versions, kernels, batching, hardware, or tie-breaking. Raise temperature above <code>1.0</code> and output usually becomes more varied and more prone to nonsense.</p>
 <p><strong>Top-p</strong> (nucleus sampling) works differently: instead of reshaping every probability, it restricts the pool to the smallest set of tokens whose probabilities add up to at least <code>p</code>, then samples only from that set. <code>top_p=0.9</code> means "only ever consider tokens that together cover 90% of the probability mass" — it quietly drops the long tail of near-impossible tokens temperature alone would still leave a small chance of hitting. <strong>Repetition penalty</strong> is a third, blunter knob: it downweights tokens the model has already produced recently, the direct fix for a model stuck looping the same phrase.</p>
 <pre><code><span class="k">pipe</span>(messages, max_new_tokens=200, temperature=0.7, top_p=0.9)</code></pre>
 <p>In Hugging Face's <code>transformers</code>, these are <code>generate_kwargs</code> passed straight into a <code>text-generation</code> pipeline call, as above. Ollama exposes the same ideas through <code>PARAMETER</code> lines inside a <code>Modelfile</code> — <code>PARAMETER temperature 0.7</code> sets the served model's default without touching a line of Python.</p>
 <div class="callout">Debug sampling the same way you debugged the ROCm bench two rites back — bottom-up. If output looks wrong at temperature 0.8, drop to 0 first: a broken prompt or template looks broken even deterministically, but a merely "too random" output only looks bad above zero.</div>
 <div class="field-notes"><div class="fn-head">FIELD NOTES // DETERMINISM IS A TOOL, NOT A DEFAULT</div>
-<p>Reach for <code>temperature=0</code> when you're testing whether a prompt or template change actually did what you intended — determinism removes sampling as a confound. Reach for a nonzero temperature and top-p once you're satisfied the template and prompt are correct and you actually want varied, natural-sounding replies. Conflating the two — debugging a template problem at temperature 0.9, or shipping a creative-writing vessel pinned at temperature 0 — wastes the knob's whole purpose.</p></div>
+<p>Reach for <code>temperature=0</code> when testing a prompt or template because greedy decoding removes sampling as a confound. For a frozen comparison, also record model digest, backend version, seed where honored, hardware placement, prompt bytes, and generation options; repeat a small baseline subset to measure residual variation before setting tolerances.</p></div>
 '''
 
 [[lessons.exercises]]
 id = "s02-l04-e1"
 type = "mc"
 points = 20
-prompt = "What does setting <code>temperature=0</code> actually do to a model's output?"
+prompt = "What does setting <code>temperature=0</code> establish for a model comparison?"
 choices = [
-  "It collapses sampling to always picking the single highest-probability token, making output fully deterministic for a given input",
+  "It selects greedy decoding and removes sampling randomness, while backend and numerical differences can still affect repeatability",
   "It disables the chat template entirely",
   "It forces the model to always produce the shortest possible answer",
   "It doubles the effective context length available to the model",
 ]
 answer = 0
-whyWrong = "Chat template use, answer length, and context length are each governed by separate settings entirely — temperature only reshapes how the next token is chosen from the probability distribution, and at 0 that reshaping collapses to always taking the top pick."
-explain = "Temperature scales the probability distribution before sampling; at exactly 0 there is no randomness left, so the same prompt always produces the same output."
-hint = "The lesson says at temperature=0, sampling collapses to always picking the single highest-probability token — no chat template change, no context-length doubling, no forced answer length."
+whyWrong = "Chat template use, answer length, and context length are separate settings. Greedy decoding improves reproducibility, but an absolute same-output guarantee ignores implementation and numerical sources of variation."
+explain = "Temperature zero removes stochastic token sampling; a frozen backend identity and repeated baseline runs are still needed to characterize reproducibility."
+hint = "Separate the decoding rule from the stronger claim of bit-for-bit repeatability."
 
 [[lessons.exercises]]
 id = "s02-l04-e2"
@@ -54,14 +54,14 @@ points = 20
 prompt = "A model keeps repeating the exact same phrase every few sentences. Which sampling setting most directly targets that specific failure?"
 choices = [
   "Lowering context length",
-  "Raising temperature to 2.0",
   "Repetition penalty, which downweights tokens the model has already produced recently",
+  "Raising temperature to 2.0",
   "Switching from an instruct model to a base model",
 ]
-answer = 2
+answer = 1
 whyWrong = "Context length governs how much conversation the model can hold, not looping behavior; cranking temperature to 2.0 mostly adds incoherent noise rather than fixing the loop; and swapping to a base model removes the instruct training that made the reply coherent at all."
 explain = "Repetition penalty exists for exactly this failure — it directly downweights recently-produced tokens, breaking the loop at its source instead of just adding unrelated randomness."
-hint = "The lesson names repetition penalty as the third, blunter knob: it downweights tokens the model has already produced recently, which is the direct fix for a model stuck looping the same phrase."
+hint = "Choose the control aimed at reuse of recently emitted tokens, not overall creativity or candidate-pool width."
 
 [[lessons.exercises]]
 id = "s02-l04-e5"

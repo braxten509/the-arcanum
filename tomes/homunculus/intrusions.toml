@@ -83,15 +83,13 @@ print(f"FULL FINETUNE {params_b * bytes_per_param} GB")
 
 [[tiers.pool]]
 t = "THE Q4 ESTIMATE"
-brief = "Estimate an 8B model at 4.5 bits per weight. Print EXACTLY: «WEIGHTS 4.5 GB»."
-starter = '''params_b = 8
-bits_per_weight = 4.5
+brief = "Measure a quantized child from artifact bytes. Print EXACTLY: «WEIGHTS 4.88 GiB»."
+starter = '''artifact_bytes = 5239497728
 '''
-expect = "WEIGHTS 4.5 GB"
-solution = '''params_b = 8
-bits_per_weight = 4.5
-size_gb = params_b * bits_per_weight / 8
-print(f"WEIGHTS {size_gb:.1f} GB")
+expect = "WEIGHTS 4.88 GiB"
+solution = '''artifact_bytes = 5239497728
+size_gib = artifact_bytes / (1024 ** 3)
+print(f"WEIGHTS {size_gib:.2f} GiB")
 '''
 
 [[tiers.pool]]
@@ -111,14 +109,14 @@ print(f"BUDGET {budget:.1f} GB")
 
 [[tiers.pool]]
 t = "THE ADAPTER FOOTPRINT"
-brief = "Compute 8,000,000 adapter parameters at 12 bytes each in MB. Print EXACTLY: «ADAPTER 96 MB»."
-starter = '''adapter_params = 8_000_000
+brief = "Compute the 43,646,976-parameter rank-16 all-linear adapter at 12 bytes each, rounded to decimal MB. Print EXACTLY: «ADAPTER 524 MB»."
+starter = '''adapter_params = 43_646_976
 bytes_per_param = 12
 '''
-expect = "ADAPTER 96 MB"
-solution = '''adapter_params = 8_000_000
+expect = "ADAPTER 524 MB"
+solution = '''adapter_params = 43_646_976
 bytes_per_param = 12
-mb = adapter_params * bytes_per_param // 1_000_000
+mb = round(adapter_params * bytes_per_param / 1_000_000)
 print(f"ADAPTER {mb} MB")
 '''
 
@@ -256,16 +254,16 @@ print(f"REGRESSIONS {regressions}")
 '''
 
 [[tiers.pool]]
-t = "THE POLICY HASH"
-brief = "Verify the loaded policy hash against its manifest. Print EXACTLY: «POLICY MATCH»."
-starter = '''loaded_hash = "9fa2"
-manifest_hash = "9fa2"
+t = "THE RETRIEVAL MANIFEST"
+brief = "Verify vector and metadata counts after round-trip. Print EXACTLY: «RAG MATCH»."
+starter = '''vectors = 24
+metadata_rows = 24
 '''
-expect = "POLICY MATCH"
-solution = '''loaded_hash = "9fa2"
-manifest_hash = "9fa2"
-status = "MATCH" if loaded_hash == manifest_hash else "MISMATCH"
-print(f"POLICY {status}")
+expect = "RAG MATCH"
+solution = '''vectors = 24
+metadata_rows = 24
+status = "MATCH" if vectors == metadata_rows else "MISMATCH"
+print(f"RAG {status}")
 '''
 
 [[tiers]]
@@ -322,14 +320,14 @@ print(f"DELIVERY {status}")
 '''
 
 [[tiers.pool]]
-t = "THE FRESH REBUILD"
-brief = "Accept a clean rebuild only when the derived root began empty and the manifest matches. Print EXACTLY: «REBUILD PASS»."
-starter = '''started_empty = True
-manifest_matches = True
+t = "THE SERVED CITATION"
+brief = "Accept a served answer only when every cited source id was retrieved. Print EXACTLY: «SERVED PASS»."
+starter = '''retrieved = {"style-01", "notion-02"}
+cited = {"style-01", "notion-02"}
 '''
-expect = "REBUILD PASS"
-solution = '''started_empty = True
-manifest_matches = True
-status = "PASS" if started_empty and manifest_matches else "FAIL"
-print(f"REBUILD {status}")
+expect = "SERVED PASS"
+solution = '''retrieved = {"style-01", "notion-02"}
+cited = {"style-01", "notion-02"}
+status = "PASS" if cited <= retrieved else "FAIL"
+print(f"SERVED {status}")
 '''

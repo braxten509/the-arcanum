@@ -32,9 +32,17 @@ for provider in providers:
     display, command, input_mode = author_runner(f"{provider['kind']}:{first[0]}")
     assert first[0] in display and command and input_mode in ("arg", "stdin")
 
-# Formerly policy-denied choices are deliberately legal now.
+# No model within a listed bindery provider is policy-denied by role.
 assert _author({"author": {"kind": "claude-cli", "model": "claude-haiku-4-5"}})
-assert _author({"author": {"kind": "antigravity-cli",
-                           "model": "Gemini 3.5 Flash (Low)"}})
+# The provider list itself is still narrower than the reader's AI catalog:
+# arcanum/ai/catalog.py deliberately keeps Antigravity, Zen/free, Maple, and
+# local models out of the bindery payload, so the lifecycle must reject them.
+for denied in ("antigravity-cli", "ollama", "custom-command"):
+    try:
+        _author({"author": {"kind": denied, "model": "whatever"}})
+    except ValueError:
+        pass
+    else:
+        raise AssertionError(f"{denied} is not a bindery provider but was accepted")
 assert _reviewer({}) is None
 print("single-author model census: OK")

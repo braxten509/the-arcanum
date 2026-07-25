@@ -14,7 +14,8 @@ from unittest.mock import patch
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from tools.buildlib.single_author import gate  # noqa: E402
+from tools.buildlib.single_author import gate, validation_messages  # noqa: E402
+from tools.buildlib.single_author import blocked as author_blocked  # noqa: E402
 from tools.buildlib.single_author import section_review  # noqa: E402
 from tools.buildlib.single_author import full_review  # noqa: E402
 from tools.buildlib.workflow import section_progress  # noqa: E402
@@ -257,10 +258,10 @@ with tempfile.TemporaryDirectory() as root:
             assert checks and all(f"`{command}`" in phase_prompt for command in checks), (
                 phase, checks, phase_prompt)
 
-assert gate.validation_issue_count(
+assert validation_messages.validation_issue_count(
     "ERROR plan: first\nWARN plan: second\n-- plan: 1 error(s), 1 warning(s)") == 2
-assert gate.validation_issue_count("-- tome: 3 error(s), 2 warning(s)") == 5
-assert gate.validation_issue_count("# FAIL\n\nIssues found: 4\n\nRepairs") == 4
+assert validation_messages.validation_issue_count("-- tome: 3 error(s), 2 warning(s)") == 5
+assert validation_messages.validation_issue_count("# FAIL\n\nIssues found: 4\n\nRepairs") == 4
 failure_text = gate.validation_failure_message(
     {"kind": "phase", "phase": 1}, "ERROR plan: one")
 assert failure_text.endswith("(1 issues found)"), failure_text
@@ -270,17 +271,17 @@ blocked = (
     "HARNESS_BLOCKED:\n"
     "COMMAND: `python3 tools/workflow/context/render_section_context.py build s01`\n"
     "DIAGNOSTIC:\npacket too large")
-assert gate.author_blocked_command(blocked) == [
+assert author_blocked.author_blocked_command(blocked) == [
     "python3", "tools/workflow/context/render_section_context.py", "build", "s01"]
-with patch.object(gate, "self_validation_argvs", return_value=[]), \
-        patch.object(gate, "context", return_value={"tid": "course"}), \
+with patch.object(author_blocked, "self_validation_argvs", return_value=[]), \
+        patch.object(author_blocked, "context", return_value={"tid": "course"}), \
         patch.object(
-            gate, "run_harness_command",
+            author_blocked, "run_harness_command",
             return_value=subprocess.CompletedProcess(
                 ["python3", "tools/workflow/context/render_section_context.py",
                  "build", "s01"],
                 0, stdout='{"version":1}\n', stderr="")) as reproduce:
-    blocked_kind, blocked_ok, blocked_report = gate.validate_author_blocked_check(
+    blocked_kind, blocked_ok, blocked_report = author_blocked.validate_author_blocked_check(
         "build", {"kind": "section", "section": "s01"}, blocked)
 assert (blocked_kind, blocked_ok) == ("bootstrap", True)
 assert '"version":1' in blocked_report
@@ -288,7 +289,7 @@ reproduce.assert_called_once_with(
     ["python3", "tools/workflow/context/render_section_context.py", "build", "s01"],
     "course")
 try:
-    gate.author_blocked_command("HARNESS_BLOCKED:\nDIAGNOSTIC:\nbroken")
+    author_blocked.author_blocked_command("HARNESS_BLOCKED:\nDIAGNOSTIC:\nbroken")
 except Exception as exc:
     assert "missing required" in str(exc)
 else:

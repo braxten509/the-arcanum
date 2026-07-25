@@ -1,7 +1,7 @@
 [freestyle]
 requires = ["python-craft", "embedding-contract", "reference-chunking", "faiss-index", "retrieval-query", "rag-assistant"]
 title = "THE WORKING: BUILD THE CITEABLE GRIMOIRE"
-brief = '''Extend <code>Homunculus/</code> with at least three provenance-backed style references, persistent RAG artifacts, and build/search/evaluate commands.<ul><li>Use learner-authored summaries or lawful excerpts with source id, canonical URL, retrieval date, local path, rights note, and source hash.</li><li>Chunk by Markdown structure, then 200-token windows with 30-token overlap; preserve stable chunk-level citations.</li><li>Use encode_document/encode_query, float32 L2 normalization, and exact IndexFlatIP cosine search.</li><li>Persist and round-trip index, ordered metadata, and a manifest; refuse stale hashes.</li><li>Pass at least fifteen expected-source queries at hit-rate@4 ≥ 0.80 and manually inspect every miss.</li><li>From the root run <code>python -m compileall -q src tests</code>, <code>python -m homunculus.rag build</code>, <code>python -m homunculus.rag search "How should a Notion decision note be structured?"</code>, and <code>python -m homunculus.rag evaluate</code>.</li><li>Keep retrieval code to the Section I Python naming and layout contract.</li></ul>Diagnose a failure by its owner—source, chunk, vector/metadata order, stale manifest, or ranking—before rebuilding. Retrieval remains independent of generation so fluent output cannot conceal irrelevant evidence.'''
+brief = '''Build the citeable grimoire from lawful private references and prove retrieval independently.<ul><li>Pin the embedder revision and hash source/rights metadata; keep source text excluded.</li><li>Use 200-token windows with 30-token overlap beneath the 256-token window and stable chunk citations.</li><li>Persist normalized IndexFlatIP vectors, ordered metadata, and a hash-bound manifest; refuse stale inputs.</li><li>Run at least fifteen expected-source queries, report numerator/denominator and every miss, and treat 0.80 as a starter policy rather than broad proof.</li><li>Write <code>evidence/receipts/s07.json</code> with source/chunk counts, hashes, schema/round-trip results, category metrics, redacted misses, and limitations.</li></ul>Unlawful provenance, stale hashes, vector/metadata mismatch, missing citations, or failure of the predeclared retrieval gate blocks the Working.'''
 reward = 240
 xray = "Reject whole-page embeddings, 512-token MiniLM chunks, unnormalized inner products called cosine, vector ids without stable citations, indexes rebuilt per query, or source text without provenance."
 
@@ -14,18 +14,46 @@ desc = "Awarded for a persistent, measured, citeable reference shelf."
 criterion = "Provenance and chunking"
 weight = 30
 desc = "Every self-contained chunk fits the embedder window and maps to a lawful, hash-tracked source."
+essential = true
+minimumScore = 8
 
 [[freestyle.rubric]]
 criterion = "Exact persistent retrieval"
 weight = 30
 desc = "Normalized document/query vectors, IndexFlatIP, ordered metadata, manifests, and round-trip checks agree."
+essential = true
+minimumScore = 8
 
 [[freestyle.rubric]]
 criterion = "Measured relevance"
 weight = 30
 desc = "The frozen retrieval suite passes its gate and failures are diagnosed at the owning layer."
+essential = true
+minimumScore = 7
 
 [[freestyle.rubric]]
 criterion = "Python craft"
 weight = 10
 desc = "rag.py uses snake_case names, UPPER_CASE model constants, four-space indentation, grouped imports, and separate functions for chunking, persistence, search, and evaluation."
+
+[[freestyle.verification]]
+id = "compile-s07"
+command = "compile"
+label = "Compile source and tests"
+required = true
+expect = { exitCode = 0 }
+
+[[freestyle.verification]]
+id = "tests-s07"
+command = "tests"
+label = "Run unit tests"
+required = true
+expect = { exitCode = 0 }
+
+[[freestyle.verification]]
+id = "evidence-s07"
+command = "evidence"
+label = "Validate retrieval receipt"
+required = true
+args = ["s07"]
+expect = { exitCode = 0 }

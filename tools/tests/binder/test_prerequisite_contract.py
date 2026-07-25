@@ -32,7 +32,8 @@ course = {
         "version": 1,
         "coverageStart": "s01",
         "mechanisms": [{"id": "function-definition", "label": "function definition",
-                        "kind": "syntax-form", "owner": "s01.l01"}],
+                        "kind": "syntax-form", "owner": "s01.l01",
+                        "detect": ["def "]}],
     },
     "sections": [section],
 }
@@ -113,7 +114,7 @@ assert any("s01.l01.artifactSteps[0] mode='delete'" in item for item in
 delete_course = json.loads(json.dumps(course))
 delete_course["mechanismContract"]["mechanisms"].append({
     "id": "terminal-delete-file", "label": "terminal file-deletion action",
-    "kind": "tool-action", "owner": "s01.l01"})
+    "kind": "tool-action", "owner": "s01.l01", "detect": []})
 delete_course["sections"][0]["nodes"][0]["introduces"].append("terminal-delete-file")
 delete_course["sections"][0]["nodes"][1]["mechanisms"].append("terminal-delete-file")
 declared_delete = json.loads(json.dumps(actual))
@@ -155,7 +156,7 @@ assert any("file-deletion tool-action mechanism must be owned" in item for item 
                detailed=True, map_version=4))
 retirement_course["mechanismContract"]["mechanisms"].append({
     "id": "terminal-delete-file", "label": "terminal file-deletion action",
-    "kind": "tool-action", "owner": "s02.l01",
+    "kind": "tool-action", "owner": "s02.l01", "detect": [],
 })
 retirement_course["sections"][1]["nodes"][0]["introduces"].append(
     "terminal-delete-file")
@@ -165,14 +166,20 @@ assert not validate_map_contract(
 
 finding = {
     "id": "function-call", "label": "function call", "kind": "syntax-form",
-    "owner": "s01.l01", "demands": ["s01.l01", "s01.working"],
+    "detect": ["()"], "owner": "s01.l01", "demands": ["s01.l01", "s01.working"],
     "closestExisting": ["function-definition"],
     "semanticDelta": "Invoking an existing function is a distinct state transition from defining it.",
 }
 expanded = candidate_with_findings(course, "s01", [finding])
 added = expanded["mechanismContract"]["mechanisms"][-1]
+# This map is sealed at v4, which predates `detect`, so the amendment stores the
+# shape the map was sealed in rather than making one record a different shape.
 assert added == {"id": "function-call", "label": "function call",
                  "kind": "syntax-form", "owner": "s01.l01"}
+v6_course = {**json.loads(json.dumps(course)), "version": 6}
+v6_added = candidate_with_findings(
+    v6_course, "s01", [finding])["mechanismContract"]["mechanisms"][-1]
+assert v6_added["detect"] == ["()"], v6_added
 assert "function-call" in expanded["sections"][0]["nodes"][0]["introduces"]
 assert "function-call" in expanded["sections"][0]["nodes"][1]["mechanisms"]
 cumulative_expanded = candidate_with_findings(cumulative_course, "s01", [finding])
@@ -188,7 +195,7 @@ future_course["sections"].append({
 })
 future_course["mechanismContract"]["mechanisms"].append({
     "id": "function-call", "label": "function call", "kind": "syntax-form",
-    "owner": "s02.l01"})
+    "owner": "s02.l01", "detect": ["()"]})
 late_collision = {**finding, "id": "invoke-function",
                   "closestExisting": ["function-call"]}
 try:

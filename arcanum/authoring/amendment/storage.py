@@ -37,6 +37,39 @@ def clear_amend_state(build_dir, tome):
         pass
 
 
+def amend_log_path(build_dir, tome):
+    return os.path.join(build_dir, f"{tome}.amend-log.json")
+
+
+def save_amend_record(build_dir, tome, record):
+    """Append one finished Binder run to this tome's durable amendment ledger.
+
+    Job state lives in memory, so without this a run's turn count, cost, and final
+    validator report are gone the moment the server restarts -- which is precisely
+    when someone asks what that run actually did. Bounded to the last 40 runs.
+    """
+    path = amend_log_path(build_dir, tome)
+    try:
+        with open(path, encoding="utf-8") as handle:
+            rows = json.load(handle)
+        rows = rows if isinstance(rows, list) else []
+    except (OSError, ValueError):
+        rows = []
+    rows.append(record)
+    temporary = path + ".tmp"
+    try:
+        os.makedirs(build_dir, exist_ok=True)
+        with open(temporary, "w", encoding="utf-8") as handle:
+            json.dump(rows[-40:], handle, ensure_ascii=False, indent=1)
+            handle.write("\n")
+        os.replace(temporary, path)
+    except OSError:
+        try:
+            os.remove(temporary)
+        except OSError:
+            pass
+
+
 def review_metadata_path(root, report_rel):
     name = os.path.basename(str(report_rel or ""))
     if not re.fullmatch(r"[A-Za-z0-9_-]+-\d{8}-\d{6}\.md", name):

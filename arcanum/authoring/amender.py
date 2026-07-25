@@ -1,8 +1,5 @@
 """The Binder: scoped amendment execution behind explicit job/process services."""
 import os
-import re
-import subprocess
-import sys
 import time
 
 from ..config import BUILD_DIR, ROOT
@@ -11,6 +8,8 @@ from ..ai import AiRequest, AiService
 from ..forge import notify
 from ..platform.agent_scratch import remove as remove_agent_scratch
 from ..platform.permission_profiles import profile_paths
+from .amendment import gate
+from .amendment import prompts
 from .amendment import storage as amendment_storage
 from .amendment.activity import activity_rows as _activity_rows
 from .amendment.runner import (
@@ -19,7 +18,12 @@ from .amendment.runner import (
     run_agent_turn,
 )
 
-AMEND_TIMEOUT = 900  # seconds for one small-change agent run
+# A broad whole-tome remediation is hours of honest work, so nothing here is bounded by
+# how long the Binder takes. AMEND_STALL ends a turn that is provably doing nothing; the
+# far-off AMEND_TIMEOUT only catches a CLI wedged while still holding its connection open.
+AMEND_STALL = 300  # seconds of no CPU, no provider connection, and no output
+AMEND_TIMEOUT = 4 * 3600  # backstop ceiling for one turn
+AMEND_CONTINUATIONS = 3  # times a cut-short turn is resumed from the work already on disk
 
 
 # An amend job lives in the configured JobStore, so a server restart (or the runner
@@ -93,21 +97,75 @@ def _review_verdict(report):
 def _run_agent_turn(job_id, cmd, prompt, input_mode, env, cwd, provider_kind,
                     provider_model,
                     job_manager: JobManager, processes: ProcessStore):
-    return run_agent_turn(
-        job_id, cmd, prompt, input_mode, env, cwd, provider_kind,
-        provider_model, job_manager, processes, timeout=AMEND_TIMEOUT)
+    """Run one turn, taking it up again in place when the CLI dies before finishing.
+
+    The Binder edits the tome directly, so a turn cut short leaves real, paid-for work
+    on disk. Failing the job at that point throws the work away and buys it twice. The
+    continuation reads what is already there instead, so a long amendment finishes
+    across as many turns as it needs.
+    """
+    text = prompt
+    for attempt in range(AMEND_CONTINUATIONS + 1):
+        rc, cut_short, logtail = run_agent_turn(
+            job_id, cmd, text, input_mode, env, cwd, provider_kind,
+            provider_model, job_manager, processes,
+            timeout=AMEND_TIMEOUT, stall=AMEND_STALL)
+        if (rc == 0 and not cut_short) or attempt == AMEND_CONTINUATIONS \
+                or job_manager.status(job_id).get("status") == "cancelled":
+            return rc, cut_short, logtail
+        why = (f"it went idle for {AMEND_STALL}s with no CPU and no provider connection"
+               if cut_short else f"the CLI exited {rc}: {_failure_summary(logtail)}")
+        job_manager.append(
+            job_id, "log", f"── the hand faltered ({why}); it takes the work up again ──",
+            limit=400)
+        job_manager.append(
+            job_id, "activity",
+            {"kind": "harness", "at": time.time(),
+             "text": f"The turn ended early ({why}). Continuing from the work already on disk "
+                     f"— attempt {attempt + 2} of {AMEND_CONTINUATIONS + 1}."},
+            limit=200)
+        text = prompts.continuation(prompt, why)
 
 
 def _validate_amendment(jid, *, strict=False):
-    command = [
-        sys.executable, os.path.join(ROOT, "tools", "validate_tome.py"),
-        os.path.join("tomes", jid),
-    ]
-    if strict:
-        command.append("--strict")
-    return subprocess.run(
-        command, capture_output=True, text=True,
-        timeout=900, cwd=ROOT)
+    return gate.validate_amendment(jid, strict=strict)
+
+
+def _note(job_manager, job_id, text):
+    job_manager.append(job_id, "log", f"── {text} ──", limit=400)
+    job_manager.append(
+        job_id, "activity",
+        {"kind": "harness", "at": time.time(), "text": text}, limit=200)
+
+
+def _record_amendment(job_manager, job_id, jid, started, mode):
+    """Write what this run did where a server restart cannot take it.
+
+    The job store is in memory. Twice now the question "did it retry, and what did that
+    cost?" has been unanswerable an hour later, so the answer goes on disk beside the
+    tome. The continuation count is read back out of the activity the run already
+    published rather than threaded through every call -- same fact, no new plumbing.
+    """
+    st = job_manager.status(job_id) or {}
+    rows = st.get("activity") or []
+    amendment_storage.save_amend_record(BUILD_DIR, jid, {
+        "version": 1,
+        "tome": jid,
+        "jobId": job_id,
+        "startedAt": started,
+        "finishedAt": time.time(),
+        "mode": mode,
+        "status": st.get("status", "unknown"),
+        "continuations": sum(
+            1 for row in rows
+            if str(row.get("text", "")).startswith("The turn ended early")),
+        "summary": str(st.get("summary") or "")[:2000],
+        "error": str(st.get("error") or "")[:2000],
+        "validatorOk": st.get("validatorOk"),
+        "validator": str(st.get("validator") or "")[:8000],
+        "usage": st.get("usage"),
+        "apiCostEstimate": st.get("apiCostEstimate"),
+    })
 
 
 def run_amender(job_id, jid, request_text, kind, model, effort="", broad=False, iterate=False, reset_ok=False,
@@ -132,119 +190,18 @@ def run_amender(job_id, jid, request_text, kind, model, effort="", broad=False, 
     if job_manager is None or processes is None or ai is None:
         raise RuntimeError("Binder requires explicit job, process, and AI services")
     checkpointed = False
+    started = time.time()
     req = request_text[:4000]
     update_standard = bool(update_standard and broad and not review)
     report_rel = os.path.join("reviews", f"{jid}-{time.strftime('%Y%m%d-%H%M%S')}.md") if review else ""
-    standard_instruction = (
-        "\n\nSTANDARD UPDATE: Compare this tome with the CURRENT repository standards: the "
-        "validator implementation used by tools/validate_tome.py and all applicable Markdown "
-        "authoring instructions at the repository root and under tome-authoring/. Bring forward "
-        "any file versions, fields, structures, or instructions that have changed since this tome "
-        "was authored. Use the current validator and current Markdown instructions as authoritative. "
-        "Make only the compatibility changes actually needed; if the tome is already current in a "
-        "given regard, leave it unchanged in that regard. Do not rewrite correct content merely for "
-        "style. Never add or partially imitate an opt-in contract such as [mastery] evidenceVersion "
-        "when the tome does not already declare it. Do not relax any progress-preservation boundary "
-        "below.\n\n"
-        if update_standard else "")
-    validation_command = (
-        f"`python3 tools/validate_tome.py tomes/{jid} --strict`"
-        if update_standard else
-        f"`python3 tools/validate_tome.py tomes/{jid}`")
-    # what the agent may and may not touch. reset_ok lifts ONLY the progress-preserving rules
-    # (rename/restructure); the engine/other-tome/generated walls always hold.
-    if reset_ok:
-        bounds = (f"EDIT only under tomes/{jid}/ (READING anything in the repo is expected — the guides "
-                  "live at the root). The player has AUTHORIZED a progress-resetting rework for this "
-                  "run: you MAY add, remove, reorder, and renumber sections and lessons and rename ids or "
-                  "files as the change needs — this OVERRIDES the guides' rule against renaming ids/files. "
-                  "Keep the tome internally consistent (fix every cross-reference, the tome.toml section "
-                  "list, badges, and chapter numbers you move). You must STILL never touch engine code, "
-                  "skins/, or other tomes, and never edit save/ or hand-edit generated/. A trusted "
-                  "repository generator may update its own generated output when an in-scope source "
-                  "change requires it; inspect and validate that output.")
-    else:
-        bounds = (f"EDIT only under tomes/{jid}/ (READING anything in the repo is expected — the guides "
-                  "live at the root). Progress is keyed by ids, so ADDING content with new "
-                  "tome-unique ids is always allowed and progress-safe — new exercises, new lessons "
-                  "(the next lNN.toml), even a new section APPENDED to the end of [content].sections "
-                  "with its full kit. But never rename, renumber, remove, or reorder EXISTING ids or "
-                  "files (that wipes player progress), never insert a section mid-list, never touch "
-                  "engine code, skins/, or other tomes, never edit save/ or hand-edit generated/. "
-                  "A trusted repository generator may update its own generated output when an in-scope "
-                  "source change requires it; inspect and validate that output.")
-    if review:
-        focus = f"The player asks the review to focus especially on:\n\n{req}\n\n" if req else ""
-        prompt = (
-            "You are THE BINDER — a maintenance agent for the Arcanum course platform, in "
-            f"REVIEW mode on the course (tome) at tomes/{jid}/.\n\n"
-            "FIRST read BOTH guides at the repo root: course-configuration-guide.md (the file/"
-            "field map and hard rules) and course-improvement-guide.md (the rubric for what makes "
-            f"a tome strong and where weaknesses hide). Then survey tomes/{jid}/ against them and "
-            "write a well-organized markdown report of everything you find — flaws, weak spots, "
-            f"inconsistencies, and the changes you would recommend, most important first. {focus}"
-            "After the title and brief review metadata, the FIRST substantive section MUST be "
-            "`## Recommendation and implementation order`. Make that one section self-contained: "
-            "state the tome's important strengths and validator status without letting a clean "
-            "validator minimize substantive weaknesses; name EVERY material recommended workstream "
-            "(all Critical and High findings, plus any Medium or Low work that belongs in the plan); "
-            "and give one numbered, dependency-aware implementation order. Rank learner privacy, "
-            "correctness, teaching integrity, and valid assessment evidence above compatibility or "
-            "cosmetic conservatism. Recommend broad correction when the evidence warrants it. "
-            "Progress-safety constraints should shape implementation, not suppress or downgrade a "
-            "real finding. Do not split the overall recommendation into a later `Top findings`, "
-            "`Recommended implementation order`, or closing-summary section. In the detailed "
-            "findings below it, label finding-specific actions `Remediation`, never `Recommended "
-            "change`, so they cannot be mistaken for the report's overall recommendation. "
-            f"Write that report to {report_rel} (create the folder if needed) — that report is the "
-            "ONLY file you may create or change. Do NOT edit anything else: no course files, no "
-            "engine code, nothing under tomes/. Read files with whatever tools your harness provides "
-            "(shell reads are fine where shell is your file interface); trusted repository Python "
-            "tools may be executed when they help verify a finding.")
-    elif iterate:
-        focus = f"The player asks you to focus especially on:\n\n{req}\n\n" if req else ""
-        prompt = (
-            "You are THE BINDER — a maintenance agent for the Arcanum course platform, in "
-            f"ITERATE mode on the course (tome) at tomes/{jid}/.\n\n"
-            "FIRST read course-improvement-guide.md and course-configuration-guide.md. Follow the "
-            "improvement guide's conditional reference routing and consult the relevant tome-authoring/ "
-            f"documents for the fields and contracts you touch. Then survey tomes/{jid}/ against the rubric, "
-            "choose the HIGHEST-VALUE improvements you can make, and apply them, editing as many "
-            f"files as it takes. {focus}{standard_instruction}"
-            f"{bounds} Read and edit files with whatever tools your harness provides — if shell "
-            "commands are how you read or edit files, use them freely; you may also run trusted "
-            "repository Python validators and inspection tools. "
-            f"Before returning, run {validation_command}, read the complete "
-            "report, and repair it until it exits cleanly with no new warnings. The harness repeats "
-            "that check independently after you return. "
-            "End with one short paragraph naming exactly the file(s) you changed and what you improved.")
-    else:
-        ask = ("requests a broad change — a larger rework you can iterate on"
-               if broad else "requests one small change")
-        how = ("make the changes needed to fulfil the request, editing as many files as it takes"
-               if broad else "make the SMALLEST edit that fulfils the request")
-        ledger = (f"A review of this tome was just written to {review_path} — read it first; "
-                  "the request may refer to its findings.\n\n" if review_path else "")
-        prompt = (
-            "You are THE BINDER — a maintenance agent for the Arcanum course platform. "
-            f"The player of the course (tome) at tomes/{jid}/ {ask}:\n\n"
-            f"REQUEST: {req}\n\n{ledger}"
-            "If the request is actually a QUESTION — asking for information, an explanation, or "
-            "advice, rather than instructing a change — answer it in your final message and make "
-            "NO edits to the tome. Only proceed to change files if the request asks for a change.\n\n"
-            "FIRST read course-configuration-guide.md at the repo root — it maps every file and "
-            f"field you may touch and the rules that bind them. Then {how}. {standard_instruction}"
-            f"{bounds} Read and edit files with whatever tools your harness provides — if shell "
-            "commands are how you read or edit files, use them freely; you may also run trusted "
-            "repository Python validators and inspection tools. Before returning, run "
-            f"{validation_command}, read the complete report, and repair it "
-            "until it exits cleanly with no new warnings; the harness repeats the check independently. End with one "
-            "short paragraph naming exactly the file(s) and field(s) you changed.")
-    prompt += (f"\n\nAI ACCESS: The repository root is {ROOT}. You may read files and execute trusted "
-               "Python anywhere in this repository, use web search/fetch for current sources, and "
-               "use /tmp freely. Project writes are enforced by the harness: "
-               + (f"only {report_rel} is writable for this review."
-                  if review else f"the complete tome at tomes/{jid}/ is writable; other project paths are read-only."))
+    # Contracts first: the handoff files have to exist before the sandbox is built, or the
+    # profile drops a mount that points at nothing and the Binder cannot write them at all.
+    contract_notes, contract_error = ([], "") if review else gate.sync_contracts("adopt", jid)
+    handoffs = "" if review else gate.handoff_dir(jid)
+    prompt = prompts.amend_prompt(
+        jid, req, review=review, iterate=iterate, broad=broad, reset_ok=reset_ok,
+        update_standard=update_standard, review_path=review_path,
+        report_rel=report_rel, plan_rel=gate.plan_rel(jid), handoffs=handoffs)
     try:
         tome_root = os.path.join(ROOT, "tomes", jid)
         if review:
@@ -253,7 +210,14 @@ def run_amender(job_id, jid, request_text, kind, model, effort="", broad=False, 
             open(report_abs, "a", encoding="utf-8").close()
             writable = [report_abs]
         else:
-            writable = [tome_root]
+            writable = [tome_root] + ([handoffs] if handoffs else [])
+        for line in contract_notes:
+            _note(job_manager, job_id, f"the harness prepared the tome's contracts: {line}")
+        if contract_error:
+            # Not fatal: a tome with no build plan has no contracts to prepare, and that is
+            # a fact about the tome, not a reason to refuse the amendment.
+            _note(job_manager, job_id,
+                  f"the tome's contracts could not be prepared: {contract_error[:300]}")
         invocation = ai.invocation(kind, AiRequest(
             role="binder-review" if review else "binder-amend",
             model=model, input=prompt, timeout=AMEND_TIMEOUT, workspace=tome_root,
@@ -273,7 +237,7 @@ def run_amender(job_id, jid, request_text, kind, model, effort="", broad=False, 
         if not review:  # review edits nothing under tomes/ — no checkpoint needed
             checkpoint_tome(jid)
             checkpointed = True
-        rc, timed_out, logtail = _run_agent_turn(
+        rc, cut_short, logtail = _run_agent_turn(
             job_id, cmd, prompt, input_mode, invocation.environment,
             invocation.cwd, kind, model, job_manager, processes)
         if job_manager.status(job_id).get("status") == "cancelled":
@@ -282,9 +246,10 @@ def run_amender(job_id, jid, request_text, kind, model, effort="", broad=False, 
                 rollback_tome(jid)  # discard the half-finished edit
                 checkpointed = False
             return  # the kill is not an error
-        if timed_out:
+        if cut_short:
             raise RuntimeError(
-                f"timed out after {AMEND_TIMEOUT}s: {_failure_summary(logtail)}")
+                f"the hand stalled and {AMEND_CONTINUATIONS} continuation turns did not "
+                f"finish the work: {_failure_summary(logtail)}")
         if rc != 0:
             raise RuntimeError(f"exit {rc}: {_failure_summary(logtail)}")
         summary = _activity_summary(
@@ -324,6 +289,17 @@ def run_amender(job_id, jid, request_text, kind, model, effort="", broad=False, 
             checkpointed = False
             clear_amend_state(jid)
             return
+        # An adopted map was only ever a photograph of the tome, so re-photograph it now that
+        # the tome has legitimately changed. A PLANNED map is deliberately left alone: re-sealing
+        # a promise to match whatever happened would make the promise unfalsifiable, so there the
+        # drift stays a gate failure below and the repair turn (or a person) answers for it.
+        resealed, reseal_error = gate.sync_contracts(
+            "reseal", jid, reason=f"Binder job {job_id}: {req or 'requested amendment'}"[:200])
+        for line in resealed:
+            _note(job_manager, job_id, line)
+        if reseal_error:
+            _note(job_manager, job_id,
+                  f"the course map could not be re-sealed: {reseal_error[:300]}")
         job_manager.append(
             job_id, "log",
             "── the hand rests; the candle now inspects the work (validator — a few minutes) ──",
@@ -345,12 +321,8 @@ def run_amender(job_id, jid, request_text, kind, model, effort="", broad=False, 
                 {"kind": "harness", "at": time.time(),
                  "text": "The validator found flaws. A bounded repair turn has begun."},
                 limit=200)
-            repair_prompt = (prompt + "\n\n===== HARNESS REPAIR TURN =====\n"
-                             "The independent validator failed. Read every finding below, repair "
-                             "all in-scope failures without undoing the requested amendment, rerun "
-                             "the validator yourself until clean, then stop.\n\n" + report)
-            rc, timed_out, logtail = _run_agent_turn(
-                job_id, cmd, repair_prompt, input_mode, invocation.environment,
+            rc, cut_short, logtail = _run_agent_turn(
+                job_id, cmd, prompts.repair(prompt, report), input_mode, invocation.environment,
                 invocation.cwd, kind, model,
                 job_manager, processes)
             cancelled = job_manager.status(job_id).get("status") == "cancelled"
@@ -359,10 +331,10 @@ def run_amender(job_id, jid, request_text, kind, model, effort="", broad=False, 
                 rollback_tome(jid)
                 checkpointed = False
                 return
-            if timed_out:
+            if cut_short:
                 raise RuntimeError(
-                    f"repair timed out after {AMEND_TIMEOUT}s: "
-                    f"{_failure_summary(logtail)}")
+                    f"the repair turn stalled and {AMEND_CONTINUATIONS} continuations "
+                    f"did not finish it: {_failure_summary(logtail)}")
             if rc != 0:
                 raise RuntimeError(
                     f"repair exit {rc}: {_failure_summary(logtail)}")
@@ -422,6 +394,10 @@ def run_amender(job_id, jid, request_text, kind, model, effort="", broad=False, 
                    f"{cause} — the tome was rolled back. Reopen the Binder to retry, or pick a different hand.",
                    priority=1)
     finally:
+        if not review:  # a review already persists its own metadata beside the report
+            _record_amendment(
+                job_manager, job_id, jid, started,
+                "iterate" if iterate else "broad" if broad else "small")
         # Binder retries start a fresh job rather than resuming a provider session. Remove
         # this job's isolated CLI state so no tome transcript or scratch survives the run.
         try:
