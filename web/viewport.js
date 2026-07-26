@@ -5,7 +5,11 @@
   const table = document.getElementById("table");
   const fit = () => {
     if (!table) return;
-    const scale = Math.min(table.clientWidth / 2560, table.clientHeight / 1388);
+    // Geometric mean of the two ratios: the scene keeps its share of the desk's
+    // area on any proportion. `contain` (the min) starved a 21:9 desk — props
+    // sized to the short edge, marooned around a huge page — and `cover` (the
+    // max) would swell them over the reading margin on a 4:3 one.
+    const scale = Math.sqrt((table.clientWidth / 2560) * (table.clientHeight / 1388));
     if (!Number.isFinite(scale) || scale <= 0) return;
     table.style.setProperty("--desk-scale", scale);
   };
