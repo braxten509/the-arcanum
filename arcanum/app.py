@@ -12,7 +12,7 @@ from .assessment.use_cases import AssessmentApplication, MasteryLabApplication
 from .catalog import ManifestRepository, TomeCatalogService, TomePaths
 from .execution import ExecutionService
 from .jobs import InMemoryJobStore, JobManager, ProcessStore
-from .learning import LearnerStateService, LearningStateStore
+from .learning import LearnerStateService, LearningStateStore, TomeNotesStore
 from .settings import Settings, UserSettingsStore, load_settings
 from .workspace import WorkspaceService
 
@@ -28,6 +28,7 @@ class AppServices:
     processes: ProcessStore
     ai: AiService
     states: LearnerStateService
+    notes: TomeNotesStore
     execution: ExecutionService
     legacy_grading: LegacyGradingService
     binder: BinderService
@@ -65,10 +66,11 @@ def create_app_services(settings: Settings | None = None) -> AppServices:
     processes = ProcessStore()
     ai = build_default_ai_service()
     states = LearnerStateService(workspaces, jobs, user_settings)
+    notes = TomeNotesStore(settings.root)
     execution = ExecutionService(catalog, workspaces)
     legacy_grading = LegacyGradingService(jobs, catalog, workspaces, ai)
     binder = BinderService(jobs, processes, ai)
     forge = ForgeService(settings, jobs, processes, catalog)
     return AppServices(settings, runtime_registry, catalog, workspaces, user_settings,
-                       jobs, processes, ai, states, execution, legacy_grading, binder,
-                       forge)
+                       jobs, processes, ai, states, notes, execution, legacy_grading,
+                       binder, forge)

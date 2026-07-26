@@ -8,6 +8,7 @@ from .endpoints.authoring.forge import ForgeEndpoints
 from .endpoints.authoring.legacy_grading import LegacyGradingEndpoints
 from .endpoints.learning.assessment import AssessmentEndpoints
 from .endpoints.learning.mastery_labs import MasteryLabEndpoints
+from .endpoints.learning.notes import NotesEndpoints
 from .endpoints.learning.state import StateEndpoints
 from .endpoints.platform.catalog import CatalogEndpoints
 from .endpoints.platform.execution import ExecutionEndpoints
@@ -19,6 +20,7 @@ from .router import Router
 def build_router(services: AppServices) -> Router:
     router = Router(services.catalog.resolve)
     state = StateEndpoints(services)
+    notes = NotesEndpoints(services)
     catalog = CatalogEndpoints(services)
     workspaces = WorkspaceEndpoints(services)
     execution = ExecutionEndpoints(services)
@@ -29,6 +31,7 @@ def build_router(services: AppServices) -> Router:
     labs = MasteryLabEndpoints(services)
 
     router.get("/api/state", state.get)
+    router.get("/api/notes", notes.list)
     router.get("/api/tomes", catalog.list)
     router.get("/api/tome", catalog.current)
     router.get("/api/workspace", workspaces.get)
@@ -58,6 +61,8 @@ def build_router(services: AppServices) -> Router:
 
     router.post("/api/state", state.save)
     router.post("/api/state/reset", state.reset)
+    router.post("/api/notes", notes.add)
+    router.post("/api/notes/remove", notes.remove)
     router.post("/api/workspace", workspaces.save)
     router.post("/api/scaffold", workspaces.scaffold)
     router.post("/api/seedworkspace", workspaces.seed)

@@ -19,7 +19,7 @@ GET_ROUTES = {
     "/api/assessment/status", "/api/buildtome/active",
     "/api/buildtome/resumable", "/api/buildtome/status", "/api/checkdir",
     "/api/evidence/export", "/api/grade/status", "/api/health",
-    "/api/mastery-lab", "/api/models", "/api/starterfile", "/api/state",
+    "/api/mastery-lab", "/api/models", "/api/notes", "/api/starterfile", "/api/state",
     "/api/tome", "/api/tomes", "/api/workspace",
 }
 POST_ROUTES = {
@@ -30,7 +30,7 @@ POST_ROUTES = {
     "/api/buildtome/pause", "/api/buildtome/reset", "/api/buildtome/resume",
     "/api/buildtome/runner", "/api/diagnostics", "/api/grade", "/api/grade/preview",
     "/api/mastery-lab/retry", "/api/mastery-lab/run", "/api/mastery-lab/workspace",
-    "/api/mastery/support",
+    "/api/mastery/support", "/api/notes", "/api/notes/remove",
     "/api/openpath", "/api/oracle", "/api/run", "/api/runcancel",
     "/api/runsnippet", "/api/scaffold", "/api/seedworkspace", "/api/snippetdiag",
     "/api/state", "/api/state/reset", "/api/workspace",

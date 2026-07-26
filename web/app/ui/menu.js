@@ -6,6 +6,7 @@ import { addCredits } from "../game/progress.js";
 import { castSigil } from "../game/sigil.js";
 import { prepareStateReset, resumeStateSaves, getState, save } from "../core/store.js";
 import { showCodeBook } from "./views.js";
+import { showTomeNotes } from "./notes.js";
 import { parseSpellCode } from "./spell-codes.js";
 import { apiFetch } from "../core/api-client.js";
 import { dispatchCommand } from "../core/commands.js";
@@ -264,6 +265,8 @@ document.addEventListener("contextmenu", (ev) => {
         const c = oracleContext();
         askOracle(c.label, c.detail, hasSel ? med.getModel().getValueInRange(med.getSelection()).trim() : "");
       } },
+      { label: "MARGINALIA (TOME NOTES)", suffix: hasSel ? "— note this passage" : "", on: () =>
+        showTomeNotes(hasSel ? med.getModel().getValueInRange(med.getSelection()).trim() : "") },
     ], ev.clientX, ev.clientY);
     return;
   }
@@ -293,7 +296,9 @@ document.addEventListener("contextmenu", (ev) => {
       } });
     items.push(
       "-",
-      { label: "SELECT ALL", disabled: !field.value, on: () => { field.focus(); field.select(); } });
+      { label: "SELECT ALL", disabled: !field.value, on: () => { field.focus(); field.select(); } },
+      { label: "MARGINALIA (TOME NOTES)", suffix: hasSel ? "— note this passage" : "", on: () =>
+        showTomeNotes(hasSel ? field.value.slice(field.selectionStart, field.selectionEnd).trim() : "") });
     popMenu(items, ev.clientX, ev.clientY);
     return;
   }
@@ -305,6 +310,7 @@ document.addEventListener("contextmenu", (ev) => {
     { label: "SELECT ALL", on: () => getSelection().selectAllChildren(t.closest("pre, .ex-body, #main") || document.body) },
     "-",
     { label: sel ? "ASK THE ORACLE ABOUT THIS" : "CONSULT THE ORACLE", on: () => { const c = oracleContext(); askOracle(c.label, c.detail, sel); } },
+    { label: "MARGINALIA (TOME NOTES)", suffix: sel ? "— note this passage" : "", on: () => showTomeNotes(sel) },
     { label: "OPEN THE GRIMOIRE", on: () => showCodeBook() },
     { label: "THE PEDDLER", on: () => go("shop") },
     "-",

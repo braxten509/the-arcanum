@@ -109,13 +109,11 @@ export function renderSection(sid) {
         const done = evidenceMode
           ? exercises.filter((exercise) => exerciseEvidence(getState(), exercise).resolved).length
           : exercises.filter((e) => getState().ex[e.id] && getState().ex[e.id].ok).length;
-        const independent = evidenceMode
-          ? exercises.filter((exercise) => exerciseEvidence(getState(), exercise).independent).length : 0;
         const pts = l.exercises.reduce((a, e) => a + e.points, 0);
         return `<button class="lesson-row" data-lesson="${l.id}" style="--i:${i}">
           <span class="l-num">${roman(i + 1)}</span>
           <span>${esc(l.title)}</span>
-          <span class="l-pts num">${evidenceMode ? `${done}/${total} resolved · ${independent}/${total} independent` : `${done}/${total} · ${pts}${gp()}`}</span>
+          <span class="l-pts num">${evidenceMode ? `${done}/${total} resolved` : `${done}/${total} · ${pts}${gp()}`}</span>
           <span class="l-state">${done === total && total > 0 ? ico("check") : ""}</span>
         </button>`;
       }).join("")}

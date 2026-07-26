@@ -145,8 +145,8 @@ def _run_journey(base_url: str, artifacts: Path, browser_name: str) -> None:
         expect(section.locator("h1")).to_have_text("Evidence Contract 8")
         capability_count = page.evaluate(
             "TOME.masteryEvidence.capabilityIds.length")
-        expect(section.locator(".lesson-row .l-pts")).to_contain_text(
-            "0/1 resolved · 0/1 independent")
+        expect(section.locator(".lesson-row .l-pts")).to_have_text(
+            "0/1 resolved")
         expect(section.locator(".freestyle-cta")).to_contain_text(
             "Working status: not ready")
         expect(section.locator("#btn-fs")).to_be_disabled()
@@ -156,8 +156,8 @@ def _run_journey(base_url: str, artifacts: Path, browser_name: str) -> None:
         _unroll_first_scroll(page, artifacts, "02-scroll-confirmation.png")
         _shot(page, artifacts, "03-supported-completion.png")
         page.locator("#view-lesson:not(.hidden) [data-nav=sec2]").click()
-        expect(section.locator(".lesson-row .l-pts")).to_contain_text(
-            "1/1 resolved · 0/1 independent")
+        expect(section.locator(".lesson-row .l-pts")).to_have_text(
+            "1/1 resolved")
         expect(section.locator(".freestyle-cta")).to_contain_text("Working status: ready")
         expect(section.locator("#btn-fs")).to_be_enabled()
 
