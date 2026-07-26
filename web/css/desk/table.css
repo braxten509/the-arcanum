@@ -9,8 +9,11 @@
 /* ---- the candle (lower-left, click = trim the wick / settings) ---- */
 #candle {
   position: absolute;
-  left: -1.5625%;
-  top: 6.124%;
+  /* offsets are the rendered top-left of the 1.66x art, so --desk-scale moves the
+     candle exactly as far as it shrinks it; a centred origin left the anchor
+     drifting by (1 - scale) x half the box on every other resolution */
+  left: calc(-106px * var(--desk-scale));
+  top: calc(-25.2px * var(--desk-scale));
   z-index: 20;
   width: 200px;
   height: 334px;
@@ -20,7 +23,7 @@
   font-family: inherit;
   padding: 0;
   transform: scale(1.66);
-  transform-origin: center;
+  transform-origin: top left;
   scale: var(--desk-scale);
   /* the button rect is huge; only .c-hit and the label glyphs take clicks */
   pointer-events: none;

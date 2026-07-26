@@ -11,10 +11,28 @@
   transform-origin: top right;
   left: auto;
   /* mirrors the candle: fixed offsets, deliberately overhangs the table edge */
-  right: -3.515625%;
-  top: 11.527%;
+  right: calc(-90px * var(--desk-scale));
+  top: calc(160px * var(--desk-scale));
   /* like the candle: the button rect is huge, only .q-hit + label glyphs take clicks */
   pointer-events: none;
+}
+
+/* The shared .desk-image shadow is authored for an unscaled prop, but the filter
+   runs in the image's own box — before the 2.6x blow-up — so it reaches the screen
+   at 23px offset / 18px blur and the inkwell reads as hovering.  Pre-divide by the
+   scale to land a real contact shadow. */
+#obj-quill .desk-image {
+  filter:
+    drop-shadow(0 1.2px 1.2px rgba(6, 2, 0, .72))
+    drop-shadow(0 3px 2.7px rgba(6, 2, 0, .46));
+}
+
+#obj-quill:hover .desk-image {
+  /* the shared -3px hover lift is scaled too, and 8px of travel reads as take-off */
+  transform: translateY(-1.15px);
+  filter:
+    drop-shadow(0 1.2px 1.4px rgba(6, 2, 0, .7))
+    drop-shadow(0 4.2px 3.6px rgba(6, 2, 0, .5));
 }
 
 /* invisible circular hitbox over the inkwell (center 57,91 r~31 in the 160px art) */
@@ -39,8 +57,8 @@
   display: block;
   --obj-w: 1200px;
   --obj-h: 1200px;
-  left: -21.484375%;
-  bottom: -57.637%;
+  left: calc(-550px * var(--desk-scale));
+  bottom: calc(-800px * var(--desk-scale));
   scale: var(--desk-scale);
   transform-origin: bottom left;
   pointer-events: none;
@@ -67,8 +85,8 @@
   display: block;
   --obj-w: 1350px;
   --obj-h: 1350px;
-  left: 63.4765625%;
-  bottom: -64.481%;
+  left: calc(1625px * var(--desk-scale));
+  bottom: calc(-895px * var(--desk-scale));
   scale: var(--desk-scale);
   transform-origin: bottom left;
   /* above the letter (11), under the tomes (15) and everything else (20) */
@@ -92,8 +110,8 @@
 #obj-wand {
   --obj-w: 800px;
   --obj-h: 800px;
-  left: 78.125%;
-  bottom: 2.161%;
+  left: calc(2000px * var(--desk-scale));
+  bottom: calc(30px * var(--desk-scale));
   scale: var(--desk-scale);
   transform-origin: bottom left;
   /* like the quill: the button rect is huge, only .w-hit takes clicks */
@@ -127,12 +145,14 @@
   /* The source art is a true overhead stack: let it occupy a believable
      tabletop footprint instead of reading as a small shelf icon.  Its slight
      overhang keeps the books in the desk margin, clear of the parchment. */
-  --tomes-size: clamp(270px, 18vw, 360px);
+  /* a fixed composition size: --desk-scale already tracks the viewport, and a
+     vw clamp on top shrank the stack twice as fast as the rest of the desk */
+  --tomes-size: 360px;
   --tomes-scale: 4;
   --obj-w: var(--tomes-size);
   --obj-h: var(--tomes-size);
-  right: -3.90625%;
-  top: -32.421%;
+  right: calc(-100px * var(--desk-scale));
+  top: calc(-450px * var(--desk-scale));
   scale: var(--desk-scale);
   transform-origin: top right;
   /* above the parchment (10), below every other desk tool (20) */
@@ -178,12 +198,30 @@
   transform-origin: 50% 50%;
 }
 
+/* Same pre-transform problem as the quill, plus a turn: the art's rotate(313deg)
+   also swings the shadow 47° off vertical, so the stack floats and lights wrong.
+   Offsets are therefore divided by the 4x scale and pre-rotated +47°, which the
+   art's own -47° cancels — the shadow lands straight down on screen. */
+#obj-tomes .desk-image {
+  filter:
+    drop-shadow(-.55px .51px 1px rgba(6, 2, 0, .74))
+    drop-shadow(-1.83px 1.71px 2.3px rgba(6, 2, 0, .48));
+}
+
+#obj-tomes:hover .desk-image {
+  /* pre-rotated lift as well, or the stack slides sideways instead of rising */
+  transform: translate(.73px, -.68px);
+  filter:
+    drop-shadow(-.55px .51px 1.1px rgba(6, 2, 0, .72))
+    drop-shadow(-2.56px 2.39px 3.2px rgba(6, 2, 0, .5));
+}
+
 #obj-satchel {
   display: block;
   --obj-w: 500px;
   --obj-h: 500px;
-  right: 27.34375%;
-  top: -21.614%;
+  right: calc(700px * var(--desk-scale));
+  top: calc(-300px * var(--desk-scale));
   scale: var(--desk-scale);
   transform-origin: top right;
   pointer-events: none;
@@ -209,8 +247,8 @@
 #obj-orb {
   display: block;
   scale: var(--desk-scale);
-  left: 1.953125%;
-  top: 43.228%;
+  left: calc(50px * var(--desk-scale));
+  top: calc(600px * var(--desk-scale));
   transform-origin: top left;
   pointer-events: none;
 }
@@ -238,8 +276,8 @@
   display: block;
   --obj-w: 900px;
   --obj-h: 900px;
-  right: -11.71875%;
-  top: 29.899%;
+  right: calc(-300px * var(--desk-scale));
+  top: calc(415px * var(--desk-scale));
   /* under the notes (12) */
   z-index: 11;
   scale: var(--desk-scale);
