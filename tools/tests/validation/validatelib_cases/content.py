@@ -7,6 +7,7 @@ from validatelib import err, set_build_phase, warn
 from validatelib.content import (
     check_anti_template,
     check_content,
+    check_density,
     check_section,
     is_shouting_title,
 )
@@ -24,6 +25,62 @@ def run_content_cases():
         {"exercises": [{}, {"type": None}, {"type": "mc"}, {"type": 7}]},
     ]}])
     assert not findings()
+
+    # §3 tallies mc answer indices PER SECTION, and pooling is how a tome ships at a
+    # blameless [27,62,34,19] overall while one section runs 7 of 10 on index 1 — the only
+    # bank a learner in that section ever meets, and guessable at 70%.
+    def bank(sid, counts):
+        return {"id": sid, "lessons": [{"exercises": [
+            {"type": "mc", "answer": index, "choices": ["a", "b", "c", "d"]}
+            for index, count in enumerate(counts) for _ in range(count)]}]}
+
+    check_anti_template([bank("s01", [7, 8, 7, 7]), bank("s02", [0, 7, 3, 0])])
+    got = findings()
+    assert len(got) == 1 and "s02: mc answers cluster on only [1, 2]" in got[0][2], got
+
+    # All four indices used and one still dominant — invisible to a distinct-index test.
+    check_anti_template([bank("s01", [1, 7, 1, 1])])
+    got = findings()
+    assert "s01: 7 of 10 four-choice answers are index 1" in got[0][2], got
+    assert "tally [1, 7, 1, 1]" in got[0][2], got
+
+    # A review variant is merged over its parent and graded as a real question, so it is
+    # exactly as guessable. Tallying only exercises[] once passed a tome whose every
+    # pooled bank read balanced while all 28 of its variants sat on index 0 — and the
+    # variants were the only questions the spaced-review queue ever showed.
+    balanced = bank("s01", [3, 3, 3, 3])
+    balanced["lessons"][0]["exercises"][0]["reviewVariants"] = [
+        {"prompt": f"variant {n}", "answer": 0, "choices": ["a", "b", "c", "d"]}
+        for n in range(8)]
+    check_anti_template([balanced])
+    got = findings()
+    assert got and "s01: 11 of 20 four-choice answers are index 0" in got[0][2], \
+        f"review-variant answers must reach the clustering tally, got {got}"
+
+    # Balanced sections stay silent, and the tome-wide tells still fire on their own terms.
+    # Bank sizes vary so the uniform-grid and identical-type-mix tells stay quiet too.
+    check_anti_template([bank(f"s{n:02d}", [n, n, n, n]) for n in range(2, 6)])
+    assert not findings()
+    check_anti_template([bank("s01", [10, 10, 10, 2])])
+    got = findings()
+    assert len(got) == 1 and "index(es) [3] carry under 10%" in got[0][2], \
+        "a starved index is a tome-wide tell; a section of 32 cannot support a 10% floor"
+
+    # Two sections sharing a rubric verbatim IS the defect. Demanding that EVERY one match
+    # let twelve-of-thirteen through — the same averaging that hid the clustering above.
+    def graded(sid, rubric):
+        return {"id": sid, "freestyle": {"rubric": rubric},
+                "lessons": [{"id": f"{sid}-l{n}", "body": "word " * 400,
+                             "exercises": [{"type": "mc"}] * 5} for n in range(4)]}
+
+    canned = [{"criterion": "works", "desc": "it runs"}]
+    distinct = [graded(f"s{n:02d}", [{"criterion": f"c{n}", "desc": f"d{n}"}])
+                for n in range(1, 12)]
+    check_density(distinct + [graded("s12", canned), graded("s13", canned)])
+    assert any("2 of 13 freestyle rubrics are identical" in message
+               for _, _, message in findings())
+    check_density(distinct)
+    assert not [m for _, _, m in findings() if "rubric" in m]
 
     # Harness phases promote only obligations already owned by that phase. Future
     # work stays a warning; host-only advisories never become errors.

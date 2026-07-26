@@ -1,6 +1,6 @@
 [[lessons]]
 id = "s03-l06"
-teaches = ["language-namespaces-modularity"]
+teaches = ["language-trust-boundary-modeling"]
 title = "Workshop — Establish the Canonical Models"
 body = '''
 
@@ -29,7 +29,7 @@ required = true
 capabilities = ["language-namespaces-modularity"]
 cognitiveTask = "explain"
 scaffold = "guided"
-contextFamily = "verisearch-s03-namespaces-modularity"
+contextFamily = "verisearch-s03-trust-boundary-modeling"
 aidPolicy = "learning"
 prompt = "Why is the source URL deliberately absent from <code>QuoteProposal</code>?"
 choices = ["C# records cannot hold URLs", "The model must not own attribution; C# attaches it from the matched Passage", "URLs are added by Spectre.Console", "the configured AI adds URLs automatically"]
@@ -37,10 +37,6 @@ answer = 1
 whyWrong = "Records can hold strings and neither Spectre nor the configured AI supplies trustworthy attribution. The program attaches source identity from its own passage data after verification."
 explain = "Separating model proposals from C#-owned source metadata prevents invented citations from entering the report."
 hint = "Which component has trustworthy source identity?"
-reviewVariants = [
-  { prompt = "Where should concrete object wiring live in a small CLI?", choices = ["One composition root", "Every domain record", "The renderer", "A duplicated namespace"], answer = 0 },
-  { prompt = "A type is declared twice after a replacement. What is the scoped repair?", choices = ["Find and remove the obsolete owner", "Rename both copies", "Disable compilation", "Add a third copy"], answer = 0 }
-]
 
 [[lessons.exercises]]
 id = "s03-l06-e2"
@@ -50,7 +46,7 @@ required = true
 capabilities = ["language-namespaces-modularity"]
 cognitiveTask = "complete"
 scaffold = "guided"
-contextFamily = "verisearch-s03-namespaces-modularity"
+contextFamily = "verisearch-s03-trust-boundary-modeling"
 aidPolicy = "learning"
 prompt = "Complete the type that represents untrusted model output before exact matching."
 code = '''public record ____(int PassageId, string Quote);'''
@@ -65,7 +61,7 @@ required = false
 capabilities = ["language-namespaces-modularity"]
 cognitiveTask = "complete"
 scaffold = "worked"
-contextFamily = "verisearch-s03-namespaces-modularity"
+contextFamily = "verisearch-s03-trust-boundary-modeling"
 aidPolicy = "learning"
 reps = 2
 prompt = "Retype the source-owned passage record twice."
@@ -79,7 +75,7 @@ required = true
 capabilities = ["language-namespaces-modularity"]
 cognitiveTask = "test-design"
 scaffold = "guided"
-contextFamily = "verisearch-s03-namespaces-modularity"
+contextFamily = "verisearch-s03-trust-boundary-modeling"
 aidPolicy = "learning"
 prompt = "Define <code>SourceSpec</code> and <code>Passage</code> records with the workshop's fields. Create source label <code>RFC</code>, URL <code>https://example.test/rfc</code>, trust 10, then passage id 4 and print exactly <code>4 RFC 10</code>."
 starter = '''// Define the two records below the top-level statements.
@@ -96,10 +92,10 @@ public record Passage(int Id, string Text, SourceSpec Source);
 hint = "Construct SourceSpec first, pass it into Passage, then read nested properties through passage.Source."
 
 [[lessons.concepts]]
-id = "language-namespaces-modularity"
-purpose = "Split a growing C# program into discoverable files and namespaces with one clear owner per responsibility."
-anatomy = "Place related types under a namespace, keep the entrypoint as composition, and reference public contracts instead of copying declarations."
-example = "The disposable examples in Workshop — Establish the Canonical Models isolate this capability before the learner chooses how it belongs in the cumulative project. The lesson Workshop — Establish the Canonical Models supplies the disposable observation point."
-observable = "The whole solution builds with one definition for each concept and dependencies point in an understandable direction. Confirm it while practicing Workshop — Establish the Canonical Models."
-failure = "Duplicate types, circular ownership, or business logic in Program.cs makes later integration brittle."
+id = "language-trust-boundary-modeling"
+purpose = "Draw the line between what a source owns, what a model merely proposes, and what C# has proved, before any of it is code."
+anatomy = "Separate types carry admitted source text, untrusted proposals, and verified quotations, and only the verifier may turn the second into the third."
+example = "Disposable records for a candidate, an admitted text with its source identity, and a verified result, sketched together so the proposal's missing attribution is visible."
+observable = "A reportable quotation cannot be constructed from proposal data alone; its label and address can only come from the matched passage."
+failure = "One shared model for proposals and verified quotes lets invented text inherit a real source label, and no later check can undo that."
 practice = "s03-l06-e1"

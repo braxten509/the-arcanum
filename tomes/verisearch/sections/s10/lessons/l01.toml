@@ -1,6 +1,6 @@
 [[lessons]]
 id = "s10-l01"
-teaches = ["language-serialization-io"]
+teaches = ["language-console-markup-rendering"]
 title = "AnsiConsole & markup — color as information"
 body = '''
 
@@ -47,12 +47,13 @@ required = true
 capabilities = ["language-serialization-io"]
 cognitiveTask = "explain"
 scaffold = "guided"
-contextFamily = "verisearch-s10-serialization-io"
+contextFamily = "verisearch-s10-console-markup-rendering"
 aidPolicy = "limited"
 prompt = "Spectre markup for green bold text:"
 choices = ["[green bold]text[/]", "<green><b>text</b></green>", "{green,bold}text{/}", "\\green\\bold text"]
 answer = 0
 whyWrong = "Spectre uses its own [style]...[/] markup, not HTML/brace/backslash syntax — ‘[green bold]text[/]’ is the correct form."
+explain = "Spectre reads its own bracketed markup and styles combine inside one tag: <code>[green bold]</code> opens and <code>[/]</code> closes. Because those brackets carry meaning, external text has to be escaped before it goes in."
 hint = "Square brackets, space-separated styles, [/] to close."
 
 [[lessons.exercises]]
@@ -63,12 +64,13 @@ required = true
 capabilities = ["language-serialization-io"]
 cognitiveTask = "explain"
 scaffold = "guided"
-contextFamily = "verisearch-s10-serialization-io"
+contextFamily = "verisearch-s10-console-markup-rendering"
 aidPolicy = "limited"
 prompt = "Why must scraped page titles pass through <code>Markup.Escape</code> before MarkupLine?"
 choices = ["It makes them render faster", "A title containing [red] or [ would break or spoof your markup — untrusted data can't mix with markup", "Spectre requires all strings escaped", "It translates them to English"]
 answer = 1
 whyWrong = "It’s not about speed or a blanket rule — a scraped title containing ‘[’ or ‘[red]’ would break or spoof your markup, so untrusted text must be Markup.Escape’d."
+explain = "A page title is external text. Escaping it means the renderer prints what the source actually says, instead of letting a bracket in that title reshape or break the report."
 hint = "Terminal-grade injection. Same disease as XSS."
 
 [[lessons.exercises]]
@@ -79,7 +81,7 @@ required = true
 capabilities = ["language-serialization-io"]
 cognitiveTask = "recall"
 scaffold = "guided"
-contextFamily = "verisearch-s10-serialization-io"
+contextFamily = "verisearch-s10-console-markup-rendering"
 aidPolicy = "limited"
 prompt = "What does <code>$\"{9.4567:F1}\"</code> produce?"
 answer = "9.5"
@@ -93,7 +95,7 @@ required = false
 capabilities = ["language-serialization-io"]
 cognitiveTask = "complete"
 scaffold = "worked"
-contextFamily = "verisearch-s10-serialization-io"
+contextFamily = "verisearch-s10-console-markup-rendering"
 aidPolicy = "limited"
 reps = 2
 prompt = "The traffic-light helper — switch expression meets markup. Twice."
@@ -113,7 +115,7 @@ required = true
 capabilities = ["language-serialization-io"]
 cognitiveTask = "build"
 scaffold = "independent"
-contextFamily = "verisearch-s10-serialization-io"
+contextFamily = "verisearch-s10-console-markup-rendering"
 aidPolicy = "limited"
 prompt = "Escape lab (plain string ops — no Spectre needed here): given <code>string title = \"[red]INJECTED[/]\";</code> escape it the Spectre way — double every [ and ] — and print the escaped result."
 expect = "[[red]]INJECTED[[/]]"
@@ -124,10 +126,10 @@ Console.WriteLine(title.Replace("[", "[[").Replace("]", "]]"));
 hint = "title.Replace(\"[\", \"[[\").Replace(\"]\", \"]]\")"
 
 [[lessons.concepts]]
-id = "language-serialization-io"
-purpose = "Move typed data across file, JSON, HTTP, process, and terminal boundaries without confusing external text with trusted objects."
-anatomy = "Select an I/O API, await or dispose it correctly, serialize or deserialize a declared shape, then validate the resulting values."
-example = "The disposable examples in AnsiConsole & markup — color as information isolate this capability before the learner chooses how it belongs in the cumulative project. The lesson AnsiConsole & markup — color as information supplies the disposable observation point."
-observable = "Valid input becomes the intended typed data and malformed input produces a specific boundary diagnostic. Confirm it while practicing AnsiConsole & markup — color as information."
-failure = "Scraping loosely structured text or overwriting invalid user data destroys the evidence needed to repair it."
+id = "language-console-markup-rendering"
+purpose = "Use color and markup as information a reader can rely on, and keep external text from being read as markup."
+anatomy = "A console library interprets bracketed markup, a small mapping turns trust state into that markup, and an escape operation neutralizes markup characters in external text."
+example = "A trust traffic light produced by a switch expression over a score, and a fetched title passed through the escape helper before printing."
+observable = "The same trust state always prints in the same color, and a title containing brackets prints exactly as written."
+failure = "Interpolating unescaped source text into markup lets a page reshape the report, or crash the renderer outright."
 practice = "s10-l01-e1"

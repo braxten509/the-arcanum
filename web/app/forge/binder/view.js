@@ -1,4 +1,4 @@
-import { esc } from "../../core/dom.js";
+import { esc, mdLite } from "../../core/dom.js";
 
 export const binderStamp = (value) => {
   const raw = Number(value);
@@ -31,6 +31,13 @@ export const binderActivity = (rows) => {
   }).join("");
 };
 
+const costLabel = (estimate) => {
+  const usd = Number(estimate?.usd);
+  return Number.isFinite(usd)
+    ? `$${usd > 0 && usd < .01 ? usd.toFixed(4) : usd.toFixed(2)} EST.`
+    : "COST UNAVAILABLE";
+};
+
 export const binderCost = (estimate) => {
   const usd = Number(estimate?.usd);
   if (!Number.isFinite(usd) || usd < 0) return "";
@@ -60,6 +67,78 @@ export const reviewDate = (stamp) => {
     : date.toLocaleString([], { dateStyle: "medium", timeStyle: "short" });
 };
 
+export const buildDate = (seconds) => {
+  const date = new Date(Number(seconds) * 1000);
+  return Number.isNaN(date.getTime())
+    ? "UNDATED BUILD"
+    : date.toLocaleString([], { dateStyle: "medium", timeStyle: "short" });
+};
+
+const listHead = (label, count, noun) =>
+  `<div class="binder-review-list-head"><span>${label}</span>
+    <b>${count} ${noun}${count === 1 ? "" : "S"}</b></div>`;
+
+const buildRow = (build) => {
+  const ok = build.status === "done" && build.validatorOk !== false;
+  const line = [
+    ok ? "" : String(build.status === "done" ? "flaws found" : build.status).toUpperCase(),
+    (build.mode || "amend").toUpperCase(),
+    (build.apiCostEstimate?.model || "model not recorded").toUpperCase(),
+    build.continuations > 0
+      ? `${build.continuations} CONTINUATION${build.continuations === 1 ? "" : "S"}` : "",
+  ].filter(Boolean).join(" · ");
+  // A run that never finished can be taken up again, so its record carries the feed it
+  // reached and the request that started it. A finished run has neither: its edit is on
+  // disk, and the ledger is the only proof of who made it.
+  const feed = build.unfinished && Array.isArray(build.activity) && build.activity.length
+    ? `<div class="binder-build-feed"><b>WHERE IT STOPPED</b>
+        <div class="binder-build-feed-body">${binderActivity(build.activity)}</div></div>`
+    : "";
+  const job = esc(build.jobId || "");
+  const actions = build.unfinished
+    ? `<div class="binder-build-actions">
+        <button class="btn quiet binder-build-forget" type="button" data-job="${job}"
+          title="Remove this unfinished run from the ledger. The tome is not touched.">DELETE</button>
+        <button class="btn binder-build-resume" type="button" data-job="${job}"${
+          build.setup ? "" : ` disabled title="This run finished before the ledger recorded requests, so there is nothing to take up again."`}>RESUME</button>
+      </div>`
+    : "";
+  return `<div class="binder-build${ok ? "" : " bad"}">
+    <button class="binder-review-row binder-build-row" type="button" aria-expanded="false">
+      <span><b>${esc(buildDate(build.finishedAt))}</b><small>${esc(line)}</small></span>
+      <em>${esc(costLabel(build.apiCostEstimate))}</em>
+    </button>
+    <div class="binder-build-detail hidden">
+      ${mdLite(build.summary || build.error || "(this build reported nothing)")}
+      ${build.validator ? `<pre class="binder-build-validator">${esc(build.validator)}</pre>` : ""}
+      ${feed}
+      ${binderCost(build.apiCostEstimate)}
+      ${actions}
+    </div>
+  </div>`;
+};
+
+export const binderHistory = (payload) => {
+  const reviews = Array.isArray(payload.reviews) ? payload.reviews : [];
+  const builds = Array.isArray(payload.builds) ? payload.builds : [];
+  if (!reviews.length && !builds.length)
+    return `<div class="binder-review-empty"><b>THE LEDGER IS EMPTY</b>
+      <span>Run Review or commission a change once, and its report — with what it cost — will appear here.</span></div>`;
+  return (reviews.length
+    ? listHead("PAST REVIEWS", reviews.length, "REPORT")
+      + `<div class="binder-review-list">${reviews.map((review) =>
+        `<button class="binder-review-row" type="button" data-review-path="${esc(review.path)}">
+          <span><b>${esc(reviewDate(review.createdAt))}</b><small>${esc(
+            review.providerModel || "MODEL NOT RECORDED")}</small></span>
+          <em>${esc(costLabel(review.apiCostEstimate))}</em>
+        </button>`).join("")}</div>`
+    : "")
+    + (builds.length
+      ? `<div class="binder-build-section">${listHead("PAST BUILDS", builds.length, "BUILD")}
+        <div class="binder-review-list">${builds.map(buildRow).join("")}</div></div>`
+      : "");
+};
+
 export function binderTemplate() {
   return `<h2>THE BINDER</h2>
     <p class="dim" id="binder-desc">Name one small flaw in this tome — a typo, a wrong color, a price, a missing line —
@@ -67,8 +146,9 @@ export function binderTemplate() {
     <div id="binder-inputs">
     <textarea id="binder-q" rows="3" style="width:100%" placeholder="e.g. the s02-l03 hint has a typo · make the signature theme's accent more copper · rename the SLAG SHIELD to CINDER WARD"></textarea>
     <div style="display:flex;align-items:center;gap:20px;margin-top:10px;flex-wrap:wrap">
+      <label class="forge-check" id="bd-publish-wrap" style="margin:0" title="Rounds of independent survey and repair until the tome clears publisher.md — the publication bar — and the harness's own shipping gate together. It runs alone: no other option applies, and it never resets progress."><input type="checkbox" id="bd-publish"> Make ready to publish</label>
       <label class="forge-check" id="bd-broad-wrap" style="margin:0"><input type="checkbox" id="bd-broad"> Broad change</label>
-      <label class="forge-check hidden" id="bd-standard-wrap" style="margin:0" title="Also align the tome with the repository's current validator and Markdown authoring instructions. The Binder cannot complete until strict validation passes; already-current files are left alone."><input type="checkbox" id="bd-standard"> Update to Standard</label>
+      <label class="forge-check hidden" id="bd-standard-wrap" style="margin:0" title="Also align the tome with the repository's current validator and Markdown authoring instructions. The Binder cannot complete until strict validation passes; already-current files are left alone. A tome finished before the harness sealed build plans also has its plan, course map, and continuity handoffs adopted from what it already contains — that is what puts it under the full shipping gate."><input type="checkbox" id="bd-standard"> Update to Standard</label>
       <label class="forge-check" id="bd-review-wrap" style="margin:0" title="The Binder reads the tome without changing it and writes its findings to the reviews/ ledger."><input type="checkbox" id="bd-review"> Review</label>
       <label class="forge-check hidden" id="bd-iterate-wrap" style="margin:0"><input type="checkbox" id="bd-iterate"> Iterate</label>
       <label class="forge-check hidden" id="bd-reset-wrap" style="margin:0" title="Lets the Binder add, remove, reorder, or rename chapters and lessons — restructuring the tome. This RESETS all player progress for this tome."><input type="checkbox" id="bd-reset"> Okay to reset progress?</label>

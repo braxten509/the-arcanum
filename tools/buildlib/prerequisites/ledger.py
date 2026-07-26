@@ -53,6 +53,10 @@ def finding_fingerprints(result):
         prints[_quality_fpr(finding)] = {
             "kind": "quality", "node": finding.get("node"), "path": finding.get("path"),
             "category": finding.get("category"), "repair": finding.get("requiredRepair"),
+            # Kept so a verify pass can hand the model back the exact citation it must reuse
+            # if the defect is still open. Re-derive it and the fingerprint stops matching,
+            # which reads as "resolved" and lets a live defect through.
+            "lines": finding.get("evidenceLines"),
             "evidence": finding.get("evidence")}
     for finding in result.get("missingMechanisms") or []:
         if not isinstance(finding, dict) or not finding.get("id"):
@@ -106,9 +110,14 @@ def _save(build_dir, build_id, sid, ledger):
     os.replace(temp, path)
 
 
-def open_fingerprints(ledger):
-    return {fpr for fpr, entry in ledger.get("findings", {}).items()
+def open_findings(ledger):
+    """The still-open entries, keyed by fingerprint — exactly what a verify pass re-checks."""
+    return {fpr: entry for fpr, entry in ledger.get("findings", {}).items()
             if entry.get("status") == "open"}
+
+
+def open_fingerprints(ledger):
+    return set(open_findings(ledger))
 
 
 def has_repeat(ledger, result):

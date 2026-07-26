@@ -9,12 +9,15 @@ from ..forge import notify
 from ..platform.agent_scratch import remove as remove_agent_scratch
 from ..platform.permission_profiles import profile_paths
 from .amendment import gate
+from .amendment import handoffs as handoff_fill
 from .amendment import prompts
+from .amendment import publish as publish_loop
 from .amendment import storage as amendment_storage
 from .amendment.activity import activity_rows as _activity_rows
 from .amendment.runner import (
     activity_summary as _activity_summary,
     failure_summary as _failure_summary,
+    note as _note,
     run_agent_turn,
 )
 
@@ -58,6 +61,16 @@ def _save_review_metadata(report_rel, metadata):
 def review_history(tome, report_path=""):
     """List or load Binder review reports for one active tome."""
     return amendment_storage.review_history(ROOT, tome, report_path)
+
+
+def amend_history(tome):
+    """List finished Binder builds for one active tome."""
+    return amendment_storage.amend_history(BUILD_DIR, tome)
+
+
+def forget_amend_record(tome, job_id):
+    """Drop one unfinished run from this tome's ledger; True when a row went."""
+    return amendment_storage.forget_amend_record(BUILD_DIR, tome, job_id)
 
 
 def _checkpoint_path(jid):
@@ -131,23 +144,24 @@ def _validate_amendment(jid, *, strict=False):
     return gate.validate_amendment(jid, strict=strict)
 
 
-def _note(job_manager, job_id, text):
-    job_manager.append(job_id, "log", f"── {text} ──", limit=400)
-    job_manager.append(
-        job_id, "activity",
-        {"kind": "harness", "at": time.time(), "text": text}, limit=200)
-
-
-def _record_amendment(job_manager, job_id, jid, started, mode):
+def _record_amendment(job_manager, job_id, jid, started, mode, setup=None):
     """Write what this run did where a server restart cannot take it.
 
     The job store is in memory. Twice now the question "did it retry, and what did that
     cost?" has been unanswerable an hour later, so the answer goes on disk beside the
     tome. The continuation count is read back out of the activity the run already
     published rather than threaded through every call -- same fact, no new plumbing.
+
+    A run that never finished also carries its `setup` and the tail of its feed, which is
+    what the bench needs to show where it got to and take it up again. Only the amend
+    STATE file could do that before, and there is one of those per tome -- so the moment a
+    second run started, every earlier stopped run became unresumable. The finished runs
+    keep neither: the edit is already on disk, and the whole feed of every run would turn
+    a ledger read on page load into a megabyte.
     """
     st = job_manager.status(job_id) or {}
     rows = st.get("activity") or []
+    unfinished = st.get("status") != "done"
     amendment_storage.save_amend_record(BUILD_DIR, jid, {
         "version": 1,
         "tome": jid,
@@ -165,11 +179,15 @@ def _record_amendment(job_manager, job_id, jid, started, mode):
         "validator": str(st.get("validator") or "")[:8000],
         "usage": st.get("usage"),
         "apiCostEstimate": st.get("apiCostEstimate"),
+        "setup": dict(setup or {}) if unfinished else None,
+        "activity": [{"kind": str(row.get("kind") or ""), "at": row.get("at"),
+                      "text": str(row.get("text") or "")[:200]}
+                     for row in rows[-30:]] if unfinished else [],
     })
 
 
 def run_amender(job_id, jid, request_text, kind, model, effort="", broad=False, iterate=False, reset_ok=False,
-                review=False, review_path="", update_standard=False,
+                review=False, review_path="", update_standard=False, publish=False,
                 job_manager: JobManager | None = None,
                 processes: ProcessStore | None = None, ai: AiService | None = None):
     """Background worker: a headless CLI edits tomes/<jid>/ under the configuration
@@ -186,7 +204,10 @@ def run_amender(job_id, jid, request_text, kind, model, effort="", broad=False, 
     and changes nothing else; request_text is an optional focus. review_path names a
     prior report the agent should read before making a change the player commissioned.
     update_standard=True (broad changes only): also bring the tome into line with the
-    repository's current validator and Markdown authoring instructions."""
+    repository's current validator and Markdown authoring instructions.
+    publish=True: run the publish loop in amendment/publish.py instead of a single
+    amendment — rounds of read-only survey then mend, until the tome clears publisher.md
+    and the shipping gate together; request_text is an optional focus."""
     if job_manager is None or processes is None or ai is None:
         raise RuntimeError("Binder requires explicit job, process, and AI services")
     checkpointed = False
@@ -196,12 +217,28 @@ def run_amender(job_id, jid, request_text, kind, model, effort="", broad=False, 
     report_rel = os.path.join("reviews", f"{jid}-{time.strftime('%Y%m%d-%H%M%S')}.md") if review else ""
     # Contracts first: the handoff files have to exist before the sandbox is built, or the
     # profile drops a mount that points at nothing and the Binder cannot write them at all.
-    contract_notes, contract_error = ([], "") if review else gate.sync_contracts("adopt", jid)
+    # "plan" also reconstructs the Phase-1 build plan for a tome finished before plans
+    # existed, which is what moves it onto the full shipping gate. That belongs to Update
+    # to Standard and nothing else: it is the request that already means "hold this tome to
+    # the current contract, and fail if it does not pass strictly". A tome no plan can yet
+    # be reconstructed for reports that as a note and keeps the gate it had -- it is a fact
+    # about the tome, so it must not read like the amendment could not be prepared.
+    # Publish seals a plan for the same reason Update to Standard does: it is the request
+    # that means "hold this tome to the current contract", and the shipping gate it is
+    # judged by does not exist for a tome that has no plan.
+    contract_notes, contract_error = ([], "") if review else gate.sync_contracts(
+        "plan" if update_standard or publish else "adopt", jid)
     handoffs = "" if review else gate.handoff_dir(jid)
-    prompt = prompts.amend_prompt(
+    # A refused plan is not just news for the operator. The tome's own content is what
+    # blocked it, so the cause goes into the prompt as the work that lifts the tome onto
+    # the full gate -- and the plan is re-attempted after the run (see below).
+    plan_blocked = next(
+        (line.split(": ", 1)[-1] for line in contract_notes if gate.PLAN_REFUSED in line), "")
+    prompt = "" if publish else prompts.amend_prompt(
         jid, req, review=review, iterate=iterate, broad=broad, reset_ok=reset_ok,
         update_standard=update_standard, review_path=review_path,
-        report_rel=report_rel, plan_rel=gate.plan_rel(jid), handoffs=handoffs)
+        report_rel=report_rel, plan_rel=gate.plan_rel(jid), handoffs=handoffs,
+        plan_blocked=plan_blocked)
     try:
         tome_root = os.path.join(ROOT, "tomes", jid)
         if review:
@@ -212,12 +249,32 @@ def run_amender(job_id, jid, request_text, kind, model, effort="", broad=False, 
         else:
             writable = [tome_root] + ([handoffs] if handoffs else [])
         for line in contract_notes:
-            _note(job_manager, job_id, f"the harness prepared the tome's contracts: {line}")
+            _note(job_manager, job_id, f"the harness checked the tome's contracts: {line}")
         if contract_error:
             # Not fatal: a tome with no build plan has no contracts to prepare, and that is
             # a fact about the tome, not a reason to refuse the amendment.
             _note(job_manager, job_id,
                   f"the tome's contracts could not be prepared: {contract_error[:300]}")
+        if publish:
+            checkpoint_tome(jid)
+            checkpointed = True
+            ok, summary, report_rel = publish_loop.run(
+                jid, req, job_id=job_id, kind=kind, model=model, effort=effort,
+                timeout=AMEND_TIMEOUT, run_turn=_run_agent_turn, ai=ai,
+                job_manager=job_manager, processes=processes, checkpoint=checkpoint_tome)
+            if ok is None:  # cancelled mid-round: the finished rounds stay, this one goes
+                _mark_amend_state(jid, "cancelled")
+                rollback_tome(jid)
+                checkpointed = False
+                return
+            job_manager.update(job_id, status="done", summary=summary,
+                               reportPath=report_rel, validatorOk=ok)
+            clear_checkpoint(jid)
+            checkpointed = False
+            clear_amend_state(jid)
+            notify("✓ The tome is ready to publish" if ok else f"⚠ Publish stopped — {jid}",
+                   summary, priority=0 if ok else 1)
+            return
         invocation = ai.invocation(kind, AiRequest(
             role="binder-review" if review else "binder-amend",
             model=model, input=prompt, timeout=AMEND_TIMEOUT, workspace=tome_root,
@@ -241,7 +298,10 @@ def run_amender(job_id, jid, request_text, kind, model, effort="", broad=False, 
             job_id, cmd, prompt, input_mode, invocation.environment,
             invocation.cwd, kind, model, job_manager, processes)
         if job_manager.status(job_id).get("status") == "cancelled":
-            clear_amend_state(jid)  # the player stayed the quill; nothing to resume
+            # Kept, not cleared: stopping the quill mid-stroke is exactly when you want to
+            # take the same request up again, and re-typing it is the only thing the old
+            # behaviour bought. The bench offers it back on open; LEAVE IT dismisses it.
+            _mark_amend_state(jid, "cancelled")
             if checkpointed:
                 rollback_tome(jid)  # discard the half-finished edit
                 checkpointed = False
@@ -327,7 +387,7 @@ def run_amender(job_id, jid, request_text, kind, model, effort="", broad=False, 
                 job_manager, processes)
             cancelled = job_manager.status(job_id).get("status") == "cancelled"
             if cancelled:
-                clear_amend_state(jid)
+                _mark_amend_state(jid, "cancelled")  # resumable, same as the first turn
                 rollback_tome(jid)
                 checkpointed = False
                 return
@@ -346,6 +406,30 @@ def run_amender(job_id, jid, request_text, kind, model, effort="", broad=False, 
             raise RuntimeError(
                 "strict standard validator still fails after the repair turn; "
                 "the amendment cannot pass:\n" + report[-4000:])
+        # The run may have just repaired whatever blocked this tome's plan, so ask again --
+        # here, on the way out, and not before the validator. A plan written earlier would be
+        # a promise about a tome that could still be rolled back, and the plan lives outside
+        # the checkpoint. Sealed now, it is the gate the NEXT run is measured by, which is how
+        # every pre-plan tome comes onto the standard: adopt the contract, then heal against it.
+        if plan_blocked and not gate.plan_rel(jid):
+            planned, plan_error = gate.sync_contracts("plan", jid)
+            for line in planned:
+                _note(job_manager, job_id, f"the harness sealed what the tome now allows: {line}")
+            if plan_error:
+                _note(job_manager, job_id,
+                      f"the tome's build plan could not be sealed: {plan_error[:300]}")
+        # A blank artifact_state fails the shipping gate, and it is the one blocker neither
+        # side can clear alone: the harness will not invent an author's prose, and when the
+        # seal above is what created the files, the turn that could have written them ended
+        # a second before they existed. So one scoped turn closes them -- skipped outright
+        # when none are blank, so an ordinary run never pays for it. Re-measure afterwards:
+        # `v` may predate the plan entirely, and reporting that would call the tome clean
+        # against a contract it was never held to.
+        if handoff_fill.fill_blank(
+                jid, job_id=job_id, kind=kind, model=model, effort=effort,
+                timeout=AMEND_TIMEOUT, run_turn=_run_agent_turn, ai=ai,
+                job_manager=job_manager, processes=processes):
+            v = _validate_amendment(jid, strict=update_standard)
         job_manager.append(
             job_id, "log",
             ("── the candle is satisfied: the work holds (validator passed) ──"
@@ -397,7 +481,11 @@ def run_amender(job_id, jid, request_text, kind, model, effort="", broad=False, 
         if not review:  # a review already persists its own metadata beside the report
             _record_amendment(
                 job_manager, job_id, jid, started,
-                "iterate" if iterate else "broad" if broad else "small")
+                "publish" if publish else "iterate" if iterate else "broad" if broad else "small",
+                setup={"request": req, "broad": broad, "iterate": iterate,
+                       "updateStandard": update_standard, "resetOk": reset_ok,
+                       "publish": publish,
+                       "kind": kind, "model": model, "effort": effort})
         # Binder retries start a fresh job rather than resuming a provider session. Remove
         # this job's isolated CLI state so no tome transcript or scratch survives the run.
         try:

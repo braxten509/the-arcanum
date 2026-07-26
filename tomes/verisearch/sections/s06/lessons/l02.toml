@@ -1,6 +1,6 @@
 [[lessons]]
 id = "s06-l02"
-teaches = ["language-project-toolchain"]
+teaches = ["language-html-parsing-package"]
 title = "AngleSharp — parse HTML like a browser"
 body = '''
 
@@ -64,7 +64,7 @@ required = true
 capabilities = ["language-project-toolchain"]
 cognitiveTask = "complete"
 scaffold = "guided"
-contextFamily = "verisearch-s06-project-toolchain"
+contextFamily = "verisearch-s06-html-parsing-package"
 aidPolicy = "learning"
 prompt = "Fill the blank to select ALL paragraph, code-block, and blockquote elements."
 code = "var blocks = doc.____(\"p, pre, blockquote\");"
@@ -80,17 +80,14 @@ required = true
 capabilities = ["language-project-toolchain"]
 cognitiveTask = "explain"
 scaffold = "guided"
-contextFamily = "verisearch-s06-project-toolchain"
+contextFamily = "verisearch-s06-html-parsing-package"
 aidPolicy = "learning"
 prompt = "<code>doc.QuerySelector(\"h1\")</code> on a page with no h1 returns…"
 choices = ["an empty element", "an empty string", "throws ElementNotFoundException", "null — guard before using it"]
 answer = 3
 whyWrong = "QuerySelector doesn’t return an empty element/string or throw when nothing matches — it returns null, so guard before dereferencing."
+explain = "<code>QuerySelector</code> returns a nullable element, so the compiler makes you decide what an absent container means before you read anything out of it."
 hint = "The return type is IElement? — note the ?."
-reviewVariants = [
-  { prompt = "A clean checkout has one solution and two projects. Which command proves the whole graph compiles?", choices = ["dotnet build the solution", "dotnet run one source file", "edit obj files", "open the DLL"], answer = 0 },
-  { prompt = "The compiler reports five errors after one missing semicolon. What is the disciplined first move?", choices = ["Repair the first diagnostic and rebuild", "Disable errors", "Edit bin output", "Rewrite the project"], answer = 0 }
-]
 
 [[lessons.exercises]]
 id = "s06-l02-e3"
@@ -100,12 +97,13 @@ required = true
 capabilities = ["language-project-toolchain"]
 cognitiveTask = "explain"
 scaffold = "guided"
-contextFamily = "verisearch-s06-project-toolchain"
+contextFamily = "verisearch-s06-html-parsing-package"
 aidPolicy = "learning"
 prompt = "Which CSS selector finds every <code>&lt;p&gt;</code> INSIDE an <code>&lt;article&gt;</code>?"
 choices = ["article p", "article.p", "article + p", "p article"]
 answer = 0
 whyWrong = "‘article.p’ means a p with that class, ‘+’ is a sibling and ‘p article’ reverses the nesting — a space (‘article p’) is the descendant combinator."
+explain = "A space is the descendant combinator: <code>article p</code> means every <code>p</code> at any depth inside an <code>article</code>, which is how you select prose within one chosen container."
 hint = "A space means 'descendant of'."
 
 [[lessons.exercises]]
@@ -116,7 +114,7 @@ required = false
 capabilities = ["language-project-toolchain"]
 cognitiveTask = "complete"
 scaffold = "worked"
-contextFamily = "verisearch-s06-project-toolchain"
+contextFamily = "verisearch-s06-html-parsing-package"
 aidPolicy = "learning"
 reps = 2
 prompt = "Parse-a-string-you-fetched — the exact shape your scraper uses. Twice."
@@ -126,10 +124,10 @@ IDocument doc = await context.OpenAsync(req => req.Content(html));
 var blocks = doc.QuerySelectorAll("h1, h2, h3, p, pre, li, blockquote");'''
 
 [[lessons.concepts]]
-id = "language-project-toolchain"
-purpose = "Create, restore, compile, and inspect a real .NET project so C# work is judged by the toolchain."
-anatomy = "Read the project file and source path, run the relevant dotnet command, then use the first compiler diagnostic as the repair starting point."
-example = "The disposable examples in AngleSharp — parse HTML like a browser isolate this capability before the learner chooses how it belongs in the cumulative project. The lesson AngleSharp — parse HTML like a browser supplies the disposable observation point."
-observable = "A build completes and names the expected assembly without an error diagnostic. Confirm it while practicing AngleSharp — parse HTML like a browser."
-failure = "Editing generated bin or obj output, or skipping the build, hides the source of a failure."
+id = "language-html-parsing-package"
+purpose = "Add a browser-grade HTML parser as a declared dependency and keep exactly one door to the network."
+anatomy = "The package is referenced in project metadata, a parser turns markup text into a document, and the selector calls return one node or many."
+example = "AngleSharp added with dotnet add package, then markup already fetched by the existing HTTP client parsed locally so the network path stays in one place."
+observable = "Broken markup parses the way a browser would render it, and the exact package version is recorded in the project file."
+failure = "Letting the parser fetch its own pages duplicates timeout, header, and error policy in a place the tests do not control."
 practice = "s06-l02-e1"

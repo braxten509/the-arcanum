@@ -1,6 +1,6 @@
 [[lessons]]
 id = "s13-l01"
-teaches = ["language-cli-packaging"]
+teaches = ["language-published-artifact-delivery"]
 title = "Publish and Run the Artifact You Will Actually Ship"
 body = '''
 
@@ -28,7 +28,7 @@ required = true
 capabilities = ["language-cli-packaging"]
 cognitiveTask = "explain"
 scaffold = "guided"
-contextFamily = "verisearch-s13-cli-packaging"
+contextFamily = "verisearch-s13-published-artifact-delivery"
 aidPolicy = "limited"
 prompt = "What does <code>--self-contained true</code> mean?"
 choices = ["It bundles the selected .NET runtime with the application", "It bundles the configured AI and the model", "It supports every OS in one file", "It removes configuration"]
@@ -45,7 +45,7 @@ required = true
 capabilities = ["language-cli-packaging"]
 cognitiveTask = "complete"
 scaffold = "guided"
-contextFamily = "verisearch-s13-cli-packaging"
+contextFamily = "verisearch-s13-published-artifact-delivery"
 aidPolicy = "limited"
 prompt = "Fill the runtime identifier for 64-bit Windows."
 code = '''dotnet publish -c Release -r ____ --self-contained true'''
@@ -60,7 +60,7 @@ required = true
 capabilities = ["language-cli-packaging"]
 cognitiveTask = "explain"
 scaffold = "guided"
-contextFamily = "verisearch-s13-cli-packaging"
+contextFamily = "verisearch-s13-published-artifact-delivery"
 aidPolicy = "limited"
 prompt = "Why does the beginner release use <code>PublishTrimmed=false</code>?"
 choices = ["Trimming changes the source URL", "Trimming can remove dynamically discovered code and must be validated separately", "Single-file requires false", "Release builds cannot trim"]
@@ -77,17 +77,17 @@ required = false
 capabilities = ["language-cli-packaging"]
 cognitiveTask = "complete"
 scaffold = "worked"
-contextFamily = "verisearch-s13-cli-packaging"
+contextFamily = "verisearch-s13-published-artifact-delivery"
 aidPolicy = "limited"
 reps = 2
 prompt = "Retype the Linux release command twice."
 code = '''dotnet publish Verisearch.csproj -c Release -r linux-x64 --self-contained true -p:PublishSingleFile=true -p:PublishTrimmed=false -o ./release/linux-x64'''
 
 [[lessons.concepts]]
-id = "language-cli-packaging"
-purpose = "Design a predictable command surface and deliver a runnable artifact from the same source and project metadata."
-anatomy = "Parse arguments without a shell, return stable exit codes, build or publish through dotnet, then launch the produced path with a real command."
-example = "The disposable examples in Publish and Run the Artifact You Will Actually Ship isolate this capability before the learner chooses how it belongs in the cumulative project. The lesson Publish and Run the Artifact You Will Actually Ship supplies the disposable observation point."
-observable = "Help, invalid input, ordinary execution, and the published binary each produce their documented outcome. Confirm it while practicing Publish and Run the Artifact You Will Actually Ship."
-failure = "Ambiguous arguments, embedded secrets, or an unlaunched publish directory leave the program unproved."
+id = "language-published-artifact-delivery"
+purpose = "Produce and launch the artifact a stranger will actually run, not the debug run that only works here."
+anatomy = "The publish command takes a configuration, a runtime identifier, and a self-contained choice, and the produced path is what must be executed and documented."
+example = "A release publish for one named runtime identifier, followed by launching the produced executable from a clean directory."
+observable = "The published executable starts outside the source tree, finds its dependencies, and answers the same commands the debug run did."
+failure = "Shipping the debug output, or documenting a path that exists only on the build machine, delivers a product nobody else can start."
 practice = "s13-l01-e1"

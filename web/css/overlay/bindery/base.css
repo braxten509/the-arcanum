@@ -115,24 +115,31 @@
   letter-spacing: 0;
   color: var(--tx);
   text-align: left;
+  /* `display: none`, not `visibility: hidden`. A hidden-but-laid-out tip still counts
+     toward the scrollable overflow of the modal it sits in, so the long tips on the
+     last field padded the forge modal with several hundred pixels of dead scroll
+     below the buttons. Only display removes the box from that measurement.
+     `allow-discrete` + @starting-style keep the fade the old rule had. */
+  display: none;
   opacity: 0;
-  visibility: hidden;
   transform: translateY(-3px);
-  transition: opacity .14s ease, transform .14s ease, visibility 0s linear .14s;
-}
-
-.forge-help--up .forge-tip {
-  top: auto;
-  bottom: calc(100% + 8px);
-  transform: translateY(3px);
+  transition: opacity .14s ease, transform .14s ease, display .14s allow-discrete;
 }
 
 .forge-help:hover .forge-tip,
 .forge-help:focus-visible .forge-tip {
+  display: block;
   opacity: 1;
-  visibility: visible;
   transform: translateY(0);
-  transition-delay: 0s;
+}
+
+@starting-style {
+
+  .forge-help:hover .forge-tip,
+  .forge-help:focus-visible .forge-tip {
+    opacity: 0;
+    transform: translateY(-3px);
+  }
 }
 
 /* The Fell italic lowercase i has a high visual center; center its ink,

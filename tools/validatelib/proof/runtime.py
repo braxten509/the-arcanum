@@ -1,4 +1,5 @@
 """Cumulative executable replay, acceptance, package proof, and evidence receipts."""
+import fcntl
 import json
 import os
 import re
@@ -313,13 +314,21 @@ def replay(tome_path, manifest, sections, run_section=None, persist=False,
     project_name = str((manifest.get("runtime") or {}).get("project") or "ProofProject")
     env, rows, active = headless_validation_env(), [], {}
     persistent = _persistent_project(tome_path, persist)
-    temporary = None
+    temporary, lock = None, None
     if persistent:
+        # One tome has one persistent project path, so two validators running at once --
+        # the publish survey's --strict pass and the Phase 3 gate, say -- had one wiping
+        # the tree the other was mid-compile in ("MSB1009: project file does not exist").
+        # ponytail: flock held for the whole replay, so two runs of the same tome now
+        # queue instead of interleaving. If that wait ever costs more than the rebuild,
+        # give each replay its own directory instead of sharing one persistent path.
+        os.makedirs(os.path.dirname(persistent), exist_ok=True)
+        lock = open(persistent + ".lock", "w", encoding="utf-8")
+        fcntl.flock(lock, fcntl.LOCK_EX)
         if os.path.islink(persistent) or os.path.isfile(persistent):
             os.remove(persistent)
         elif os.path.isdir(persistent):
             shutil.rmtree(persistent)
-        os.makedirs(os.path.dirname(persistent), exist_ok=True)
         project = persistent
     else:
         temporary = tempfile.TemporaryDirectory(prefix="arcanum-proof-")
@@ -477,3 +486,5 @@ def replay(tome_path, manifest, sections, run_section=None, persist=False,
     finally:
         if temporary is not None:
             temporary.cleanup()
+        if lock is not None:
+            lock.close()  # closing releases the flock

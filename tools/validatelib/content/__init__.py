@@ -6,6 +6,7 @@ from collections import Counter
 from .. import err, lang_config, warn
 from ..phase2 import check_tooling_contract
 from ..phase3 import MIN_BODY_WORDS, MIN_EXERCISES, MIN_LESSONS
+from .anti_template import check_anti_template  # noqa: F401  (re-exported)
 from .exercises import check_exercise
 
 
@@ -178,93 +179,6 @@ def check_section(sdata, sid, slabel, seen_ex, seen_les):
                             f"http(s) url (got {u!r}) — a reading the student cannot open is dead content")
 
 
-def check_anti_template(sections_data):
-    """Tome-wide Phase-3 findings for the anti-template rules structure checks miss:
-    the machine-generated grid (every section the same shape) and mc answers
-    stuck on one index. Direct library calls report WARN; the harness promotes them
-    to ERROR at the Phase-3 owner gate so patterns cannot spread into later batches."""
-    mc_answers = []
-    shapes = []  # (lesson_count, tuple(exercise_counts)) per section
-    lesson_types = []  # sorted type-tuple per lesson — catches "one of each type, every lesson"
-    fields = {"hint": [], "prompt": [], "whyWrong": [], "explain": []}  # near-unique per §3
-    for sdata in sections_data:
-        lessons = sdata.get("lessons", []) or []
-        ex_counts = []
-        for les in lessons:
-            if not isinstance(les, dict):
-                continue
-            exs = les.get("exercises", []) or []
-            ex_counts.append(len(exs))
-            # Invalid or incomplete exercises are reported by the structural checks.
-            # Keep them visible to this tome-wide shape check without asking Python to
-            # order incomparable values such as ``None`` and strings.
-            lesson_types.append(tuple(sorted(
-                str(e["type"]) if e.get("type") is not None else "<missing>"
-                for e in exs if isinstance(e, dict))))
-            for ex in exs:
-                if not isinstance(ex, dict):
-                    continue
-                if ex.get("type") == "mc" and isinstance(ex.get("answer"), int):
-                    ch = ex.get("choices")
-                    mc_answers.append((ex["answer"], len(ch) if isinstance(ch, list) else 0))
-                for k, bucket in fields.items():
-                    v = ex.get(k)
-                    if isinstance(v, str) and v.strip():
-                        bucket.append(v.strip())
-        shapes.append((len(lessons), tuple(ex_counts)))
-    # §3: hints/prompts/whyWrong/explain are exercise-specific — "180 exercises,
-    # ~180 distinct hints". One canned string stamped across many exercises is the
-    # content-level version of the uniform grid, and the shape checks miss it.
-    for k, vals in fields.items():
-        if len(vals) < 8:
-            continue
-        top, n = Counter(vals).most_common(1)[0]
-        if n > 3:
-            warn("anti-template", f"{k}: one string is reused {n}× of {len(vals)} "
-                 f"({len(set(vals))} distinct) — {k} must be exercise-specific (§3), not a "
-                 f"canned per-type sentence. Offender: {top[:60]!r}", phase=3)
-    # mc answer spread across 0–3. Catch three flavors, most-specific first: all one
-    # index; a 4-choice bank that never lands on some index (the "only 1 & 2" case);
-    # any bank clustered on <3 distinct indices.
-    idxs = [a for a, _ in mc_answers]
-    four = [a for a, n in mc_answers if n >= 4]
-    if len(idxs) >= 4 and len(set(idxs)) == 1:
-        warn("anti-template", f"all {len(idxs)} mc answers are index {idxs[0]} — spread "
-             "correct answers across positions 0–3 (§3); a fixed index is guessable "
-             "and reads as machine-authored", phase=3)
-    elif len(four) >= 8 and (set(range(4)) - set(four)):
-        miss = sorted(set(range(4)) - set(four))
-        warn("anti-template", f"mc answers never land on index {miss} across {len(four)} "
-             f"four-choice questions (they cluster on {sorted(set(four))}) — spread correct "
-             "answers evenly across 0–3 (§3), don't over-correct to the middle", phase=3)
-    elif len(idxs) >= 8 and len(set(idxs)) < 3:
-        warn("anti-template", f"mc answers cluster on only {sorted(set(idxs))} — spread "
-             "correct answers across positions 0–3 (§3)", phase=3)
-    # every index used, but not comparably: a bank where one position carries <10%
-    # of the answers is still guessable-by-elimination and reads machine-authored
-    # (§3 says 0-3 must each be used "a comparable number of times").
-    elif len(four) >= 20:
-        counts = Counter(four)
-        starved = [i for i in range(4) if counts[i] / len(four) < 0.10]
-        if starved:
-            share = {i: counts[i] for i in range(4)}
-            warn("anti-template", f"mc answer index(es) {starved} carry under 10% of {len(four)} "
-                 f"four-choice answers (spread: {share}) — rebalance so 0–3 are each used a "
-                 "comparable number of times (§3)", phase=3)
-    if len(shapes) >= 3 and len(set(shapes)) == 1:
-        lc, ec = shapes[0]
-        warn("anti-template", f"every section has the same shape ({lc} lessons, exercise counts "
-             f"{list(ec)}) — vary lesson counts (3–8) and exercise counts (4–6) by material (§3); "
-             "a uniform grid reads as machine-generated", phase=3)
-    # even when section shapes differ, every lesson carrying the identical type mix
-    # (e.g. exactly one of each of mc/text/fill/type/write) is a machine tell the
-    # section-level shape check misses.
-    if len(lesson_types) >= 4 and len(set(lesson_types)) == 1:
-        warn("anti-template", f"all {len(lesson_types)} lessons have the identical exercise-type "
-             f"mix {list(lesson_types[0])} — vary the mix and order per lesson (§3), not one of "
-             "each type every time", phase=3)
-
-
 def _visible_words(html):
     """Word count of a lesson body as a reader sees it — HTML tags stripped. §3 wants
     300–600 words; the shipped reference (verisearch) runs 205–390. The floor below
@@ -354,9 +268,16 @@ def check_density(sections_data):
         if isinstance(fs, dict) and isinstance(fs.get("rubric"), list):
             rubric_sigs.append(tuple((r.get("criterion"), str(r.get("desc", "")).strip())
                                      for r in fs["rubric"] if isinstance(r, dict)))
-    if len(rubric_sigs) >= 3 and len(set(rubric_sigs)) == 1:
-        report(tag, f"all {len(rubric_sigs)} freestyle rubrics are identical — grade THAT "
-               "section's build (§3), not one canned rubric cloned across the tome")
+    # Two sections sharing a rubric verbatim IS the defect; demanding that every one of
+    # them match let twelve-of-thirteen through untouched — the same averaging that hid
+    # the per-section answer clustering above. Both shipped tomes are wholly distinct,
+    # so nothing that was ever correct starts failing here.
+    if len(rubric_sigs) >= 2:
+        clone, n = Counter(rubric_sigs).most_common(1)[0]
+        if n >= 2:
+            report(tag, f"{n} of {len(rubric_sigs)} freestyle rubrics are identical — grade "
+                   "THAT section's build (§3), not one canned rubric cloned across the tome"
+                   + (f"; the repeated criteria are {[c for c, _ in clone][:4]}" if clone else ""))
 
 
 def check_content(m, sections_data, label, tooling=None, include_manifest=True):

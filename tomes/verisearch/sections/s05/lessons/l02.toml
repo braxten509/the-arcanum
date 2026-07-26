@@ -1,6 +1,6 @@
 [[lessons]]
 id = "s05-l02"
-teaches = ["language-serialization-io"]
+teaches = ["language-cross-platform-paths"]
 title = "Paths — cross-platform, and the ~ problem"
 body = '''
 
@@ -36,12 +36,13 @@ required = true
 capabilities = ["language-serialization-io"]
 cognitiveTask = "explain"
 scaffold = "guided"
-contextFamily = "verisearch-s05-serialization-io"
+contextFamily = "verisearch-s05-cross-platform-paths"
 aidPolicy = "learning"
 prompt = "<code>File.ReadAllText(\"~/.verisearch/config.json\")</code> on Linux…"
 choices = ["works — .NET expands ~ like bash does", "fails — .NET treats ~ as a literal folder name; use Environment.GetFolderPath", "works only when run with sudo", "reads from /root instead"]
 answer = 1
 whyWrong = "Unlike bash, .NET does NOT expand ‘~’; it’s treated as a literal folder name and the read fails — use Environment.GetFolderPath for the home directory."
+explain = "The tilde is a shell convention, not a filesystem one. .NET passes it through as a literal folder name, so the read looks for a directory actually named ~ and fails."
 hint = "Who expands ~ — the shell or the runtime?"
 
 [[lessons.exercises]]
@@ -52,7 +53,7 @@ required = true
 capabilities = ["language-serialization-io"]
 cognitiveTask = "complete"
 scaffold = "guided"
-contextFamily = "verisearch-s05-serialization-io"
+contextFamily = "verisearch-s05-cross-platform-paths"
 aidPolicy = "learning"
 prompt = "Fill the blank to join path segments portably."
 code = "string p = Path.____(home, \".verisearch\", \"config.json\");"
@@ -67,12 +68,13 @@ required = true
 capabilities = ["language-serialization-io"]
 cognitiveTask = "explain"
 scaffold = "guided"
-contextFamily = "verisearch-s05-serialization-io"
+contextFamily = "verisearch-s05-cross-platform-paths"
 aidPolicy = "learning"
 prompt = "Which SpecialFolder gives you the user's home directory?"
 choices = ["SpecialFolder.Desktop", "SpecialFolder.System", "SpecialFolder.UserProfile", "SpecialFolder.Home"]
 answer = 2
 whyWrong = "Desktop/System point elsewhere and ‘SpecialFolder.Home’ doesn’t exist — SpecialFolder.UserProfile is the user’s home directory."
+explain = "<code>Environment.GetFolderPath(Environment.SpecialFolder.UserProfile)</code> asks the operating system where this user's home is, which is the one answer that stays correct on Windows, macOS, and Linux."
 hint = "There's no 'Home' member; profile is the word."
 
 [[lessons.exercises]]
@@ -83,7 +85,7 @@ required = false
 capabilities = ["language-serialization-io"]
 cognitiveTask = "complete"
 scaffold = "worked"
-contextFamily = "verisearch-s05-serialization-io"
+contextFamily = "verisearch-s05-cross-platform-paths"
 aidPolicy = "learning"
 reps = 2
 prompt = "The portable config-path duo — the two lines that kill the ~ bug forever. Twice."
@@ -99,7 +101,7 @@ required = true
 capabilities = ["language-serialization-io"]
 cognitiveTask = "build"
 scaffold = "guided"
-contextFamily = "verisearch-s05-serialization-io"
+contextFamily = "verisearch-s05-cross-platform-paths"
 aidPolicy = "learning"
 prompt = "Use <code>Path.Combine</code> to join the three segments \"ops\", \"verisearch\", \"config.json\" and print the result. (On this Linux rig the separator is <code>/</code> — Combine chose it, not you.)"
 expect = "ops/verisearch/config.json"
@@ -110,10 +112,10 @@ Console.WriteLine(path);
 hint = "Console.WriteLine(Path.Combine(\"ops\", \"verisearch\", \"config.json\"));"
 
 [[lessons.concepts]]
-id = "language-serialization-io"
-purpose = "Move typed data across file, JSON, HTTP, process, and terminal boundaries without confusing external text with trusted objects."
-anatomy = "Select an I/O API, await or dispose it correctly, serialize or deserialize a declared shape, then validate the resulting values."
-example = "The disposable examples in Paths — cross-platform, and the ~ problem isolate this capability before the learner chooses how it belongs in the cumulative project. The lesson Paths — cross-platform, and the ~ problem supplies the disposable observation point."
-observable = "Valid input becomes the intended typed data and malformed input produces a specific boundary diagnostic. Confirm it while practicing Paths — cross-platform, and the ~ problem."
-failure = "Scraping loosely structured text or overwriting invalid user data destroys the evidence needed to repair it."
+id = "language-cross-platform-paths"
+purpose = "Build file locations that work on every operating system the tool may be launched from."
+anatomy = "Path.Combine joins segments with the platform separator, the environment supplies the real home directory, and the path helpers read a file name or extension back out."
+example = "A configuration path assembled from the user profile folder, a dot-prefixed directory, and a file name, with a literal tilde shown resolving to nothing."
+observable = "The same code produces a valid path on Windows and on Linux, and the parts read back out of it match what went in."
+failure = "A hardcoded separator or a literal tilde ships a tool that runs only on the machine it was written on."
 practice = "s05-l02-e1"

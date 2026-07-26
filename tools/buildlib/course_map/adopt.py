@@ -26,9 +26,12 @@ planned map passes, so an adopted map is never held to a weaker standard.
 """
 from __future__ import annotations
 
+import glob
 import html
+import json
 import os
 import re
+import tomllib
 
 from .. import BUILD_DIR, REPO
 from ..course.limits import MAX_SECTIONS, MIN_SECTIONS
@@ -43,6 +46,7 @@ from .schema import MAX_PLANNED_LESSONS, MIN_PLANNED_LESSONS, SECTION_CHECKS
 ADOPTED_MAP_VERSION = 3
 LESSON_CHECKS = ["learner-construction", "lesson-source"]
 WORKING_CHECKS = ["learner-construction", "working-replay"]
+LAB_CHECKS = ["learner-evidence", "variant-proof"]
 # Artifact names are quoted in the Working brief as code spans. Requiring a dot
 # keeps prose like `pip install` out without needing to know any file extension.
 _CODE_SPAN = re.compile(r"<code>(.*?)</code>", re.S)
@@ -141,6 +145,97 @@ def _manifest(tome_path):
         raise AdoptionError(f"cannot read tome.toml: {exc}") from exc
 
 
+def _load_section():
+    try:
+        import tome_layout
+    except ModuleNotFoundError:
+        from tools import tome_layout
+    return tome_layout.load_section
+
+
+def _shipped_evidence(tome_path):
+    """The mastery contract the tome itself ships, or None.
+
+    `generated/mastery-evidence.json` is the sealed runtime copy of the original
+    Phase-1 contract, and an installed tome is already graded against exactly this
+    object. Putting it back into the map recovers a lost artifact rather than
+    reconstructing one, so it is the single part of an adopted map that still carries
+    real Phase-1 authority -- and without it a mastery tome fails its own gate on a
+    missing contract no author or reviewer can write.
+    """
+    try:
+        with open(os.path.join(tome_path, "generated", "mastery-evidence.json"),
+                  encoding="utf-8") as handle:
+            value = json.load(handle)
+    except (OSError, ValueError):
+        return None
+    return value if isinstance(value, dict) else None
+
+
+def _authored_labs(tome_path, sid):
+    """Every `[masteryLab]` authored under one section, keyed by the node it grades."""
+    labs = {}
+    for path in sorted(glob.glob(os.path.join(
+            tome_path, "sections", sid, "mastery-labs", "*.toml"))):
+        try:
+            with open(path, "rb") as handle:
+                lab = tomllib.load(handle).get("masteryLab")
+        except (OSError, tomllib.TOMLDecodeError) as exc:
+            raise AdoptionError(f"cannot read the authored mastery lab {path}: {exc}") from exc
+        if isinstance(lab, dict) and lab.get("nodeId"):
+            labs[str(lab["nodeId"])] = lab
+    return labs
+
+
+def _attach_mastery(sections, tome_path, evidence):
+    """Bind the tome's own mastery contract onto the reconstructed nodes.
+
+    Each performance names the node that grades it. On a Working that is one extra id.
+    A `.lab` performance grades a standalone mastery lab -- a node kind the lesson and
+    Working reconstruction never produces -- so the lab is copied in from the authored
+    `[masteryLab]` table, the only surviving statement of those fields. Nothing is
+    invented here: where a lab and the sealed performance disagree, the map validator
+    is left to say so rather than being handed a reconciled guess.
+    """
+    by_id = {section["id"]: section for section in sections}
+    for performance in sorted(evidence.get("performances") or [],
+                              key=lambda item: str((item or {}).get("nodeId") or "")):
+        pid, node_id = str(performance.get("id")), str(performance.get("nodeId") or "")
+        section = by_id.get(node_id.split(".", 1)[0])
+        if not section:
+            raise AdoptionError(f"mastery performance {pid!r} grades {node_id!r}, "
+                                "which belongs to no section of this tome")
+        if ".lab" not in node_id:
+            node = next((item for item in section["nodes"] if item["id"] == node_id), None)
+            if node is None:
+                raise AdoptionError(f"mastery performance {pid!r} grades {node_id!r}, "
+                                    "a node this tome does not have")
+            node.setdefault("masteryPerformances", []).append(pid)
+            continue
+        lab = _authored_labs(tome_path, section["id"]).get(node_id)
+        if not lab:
+            raise AdoptionError(
+                f"{node_id} is a sealed mastery lab with no [masteryLab] authored under "
+                f"sections/{section['id']}/mastery-labs/")
+        lessons = [item for item in section["nodes"] if item["kind"] == "lesson"]
+        working = next(index for index, item in enumerate(section["nodes"])
+                       if item["kind"] == "working")
+        section["nodes"].insert(working, {
+            "id": node_id, "kind": "mastery-lab",
+            "title": _text(lab.get("title"), 120) or node_id,
+            "performanceKind": lab.get("performanceKind"),
+            "capabilityIds": [str(item) for item in (lab.get("capabilityIds") or [])],
+            "cognitiveTasks": [str(item) for item in (lab.get("cognitiveTasks") or [])],
+            "contextRelation": lab.get("contextRelation"),
+            "aidPolicy": lab.get("aidPolicy"),
+            "variantFamilyId": str(lab.get("variantFamilyId") or ""),
+            "rationaleRequired": bool(lab.get("rationaleRequired")),
+            "dependsOn": [lessons[-1]["id"]] if lessons else [],
+            "validationDependencies": [],
+            "doneWhen": {"checks": list(LAB_CHECKS)},
+        })
+
+
 def adopted_course_map(build_id, tome_id):
     """Return a full course map derived from an already-authored tome."""
     tome_path = os.path.join(REPO, "tomes", tome_id)
@@ -156,12 +251,17 @@ def adopted_course_map(build_id, tome_id):
             plan_digest = plan_contract_sha256(handle.read())
     except OSError as exc:
         raise AdoptionError(f"cannot read the build plan {plan}: {exc}") from exc
-    try:
-        import tome_layout
-    except ModuleNotFoundError:
-        from tools import tome_layout
-    sections = [_section_map(tome_path, sid, ordinal, tome_layout.load_section)
+    load_section = _load_section()
+    sections = [_section_map(tome_path, sid, ordinal, load_section)
                 for ordinal, sid in enumerate(ids, 1)]
+    evidence = _shipped_evidence(tome_path) if manifest.get("mastery") else None
+    if manifest.get("mastery") and not evidence:
+        raise AdoptionError(
+            "this tome declares [mastery] but ships no generated/mastery-evidence.json, so "
+            "there is no mastery contract left to recover; a map sealed without one fails "
+            "the gate on a contract neither an author nor a reviewer is allowed to write")
+    if evidence:
+        _attach_mastery(sections, tome_path, evidence)
     narrative = manifest.get("narrative") or {}
     meta = manifest.get("meta") or {}
     contract = (_text(narrative.get("objective"), 2400)
@@ -170,10 +270,13 @@ def adopted_course_map(build_id, tome_id):
         raise AdoptionError("tome.toml declares no narrative objective to graduate against")
     # A graduate holds what the last Working grades, which is the only
     # end-of-course capability claim the tome actually makes.
-    graduate = list(dict.fromkeys(sections[-1]["nodes"][-1]["requires"]))
+    final = next(node for node in reversed(sections[-1]["nodes"])
+                 if node["kind"] == "working")
+    graduate = list(dict.fromkeys(final["requires"]))
     scenarios = list(dict.fromkeys(
         _slug(section.get("title"), section["id"]) for section in sections))
     return {
+        **({"masteryEvidence": evidence} if evidence else {}),
         "version": ADOPTED_MAP_VERSION, "revision": 1, "buildId": build_id,
         "planSha256": plan_digest,
         "bounds": {"minSections": MIN_SECTIONS, "maxSections": MAX_SECTIONS},
@@ -275,7 +378,19 @@ def adopt_build(build_id, tome_id):
     empty list when the build already carries everything. Never overwrites: a
     real sealed map is a promise, and a handoff already written is an author's
     words, so both are left exactly as they are.
+
+    Both contracts hang off the Phase-1 build plan: the map is sealed against the
+    plan's digest and every gate that reads a handoff is handed the plan too. A tome
+    finished before plans existed has none, and writing one here would certify a
+    harness guess as an author's promise. So that case is a FACT about the build,
+    reported in one line -- not an error, which is how "no such plan" used to reach
+    the Binder as an unfixable "cannot read" against the tome it was asked to mend.
     """
+    plan = os.path.join(BUILD_DIR, f"{build_id}.plan.md")
+    if not os.path.isfile(plan):
+        return [f"this build has no plan at {os.path.relpath(plan, REPO)}, so it has no "
+                "sealed course map or continuity handoffs to adopt; the tome validator "
+                "is the whole of its gate"]
     notes = []
     if not os.path.exists(map_path(build_id)):
         course = adopt_course_map(build_id, tome_id)

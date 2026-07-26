@@ -1,6 +1,6 @@
 [[lessons]]
 id = "s08-l02"
-teaches = ["language-async-cancellation"]
+teaches = ["language-concurrent-task-composition"]
 title = "Task.WhenAll — Start Together, Await Together"
 body = '''
 <p>The concurrency pattern has two distinct moments: start every operation, then await the group. Chapter VII's deferred-execution lesson matters here because a lazy <code>Select</code> does not call its lambda until it is enumerated.</p>
@@ -36,7 +36,7 @@ required = true
 capabilities = ["language-async-cancellation"]
 cognitiveTask = "explain"
 scaffold = "guided"
-contextFamily = "verisearch-s08-async-cancellation"
+contextFamily = "verisearch-s08-concurrent-task-composition"
 aidPolicy = "limited"
 prompt = "Five requests take 1.2, 0.9, 1.5, 0.7, and 1.1 seconds. Ignoring small overhead, a concurrent WhenAll batch takes about…"
 choices = ["5.4 seconds", "1.08 seconds", "0.7 seconds", "1.5 seconds"]
@@ -53,7 +53,7 @@ required = true
 capabilities = ["language-async-cancellation"]
 cognitiveTask = "explain"
 scaffold = "guided"
-contextFamily = "verisearch-s08-async-cancellation"
+contextFamily = "verisearch-s08-concurrent-task-composition"
 aidPolicy = "limited"
 prompt = "Why is <code>await FetchOneAsync</code> inside a foreach not a concurrent batch?"
 choices = ["The loop waits for each fetch before starting the next", "foreach cannot contain await", "List.Add blocks HTTP", "CancellationToken forbids it"]
@@ -70,7 +70,7 @@ required = true
 capabilities = ["language-async-cancellation"]
 cognitiveTask = "complete"
 scaffold = "guided"
-contextFamily = "verisearch-s08-async-cancellation"
+contextFamily = "verisearch-s08-concurrent-task-composition"
 aidPolicy = "limited"
 prompt = "Complete the method that joins all already-started tasks."
 code = '''FetchOutcome[] outcomes = await Task.____(tasks);'''
@@ -86,7 +86,7 @@ required = false
 capabilities = ["language-async-cancellation"]
 cognitiveTask = "complete"
 scaffold = "worked"
-contextFamily = "verisearch-s08-async-cancellation"
+contextFamily = "verisearch-s08-concurrent-task-composition"
 aidPolicy = "limited"
 reps = 2
 prompt = "Retype the fan-out and join twice."
@@ -103,7 +103,7 @@ required = true
 capabilities = ["language-async-cancellation"]
 cognitiveTask = "build"
 scaffold = "independent"
-contextFamily = "verisearch-s08-async-cancellation"
+contextFamily = "verisearch-s08-concurrent-task-composition"
 aidPolicy = "limited"
 prompt = "Write async methods A, B, and C that delay briefly then return alpha, beta, and gamma. Start all three in one WhenAll call and print the results space-joined."
 starter = '''Console.WriteLine("NOT STARTED");
@@ -123,10 +123,10 @@ static async Task<string> C() { await Task.Delay(15); return "gamma"; }
 hint = "Task.WhenAll(A(), B(), C()) returns a string array in that input order."
 
 [[lessons.concepts]]
-id = "language-async-cancellation"
-purpose = "Coordinate I/O-bound work without blocking threads, serializing independent work, or swallowing cancellation."
-anatomy = "Return Task or Task<T>, await asynchronous operations, pass one CancellationToken, and use Task.WhenAll when independent work may overlap."
-example = "The disposable examples in Task.WhenAll — Start Together, Await Together isolate this capability before the learner chooses how it belongs in the cumulative project. The lesson Task.WhenAll — Start Together, Await Together supplies the disposable observation point."
-observable = "Independent reads overlap, completion resumes with typed results, and cancellation reaches the top boundary. Confirm it while practicing Task.WhenAll — Start Together, Await Together."
-failure = "Using Result, Wait, await-inside-loop, or catching cancellation as an ordinary error breaks responsiveness."
+id = "language-concurrent-task-composition"
+purpose = "Start several independent reads together and await the whole group once."
+anatomy = "Projecting each item to a started task and materializing that projection begins the work, and Task.WhenAll then awaits all of them and returns results in input order."
+example = "Sources projected to fetch tasks and materialized into a list before Task.WhenAll, shown against the serial loop that awaits inside itself."
+observable = "Total time approaches the slowest single read rather than the sum, and results come back in the order the sources were listed."
+failure = "An await inside the starting loop, or an unmaterialized lazy projection, quietly restores serial behavior that still looks concurrent in the code."
 practice = "s08-l02-e1"

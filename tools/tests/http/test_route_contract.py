@@ -24,6 +24,7 @@ GET_ROUTES = {
 }
 POST_ROUTES = {
     "/api/addpackage", "/api/amend", "/api/amend/cancel", "/api/amend/dismiss",
+    "/api/amend/forget",
     "/api/assessment", "/api/buildtome", "/api/buildtome/cancel",
     "/api/buildtome/continue", "/api/buildtome/discard", "/api/buildtome/message",
     "/api/buildtome/pause", "/api/buildtome/reset", "/api/buildtome/resume",

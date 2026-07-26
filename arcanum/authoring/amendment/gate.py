@@ -4,6 +4,7 @@ Everything here crosses into ``tools/`` by subprocess. That is not indirection f
 own sake: ``architecture-policy.toml`` forbids the server package from importing
 buildlib, and the sealed-map and continuity gates live there.
 """
+import json
 import os
 import subprocess
 import sys
@@ -12,6 +13,10 @@ import tomllib
 from ...config import BUILD_DIR, ROOT
 
 GATE_TIMEOUT = 1800
+# How ``sync_contracts.py plan`` reports that a tome's own content blocks the plan it
+# would otherwise be given. Matched, not parsed: the cause after it goes to the Binder
+# verbatim as work it can do. See tools/tests/binder/test_adopt_build.py.
+PLAN_REFUSED = "cannot be put under the full shipping gate yet"
 
 
 def _run(script, args, timeout=GATE_TIMEOUT):
@@ -30,6 +35,28 @@ def handoff_dir(tome):
     """The continuity handoff folder, or "" when this build never adopted one."""
     path = os.path.join(BUILD_DIR, f"{tome}.handoffs")
     return path if os.path.isdir(path) else ""
+
+
+def blank_handoffs(tome):
+    """Section ids whose handoff exists but carries no ``artifact_state`` the gate takes.
+
+    Twenty characters is ``validate_phase3``'s own floor, not a threshold invented here:
+    below it the file is present and still fails, which is exactly the state adoption
+    leaves behind on purpose rather than inventing an author's prose.
+    """
+    folder = handoff_dir(tome)
+    blank = []
+    for name in sorted(os.listdir(folder)) if folder else []:
+        if not name.endswith(".json"):
+            continue
+        try:
+            with open(os.path.join(folder, name), encoding="utf-8") as handle:
+                data = json.load(handle)
+        except (OSError, ValueError):
+            continue  # unreadable is a validator finding, not a thing to fill
+        if len(str(data.get("artifact_state") or "").strip()) < 20:
+            blank.append(str(data.get("section") or name[:-len(".json")]))
+    return blank
 
 
 def section_ids(tome):
@@ -54,10 +81,21 @@ def sync_contracts(action, tome, reason=""):
         return [], str(exc)
     if done.returncode != 0:
         return [], (done.stdout + done.stderr).strip()[-2000:]
-    return [line for line in done.stdout.splitlines() if line.strip()], ""
+    notes = []
+    for line in done.stdout.splitlines():
+        if not line.strip():
+            continue
+        # A note may carry its own detail list — the plan refusal names its first blockers.
+        # Those belong TO the note: split apart they reach the feed as eight near-identical
+        # cards, and the prompt as "First blockers:" with nothing after it.
+        if line.startswith(("-", " ", "\t")) and notes:
+            notes[-1] += "\n" + line
+        else:
+            notes.append(line)
+    return notes, ""
 
 
-def _shipping_report(tome, *, strict=False):
+def _shipping_report(tome, *, strict=False, on_step=None):
     """Run the release gate and the per-section sweep; return (ok, report).
 
     ``validate_tome`` is not the gate a tome ships against. It does no sealed-map
@@ -66,22 +104,33 @@ def _shipping_report(tome, *, strict=False):
     balanced once nine other sections are mixed in. So the whole-tome gate runs first
     and every section is then measured on its own, which is the only way those two
     classes of finding ever reach the Binder.
+
+    ``on_step`` receives one line per gate before it runs. This sweep takes minutes,
+    and without it the Binder goes dark between the survey's verdict and the harness's
+    -- which reads exactly like a hang.
     """
     plan = plan_rel(tome)
     if not plan:
         return True, ""
     tome_rel = os.path.join("tomes", tome)
     lines, ok = [], True
+    step = on_step or (lambda _text: None)
+    step("re-checking the whole tome against the Phase 3 release gate")
     phase3 = _run("validate_phase3.py",
                   [tome_rel, "--plan", plan] + (["--strict"] if strict else []))
     lines.append((phase3.stdout + phase3.stderr).strip())
     ok = phase3.returncode == 0
-    for sid in section_ids(tome):
-        # --source-only: the whole-tome gate above already built the package once, and
-        # this sweep is here for authored defects, not for a tenth rebuild of the same
-        # project. It keeps the sweep under a second per section.
+    sids = section_ids(tome)
+    for index, sid in enumerate(sids, 1):
+        step(f"re-checking section {index} of {len(sids)} ({sid})")
+        # --no-run, not --source-only: the whole-tome gate above already executed this
+        # tome end to end, so re-running each section buys nothing it does not have.
+        # What this sweep is actually for is the per-section analysis that whole-tome
+        # pooling hides, and that is authored content, not execution. --source-only
+        # only defers the package build and still ran source acceptance -- 20+ seconds
+        # a section on a compiled tome, where this is a third of a second.
         one = _run("validate_section.py",
-                   [tome_rel, sid, "--plan", plan, "--source-only"])
+                   [tome_rel, sid, "--plan", plan, "--no-run"])
         if one.returncode != 0:
             ok = False
             lines.append(f"===== section gate {sid} =====\n"
@@ -89,17 +138,19 @@ def _shipping_report(tome, *, strict=False):
     return ok, "\n".join(line for line in lines if line)
 
 
-def validate_amendment(tome, *, strict=False):
+def validate_amendment(tome, *, strict=False, on_step=None):
     """Independently re-check an amended tome, as a ``CompletedProcess``.
 
     The Binder honestly reporting success on an unshippable tome is a harness bug, not
     an AI one: it was graded by a validator structurally blind to half the contract.
     This grades it by the commands a release is graded by.
     """
+    if on_step:
+        on_step("re-checking the whole tome against the full validator")
     base = _run("validate_tome.py",
                 [os.path.join("tomes", tome)] + (["--strict"] if strict else []),
                 timeout=900)
-    ship_ok, ship_report = _shipping_report(tome, strict=strict)
+    ship_ok, ship_report = _shipping_report(tome, strict=strict, on_step=on_step)
     report = ((base.stdout + base.stderr).strip() + "\n\n" + ship_report).strip()
     return subprocess.CompletedProcess(
         base.args, 0 if base.returncode == 0 and ship_ok else 1, report, "")

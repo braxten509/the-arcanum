@@ -81,12 +81,12 @@ export function forgeModalMarkup(resume, currentPhase) {
     </div>
     <div class="forge-field forge-reviewer-field">
       <div class="forge-reviewer-head">
-        <span class="forge-reviewer-title">THOROUGH REVIEWER AI</span>
-        <button type="button" class="forge-help" aria-label="About thorough reviewer AI"><span class="forge-help-mark" aria-hidden="true">i</span><span class="forge-tip">Choose Claude CLI, Codex CLI, OpenCode Go, or the approved OpenRouter route. After Phase 8 is clean, this independent AI reads every authored file from beginning to end—no sampling—reviews the entire tome, and fixes anything it sees fit. The harness then repeats strict shipping and live-smoke verification.</span></button>
+        <span class="forge-reviewer-title">REVIEW &amp; PUBLICATION AI</span>
+        <button type="button" class="forge-help" aria-label="About the review and publication AI"><span class="forge-help-mark" aria-hidden="true">i</span><span class="forge-tip">Choose Claude CLI, Codex CLI, OpenCode Go, or the approved OpenRouter route. After Phase 8 is clean, this independent AI reads every authored file from beginning to end—no sampling—reviews the entire tome, and fixes anything it sees fit. The harness then repeats strict shipping, every per-section gate, and live-smoke verification. Once all of those pass, a separate read-only survey measures the tome against publisher.md and must sign it off before the build is called done; anything it calls blocking comes back here for repair, up to three times. Turn this off and the tome is built but never judged fit to publish.</span></button>
       </div>
       <label class="forge-reviewer-toggle" for="fg-review-enabled">
         <input id="fg-review-enabled" type="checkbox" aria-controls="fg-review-options">
-        <span>ENABLE (OPTIONAL)</span>
+        <span>ENABLE</span>
       </label>
       <div class="forge-ai-row forge-reviewer-options" id="fg-review-options" aria-hidden="true">
         <div class="forge-ai-choice"><select id="fg-review-prov" class="cfg-select" aria-label="Reviewer agent CLI" disabled><option value="">LOADING CLIS…</option></select></div>

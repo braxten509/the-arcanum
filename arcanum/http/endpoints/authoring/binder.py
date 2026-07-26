@@ -21,6 +21,11 @@ class BinderEndpoints:
         payload, status = self.services.binder.dismiss(request.tome_id())
         return Response(payload, status)
 
+    def forget(self, request) -> Response:
+        payload, status = self.services.binder.forget(
+            request.tome_id(), str(request.json().get("id") or ""))
+        return Response(payload, status)
+
     def status(self, request) -> Response:
         return ok(self.services.binder.status(request.value("id")))
 

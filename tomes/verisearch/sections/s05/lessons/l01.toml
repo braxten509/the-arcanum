@@ -1,6 +1,6 @@
 [[lessons]]
 id = "s05-l01"
-teaches = ["language-serialization-io"]
+teaches = ["language-file-read-write"]
 title = "Files — read, write, check"
 body = '''
 
@@ -53,17 +53,14 @@ required = true
 capabilities = ["language-serialization-io"]
 cognitiveTask = "explain"
 scaffold = "guided"
-contextFamily = "verisearch-s05-serialization-io"
+contextFamily = "verisearch-s05-file-read-write"
 aidPolicy = "learning"
 prompt = "<code>File.WriteAllText(path, text)</code> on a file that already exists…"
 choices = ["throws an exception", "appends to it", "creates a backup first", "overwrites it completely"]
 answer = 3
 whyWrong = "WriteAllText doesn’t append, back up, or throw on an existing file — it replaces the contents entirely."
+explain = "<code>File.WriteAllText</code> creates or replaces with no append and no backup, which is why a loader that writes before it reads can destroy a catalog the seeker spent an hour assembling."
 hint = "Append has its own method."
-reviewVariants = [
-  { prompt = "Malformed existing JSON is evidence. What should the loader do?", choices = ["Report it without overwriting the file", "Replace it silently", "Treat text as trusted", "Send it to the renderer"], answer = 0 },
-  { prompt = "When does external JSON become trusted typed data?", choices = ["After deserialization and value validation", "When downloaded", "When pretty-printed", "When an AI emits it"], answer = 0 }
-]
 
 [[lessons.exercises]]
 id = "s05-l01-e2"
@@ -73,7 +70,7 @@ required = true
 capabilities = ["language-serialization-io"]
 cognitiveTask = "recall"
 scaffold = "guided"
-contextFamily = "verisearch-s05-serialization-io"
+contextFamily = "verisearch-s05-file-read-write"
 aidPolicy = "learning"
 prompt = "Which Directory method creates a folder AND all missing parents, without erroring if it already exists?"
 answer = "CreateDirectory"
@@ -88,12 +85,13 @@ required = true
 capabilities = ["language-serialization-io"]
 cognitiveTask = "explain"
 scaffold = "guided"
-contextFamily = "verisearch-s05-serialization-io"
+contextFamily = "verisearch-s05-file-read-write"
 aidPolicy = "learning"
 prompt = "Reading a nonexistent file with <code>File.ReadAllText</code> throws…"
 choices = ["FileNotFoundException", "NullReferenceException", "IOException only on Windows", "nothing — returns empty string"]
 answer = 0
 whyWrong = "Reading a missing file throws FileNotFoundException — not a null-reference, and it never silently returns an empty string."
+explain = "A missing path is an ordinary, expected outcome, so it arrives as <code>FileNotFoundException</code> — test with <code>File.Exists</code> or catch it, then turn it into a diagnostic that names the path."
 hint = "Exactly what it says on the tin."
 
 [[lessons.exercises]]
@@ -104,7 +102,7 @@ required = false
 capabilities = ["language-serialization-io"]
 cognitiveTask = "complete"
 scaffold = "worked"
-contextFamily = "verisearch-s05-serialization-io"
+contextFamily = "verisearch-s05-file-read-write"
 aidPolicy = "learning"
 reps = 2
 prompt = "The read-or-create-defaults shape. Twice."
@@ -126,7 +124,7 @@ required = true
 capabilities = ["language-serialization-io"]
 cognitiveTask = "build"
 scaffold = "guided"
-contextFamily = "verisearch-s05-serialization-io"
+contextFamily = "verisearch-s05-file-read-write"
 aidPolicy = "learning"
 prompt = "Full write-then-read round trip: write the text <code>{\"maxQuotes\":5}</code> to a temp file (<code>Path.GetTempFileName()</code>), read it back, print <code>reloaded: &lt;contents&gt;</code>, then delete the file with <code>File.Delete</code>."
 expect = '''reloaded: {"maxQuotes":5}'''
@@ -140,10 +138,10 @@ File.Delete(path);
 hint = "var p = Path.GetTempFileName(); WriteAllText; ReadAllText; WriteLine; Delete."
 
 [[lessons.concepts]]
-id = "language-serialization-io"
-purpose = "Move typed data across file, JSON, HTTP, process, and terminal boundaries without confusing external text with trusted objects."
-anatomy = "Select an I/O API, await or dispose it correctly, serialize or deserialize a declared shape, then validate the resulting values."
-example = "The disposable examples in Files — read, write, check isolate this capability before the learner chooses how it belongs in the cumulative project. The lesson Files — read, write, check supplies the disposable observation point."
-observable = "Valid input becomes the intended typed data and malformed input produces a specific boundary diagnostic. Confirm it while practicing Files — read, write, check."
-failure = "Scraping loosely structured text or overwriting invalid user data destroys the evidence needed to repair it."
+id = "language-file-read-write"
+purpose = "Read and write whole text files, and check for existence before treating a path as content."
+anatomy = "The File helpers read all text, write all text, and test existence, with async twins for asynchronous code; a write creates or replaces, and a read of a missing path throws."
+example = "A note written and read back in two calls, then the same read guarded by try so the missing-file exception can be seen instead of guessed at."
+observable = "The written text comes back exactly, and a missing path is reported as a diagnostic instead of a stack trace."
+failure = "Writing before checking replaces a file the seeker meant to keep, and that loss stays invisible until the file is needed."
 practice = "s05-l01-e1"

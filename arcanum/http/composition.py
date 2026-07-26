@@ -74,6 +74,7 @@ def build_router(services: AppServices) -> Router:
     router.post("/api/amend", binder.start)
     router.post("/api/amend/cancel", binder.cancel)
     router.post("/api/amend/dismiss", binder.dismiss)
+    router.post("/api/amend/forget", binder.forget)
     router.post("/api/buildtome", forge.start)
     router.post("/api/buildtome/runner", forge.runner)
     router.post("/api/buildtome/pause", forge.pause)

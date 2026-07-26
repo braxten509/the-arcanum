@@ -14,7 +14,7 @@ from arcanum.ai.events import step_tokens_from_line  # noqa: E402
 from arcanum.authoring.adapters import validator_live  # noqa: E402
 from arcanum.authoring.read_models import durable_status  # noqa: E402
 from arcanum.jobs.stall import run_watched  # noqa: E402
-from tools.buildlib.prerequisites import review  # noqa: E402
+from tools.buildlib.prerequisites import provider_io, review  # noqa: E402
 
 validator_live.demo()
 
@@ -38,9 +38,11 @@ for ignored in ("", "not json", "{}", json.dumps({"part": {"type": "text"}}),
 
 # A live call publishes a growing row; multi-step token events accumulate.
 with tempfile.TemporaryDirectory() as build_dir:
-    with patch.object(review, "BUILD_DIR", build_dir), \
-            patch.object(review, "LIVE_PUBLISH_SECONDS", 0):
-        tick = review._live_tick("b1", "section quality s01", time.time() - 5)
+    # The live ticker moved to provider_io when review.py was split; it reads that
+    # module's BUILD_DIR and throttle, so patching review's copies would do nothing.
+    with patch.object(provider_io, "BUILD_DIR", build_dir), \
+            patch.object(provider_io, "LIVE_PUBLISH_SECONDS", 0):
+        tick = provider_io._live_tick("b1", "section quality s01", time.time() - 5)
         tick(64.0, STEP + "\n" + STEP + "\n")
     row = validator_live.row(build_dir, "b1")
     assert row and row["kind"] == "harness", row
@@ -49,9 +51,11 @@ with tempfile.TemporaryDirectory() as build_dir:
     assert "section quality s01" in row["text"], row["text"]
 
     # A half-written trailing line is never parsed, and never re-counted once whole.
-    with patch.object(review, "BUILD_DIR", build_dir), \
-            patch.object(review, "LIVE_PUBLISH_SECONDS", 0):
-        tick = review._live_tick("b1", "s01", time.time())
+    # The live ticker moved to provider_io when review.py was split; it reads that
+    # module's BUILD_DIR and throttle, so patching review's copies would do nothing.
+    with patch.object(provider_io, "BUILD_DIR", build_dir), \
+            patch.object(provider_io, "LIVE_PUBLISH_SECONDS", 0):
+        tick = provider_io._live_tick("b1", "s01", time.time())
         tick(1.0, STEP.partition('"reasoning"')[0])
         assert "tokens pending" in validator_live.row(build_dir, "b1")["text"]
         tick(1.0, STEP + "\n")
@@ -59,15 +63,15 @@ with tempfile.TemporaryDirectory() as build_dir:
 
     # Publishing is throttled so a long gate does not rebuild the pane every second,
     # but CPU still averages every sample taken inside the window.
-    with patch.object(review, "BUILD_DIR", build_dir):
-        tick = review._live_tick("b3", "s01", time.time())
+    with patch.object(provider_io, "BUILD_DIR", build_dir):
+        tick = provider_io._live_tick("b3", "s01", time.time())
         tick(10.0, "")
         first = validator_live.row(build_dir, "b3")["text"]
         assert "CPU 10%" in first, first
         for sample in (90.0, 90.0, 90.0):
             tick(sample, "")
         assert validator_live.row(build_dir, "b3")["text"] == first, "throttled"
-        with patch.object(review, "LIVE_PUBLISH_SECONDS", 0):
+        with patch.object(provider_io, "LIVE_PUBLISH_SECONDS", 0):
             tick(90.0, "")
         assert "CPU 90%" in validator_live.row(build_dir, "b3")["text"]
         validator_live.clear(build_dir, "b3")
@@ -87,8 +91,8 @@ with tempfile.TemporaryDirectory() as build_dir:
 # The row is published from inside a real watched run and cleared on every exit path.
 with tempfile.TemporaryDirectory() as build_dir:
     seen = []
-    with patch.object(review, "BUILD_DIR", build_dir):
-        tick = review._live_tick("b2", "phase 1 arc quality", time.time())
+    with patch.object(provider_io, "BUILD_DIR", build_dir):
+        tick = provider_io._live_tick("b2", "phase 1 arc quality", time.time())
         run_watched(["sh", "-c", f"printf '%s\\n' '{STEP}'; sleep 2"],
                     seconds=30.0,
                     on_tick=lambda cpu, text: (tick(cpu, text),

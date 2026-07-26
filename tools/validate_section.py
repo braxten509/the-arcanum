@@ -45,14 +45,23 @@ def main():
     parser.add_argument("--source-only", action="store_true",
                         help="run reconstructed-source acceptance and all negative controls, "
                              "but defer the expensive package build")
+    parser.add_argument("--no-run", action="store_true",
+                        help="skip execution entirely and check only what is authored: "
+                             "completion, the handoff, sealed-map alignment, and the "
+                             "per-section content analysis. For a caller that has already "
+                             "executed this tome once whole (the shipping sweep), where "
+                             "re-executing each section buys nothing it does not have.")
     args = parser.parse_args()
+    if args.source_only and args.no_run:
+        parser.error("--source-only defers the package build of an execution that still "
+                     "happens; --no-run is the one that skips it. Pick one.")
 
     tome_path = os.path.abspath(args.tome.rstrip(os.sep))
     tid = os.path.basename(tome_path)
     ids = _section_ids(tome_path)
 
     tome_clean, tome_report = validate(
-        tid, phase=3, tooling=args.tooling, run=True, run_section=args.section,
+        tid, phase=3, tooling=args.tooling, run=not args.no_run, run_section=args.section,
         phase_only=True, source_only=args.source_only, announce=False,
         plan_rel=os.path.relpath(os.path.abspath(args.plan),
                                 os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))

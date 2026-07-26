@@ -178,6 +178,93 @@
   white-space: nowrap;
 }
 
+/* The gap only separates builds from the review list above them. With no reviews the
+   builds ARE the top of the pane, and the space reads as a broken header. */
+.binder-build-section:not(:first-child) {
+  margin-top: 20px;
+}
+
+/* A build row and its unfolded record are one entry, so while it is open the
+   hairline moves down to the foot of the detail instead of splitting the two. */
+.binder-build-row[aria-expanded="true"] {
+  border-bottom-color: transparent;
+  background: color-mix(in srgb, var(--ac-bg) 48%, transparent);
+}
+
+.binder-build-detail {
+  padding: 1px 3px 13px;
+  border-bottom: 1px solid var(--line);
+  background: color-mix(in srgb, var(--ac-bg) 26%, transparent);
+  color: var(--tx-dim);
+  font-size: 11.5px;
+  line-height: 1.5;
+  white-space: normal;
+}
+
+.binder-build-detail > :first-child {
+  margin-top: 0;
+}
+
+.binder-build-detail .binder-cost {
+  margin-top: 11px;
+}
+
+.binder-build-validator {
+  margin: 10px 0 0;
+  padding: 8px 10px;
+  border-left: 2px solid var(--bad);
+  background: var(--bg3);
+  color: var(--tx);
+  font: 9.5px/1.5 var(--mono);
+  white-space: pre-wrap;
+  overflow-x: auto;
+}
+
+.binder-build.bad .binder-review-row small {
+  color: var(--bad);
+}
+
+/* The tail of an unfinished run's feed, so the ledger can show where it got to
+   before it stopped — the same rows the live panel draws, in a bounded well. */
+.binder-build-feed {
+  margin-top: 11px;
+}
+
+.binder-build-feed > b {
+  display: block;
+  margin-bottom: 6px;
+  color: var(--tx-faint);
+  font: 9.5px/1.2 var(--mono);
+  letter-spacing: .14em;
+}
+
+.binder-build-feed-body {
+  max-height: 220px;
+  padding: 8px 10px;
+  border-left: 2px solid var(--line-hi);
+  background: var(--bg3);
+  overflow-y: auto;
+}
+
+.binder-build-feed-body > :first-child {
+  margin-top: 0;
+}
+
+.binder-build-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 13px;
+}
+
+/* One rule for both buttons: inside a folded record the full control height is too
+   heavy, and sizing them separately is how a pair ends up 3px apart. */
+.binder-build-actions .btn {
+  height: 29px;
+  padding: 0 14px;
+  font-size: 11.5px;
+}
+
 .binder-review-selected {
   margin-bottom: 14px;
   padding-bottom: 12px;

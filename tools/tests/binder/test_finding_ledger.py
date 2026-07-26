@@ -61,7 +61,7 @@ def _launch(root, build_id, tiebreak):
 
 def _review(build_id, adapter, tag):
     # A distinct packet per pass mimics an author edit so the content cache misses.
-    def packet_fn(_build_id, _section):
+    def packet_fn(_build_id, _section, _only_nodes=None):
         return (f"bounded packet {tag}", sources)
 
     with patch.object(prerequisite_review, "load_course_map", return_value=course), \

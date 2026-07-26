@@ -1,6 +1,6 @@
 [[lessons]]
 id = "s03-l04"
-teaches = ["language-types-nullability"]
+teaches = ["language-enum-closed-choice"]
 title = "Enums — a fixed set of named choices"
 body = '''
 
@@ -48,7 +48,7 @@ required = true
 capabilities = ["language-types-nullability"]
 cognitiveTask = "explain"
 scaffold = "guided"
-contextFamily = "verisearch-s03-types-nullability"
+contextFamily = "verisearch-s03-enum-closed-choice"
 aidPolicy = "learning"
 prompt = "Why use <code>enum SourceKind</code> instead of plain strings like <code>\"Web\"</code>?"
 choices = ["Enums use less disk space", "Enums are required for switch statements", "Strings can't be compared in C#", "Typos in enum names fail at compile time instead of silently at runtime"]
@@ -56,10 +56,6 @@ answer = 3
 whyWrong = "Enums aren’t about disk space or required for switch, and strings compare fine — the point is a mistyped enum name is a compile error while a mistyped string fails silently at runtime."
 hint = "Think about where the bug shows up: compiler or 2am."
 explain = "An enum restricts the value to a declared set of names, allowing the compiler to catch misspellings and invalid choices before the program runs."
-reviewVariants = [
-  { prompt = "A line reader may reach end-of-stream. Which type communicates that fact?", choices = ["string?", "string!", "dynamic", "object without a check"], answer = 0 },
-  { prompt = "When may code safely access a nullable string's Length?", choices = ["After a flow check proves it is non-null", "Before assignment", "Only in a catch", "After casting to int"], answer = 0 }
-]
 
 [[lessons.exercises]]
 id = "s03-l04-e2"
@@ -69,7 +65,7 @@ required = true
 capabilities = ["language-types-nullability"]
 cognitiveTask = "explain"
 scaffold = "guided"
-contextFamily = "verisearch-s03-types-nullability"
+contextFamily = "verisearch-s03-enum-closed-choice"
 aidPolicy = "learning"
 prompt = "What does <code>Console.WriteLine(SourceKind.LocalFixture)</code> print?"
 choices = ["LocalFixture", "1", "SourceKind", "True"]
@@ -86,7 +82,7 @@ required = true
 capabilities = ["language-types-nullability"]
 cognitiveTask = "recall"
 scaffold = "guided"
-contextFamily = "verisearch-s03-types-nullability"
+contextFamily = "verisearch-s03-enum-closed-choice"
 aidPolicy = "learning"
 prompt = "Which method safely converts the string \"Web\" to a SourceKind without throwing on bad input? (method name only)"
 answer = "Enum.TryParse"
@@ -101,7 +97,7 @@ required = false
 capabilities = ["language-types-nullability"]
 cognitiveTask = "complete"
 scaffold = "worked"
-contextFamily = "verisearch-s03-types-nullability"
+contextFamily = "verisearch-s03-enum-closed-choice"
 aidPolicy = "learning"
 prompt = "Enum + exhaustive switch expression — the pairing that makes tiers safe. Once."
 code = '''
@@ -122,7 +118,7 @@ required = true
 capabilities = ["language-types-nullability"]
 cognitiveTask = "debug"
 scaffold = "guided"
-contextFamily = "verisearch-s03-types-nullability"
+contextFamily = "verisearch-s03-enum-closed-choice"
 aidPolicy = "learning"
 prompt = "Declare <code>SourceKind</code> with Web and LocalFixture. Read a name from STDIN, parse it case-insensitively with <code>Enum.TryParse</code>, and print <code>http</code> for Web or <code>fixture</code> for LocalFixture. Unparseable input prints <code>bad kind</code>."
 stdin = "localfixture"
@@ -146,10 +142,10 @@ public enum SourceKind { Web, LocalFixture }
 hint = "Use Enum.TryParse<SourceKind>(raw, true, out var kind), then switch on kind."
 
 [[lessons.concepts]]
-id = "language-types-nullability"
-purpose = "Represent facts with C# types and make the possibility of missing data explicit."
-anatomy = "Choose a type, declare a name, initialize it, and handle nullable values before member access or conversion."
-example = "The disposable examples in Enums — a fixed set of named choices isolate this capability before the learner chooses how it belongs in the cumulative project. The lesson Enums — a fixed set of named choices supplies the disposable observation point."
-observable = "The compiler accepts the assignments and every missing-value path has an intentional outcome. Confirm it while practicing Enums — a fixed set of named choices."
-failure = "A nullable warning or invalid conversion shows that the value contract and the code disagree."
+id = "language-enum-closed-choice"
+purpose = "Name a closed set of choices as a type so an invalid spelling cannot enter the program at all."
+anatomy = "An enum declares named members over one underlying integral type; comparison uses the member name, and a switch expression over it is checked for missing cases."
+example = "A SourceKind enum with a web member and a local fixture member, tested with an equality check and then routed through a switch expression."
+observable = "Only declared members can be assigned, and adding a member draws a compiler warning at the switch that has not handled it."
+failure = "Carrying the same choice as a free string invites a typo that compiles, and every later reader has to guess which spellings were meant."
 practice = "s03-l04-e1"

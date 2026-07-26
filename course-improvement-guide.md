@@ -28,9 +28,17 @@ Hard rules that still bind you here:
   `tools/`, `runtimes/`, `skins/`, …), and never another tome.
 - **Never** rename existing ids or files (exercise/lesson/section/theme/badge ids
   and the tome folder key player progress — renaming silently wipes it) **unless
-  this run explicitly says a progress-resetting rework is authorized**. That
-  authorization is the only exception and requires every reference to stay
-  internally consistent.
+  this run explicitly says a progress-resetting rework is authorized**, or the
+  tome's own `save/` proves no progress is recorded against the exact ids you
+  would move. Either way every reference must stay internally consistent, and you
+  say in your summary which ids moved and what the save held.
+- This rule **outranks sealed-map alignment.** The sealed course map is the
+  contract you are measured against, so where the tome disagrees with it the tome
+  is normally what changes — but reconcile through the *content* held at the ids
+  that already exist, never by renumbering lessons onto the map's numbering. If
+  alignment cannot be reached without moving ids the save depends on, leave them
+  and report the remaining drift as needing an authorized progress reset. Never
+  spend a player's progress to make a gate pass.
 - **Never** edit `save/` or hand-edit machine-owned files under `generated/`.
   Trusted repository generators may update their own outputs when an authorized
   source change requires it; inspect the generated diff and validate it.

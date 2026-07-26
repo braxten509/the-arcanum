@@ -1,6 +1,6 @@
 [[lessons]]
 id = "s08-l01"
-teaches = ["language-async-cancellation"]
+teaches = ["language-task-scheduling-model"]
 title = "Tasks under the hood — what await actually does"
 body = '''
 
@@ -38,17 +38,14 @@ required = true
 capabilities = ["language-async-cancellation"]
 cognitiveTask = "explain"
 scaffold = "guided"
-contextFamily = "verisearch-s08-async-cancellation"
+contextFamily = "verisearch-s08-task-scheduling-model"
 aidPolicy = "limited"
 prompt = "While a program awaits an HTTP response, the thread that started the request is…"
 choices = ["free — no thread is consumed waiting on I/O; the method resumes on completion", "blocked, spinning until bytes arrive", "destroyed and recreated", "converted to a background thread"]
 answer = 0
 whyWrong = "Awaiting I/O doesn’t block, destroy, or background the thread — it’s released to do other work and the method resumes when the response arrives."
+explain = "An awaited input or output operation has nothing to spin on: the request sits with the operating system, so the thread returns to the pool and the method resumes on whichever thread is free when the response lands."
 hint = "This is THE difference between async waiting and blocking."
-reviewVariants = [
-  { prompt = "Independent I/O reads may overlap. Which operation awaits them as one set?", choices = ["Task.WhenAll", "Thread.Abort", "Task.Result in a loop", "Console.ReadLine"], answer = 0 },
-  { prompt = "What must cross every async boundary for coordinated shutdown?", choices = ["The same CancellationToken", "A new global bool", "Rendered output", "A source label"], answer = 0 }
-]
 
 [[lessons.exercises]]
 id = "s08-l01-e2"
@@ -58,7 +55,7 @@ required = true
 capabilities = ["language-async-cancellation"]
 cognitiveTask = "explain"
 scaffold = "guided"
-contextFamily = "verisearch-s08-async-cancellation"
+contextFamily = "verisearch-s08-task-scheduling-model"
 aidPolicy = "limited"
 prompt = "In this code, when does the download START?"
 code = '''
@@ -68,6 +65,7 @@ string html = await t;               // line 3'''
 choices = ["Line 3 — await starts it", "Line 1 — calling the method starts the work", "Only when the result is used", "Line 2"]
 answer = 1
 whyWrong = "The download starts when the async method is CALLED, not at the await — await just suspends until the already-running work completes."
+explain = "Calling the method starts the work and hands back a handle to it. That gap between the call and the await is the whole trick of concurrency — start several, then await the group."
 hint = "await doesn't start work; it waits for work already in flight."
 
 [[lessons.exercises]]
@@ -78,12 +76,13 @@ required = true
 capabilities = ["language-async-cancellation"]
 cognitiveTask = "explain"
 scaffold = "guided"
-contextFamily = "verisearch-s08-async-cancellation"
+contextFamily = "verisearch-s08-task-scheduling-model"
 aidPolicy = "limited"
 prompt = "The async equivalent of Thread.Sleep(1000) is…"
 choices = ["Task.Wait(1000)", "Thread.SleepAsync(1000)", "await Task.Delay(1000)", "await 1000"]
 answer = 2
 whyWrong = "Task.Wait blocks and ‘Thread.SleepAsync’/‘await 1000’ aren’t real — the async, non-blocking pause is await Task.Delay(1000)."
+explain = "<code>await Task.Delay(1000)</code> schedules the resumption and gives the thread up in the meantime, while <code>Thread.Sleep</code> holds a thread doing nothing for a full second."
 hint = "Delay yields the thread; Sleep hogs it."
 
 [[lessons.exercises]]
@@ -94,7 +93,7 @@ required = false
 capabilities = ["language-async-cancellation"]
 cognitiveTask = "complete"
 scaffold = "worked"
-contextFamily = "verisearch-s08-async-cancellation"
+contextFamily = "verisearch-s08-task-scheduling-model"
 aidPolicy = "limited"
 reps = 2
 prompt = "Start-then-await — the two-line trick all concurrency hangs on. Twice."
@@ -111,7 +110,7 @@ required = true
 capabilities = ["language-async-cancellation"]
 cognitiveTask = "debug"
 scaffold = "independent"
-contextFamily = "verisearch-s08-async-cancellation"
+contextFamily = "verisearch-s08-task-scheduling-model"
 aidPolicy = "limited"
 prompt = "Prove concurrency with a stopwatch: start TWO <code>Task.Delay(100)</code> tasks (store both, no await yet), then await both. If <code>System.Diagnostics.Stopwatch</code> shows under 180ms total, print <code>parallel confirmed</code>, else <code>sequential detected</code>."
 expect = "parallel confirmed"
@@ -126,10 +125,10 @@ Console.WriteLine(stopwatch.ElapsedMilliseconds < 180 ? "parallel confirmed" : "
 hint = "var sw = Stopwatch.StartNew(); var t1 = Task.Delay(100); var t2 = Task.Delay(100); await t1; await t2; check sw.ElapsedMilliseconds."
 
 [[lessons.concepts]]
-id = "language-async-cancellation"
-purpose = "Coordinate I/O-bound work without blocking threads, serializing independent work, or swallowing cancellation."
-anatomy = "Return Task or Task<T>, await asynchronous operations, pass one CancellationToken, and use Task.WhenAll when independent work may overlap."
-example = "The disposable examples in Tasks under the hood — what await actually does isolate this capability before the learner chooses how it belongs in the cumulative project. The lesson Tasks under the hood — what await actually does supplies the disposable observation point."
-observable = "Independent reads overlap, completion resumes with typed results, and cancellation reaches the top boundary. Confirm it while practicing Tasks under the hood — what await actually does."
-failure = "Using Result, Wait, await-inside-loop, or catching cancellation as an ordinary error breaks responsiveness."
+id = "language-task-scheduling-model"
+purpose = "Explain what a Task is and what await actually does, so concurrency decisions rest on evidence rather than folklore."
+anatomy = "A Task is a handle to work in flight; starting it returns immediately, awaiting it resumes when it completes, and a wait on input or output occupies no thread."
+example = "An HTTP read started into a Task variable, other work printed in the gap, and only then the Task awaited for its value."
+observable = "The line printed between starting and awaiting appears before the result, which proves the work overlapped the wait."
+failure = "Believing await starts the work makes every fetch serial, so a run costs the sum of the waits instead of the longest one."
 practice = "s08-l01-e1"

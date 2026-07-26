@@ -1,6 +1,6 @@
 [[lessons]]
 id = "s09-l02"
-teaches = ["language-exceptions-resources"]
+teaches = ["language-provider-adapter-transport"]
 title = "Adapters — CLI, local service, or hosted API"
 body = '''
 
@@ -45,11 +45,11 @@ required = true
 capabilities = ["language-exceptions-resources"]
 cognitiveTask = "explain"
 scaffold = "guided"
-contextFamily = "verisearch-s09-exceptions-resources"
+contextFamily = "verisearch-s09-provider-adapter-transport"
 aidPolicy = "limited"
 prompt = "Why add CLI arguments through <code>ProcessStartInfo.ArgumentList</code>?"
-choices = ["It asks the shell to quote them", "It preserves arguments as separate data without shell parsing", "It encrypts API keys", "It verifies model output"]
-answer = 1
+choices = ["It preserves arguments as separate data without shell parsing", "It asks the shell to quote them", "It encrypts API keys", "It verifies model output"]
+answer = 0
 whyWrong = "ArgumentList avoids a shell; it does not encrypt secrets or verify quotations."
 hint = "Executable, arguments, and prompt should not become one command string."
 explain = "Structured arguments preserve spaces and punctuation without command-string concatenation."
@@ -62,7 +62,7 @@ required = true
 capabilities = ["language-exceptions-resources"]
 cognitiveTask = "explain"
 scaffold = "guided"
-contextFamily = "verisearch-s09-exceptions-resources"
+contextFamily = "verisearch-s09-provider-adapter-transport"
 aidPolicy = "limited"
 prompt = "Where should a hosted-provider API key be obtained?"
 choices = ["A committed C# constant", "The report footer", "Environment or an appropriate secret store", "The AI response"]
@@ -79,7 +79,7 @@ required = true
 capabilities = ["language-exceptions-resources"]
 cognitiveTask = "complete"
 scaffold = "guided"
-contextFamily = "verisearch-s09-exceptions-resources"
+contextFamily = "verisearch-s09-provider-adapter-transport"
 aidPolicy = "limited"
 prompt = "Complete the process setting that prevents shell execution."
 code = "UseShellExecute = ____"
@@ -94,17 +94,17 @@ required = false
 capabilities = ["language-exceptions-resources"]
 cognitiveTask = "complete"
 scaffold = "worked"
-contextFamily = "verisearch-s09-exceptions-resources"
+contextFamily = "verisearch-s09-provider-adapter-transport"
 aidPolicy = "limited"
 reps = 2
 prompt = "Retype the safe argument addition twice."
 code = "start.ArgumentList.Add(argument);"
 
 [[lessons.concepts]]
-id = "language-exceptions-resources"
-purpose = "Preserve useful failures while releasing files, HTTP responses, processes, and cancellation resources deterministically."
-anatomy = "Catch only at the boundary that can add meaning, let cancellation propagate, and use using or disposal for owned resources."
-example = "The disposable examples in Adapters — CLI, local service, or hosted API isolate this capability before the learner chooses how it belongs in the cumulative project. The lesson Adapters — CLI, local service, or hosted API supplies the disposable observation point."
-observable = "Ordinary failures become actionable outcomes, cancellation stays cancellation, and owned resources close on every path. Confirm it while practicing Adapters — CLI, local service, or hosted API."
-failure = "A broad silent catch or forgotten disposal converts evidence into hidden failure and leaks operating-system resources."
+id = "language-provider-adapter-transport"
+purpose = "Translate one provider-neutral request into a concrete transport, and keep the transport details inside that adapter."
+anatomy = "A process adapter sets the executable and its arguments as data with redirected streams, while an HTTP adapter owns its endpoint, headers, and key handling."
+example = "A process start description built with the executable in its own field and each configured argument added to the argument list instead of a shell line."
+observable = "Swapping providers changes one adapter, and no credential appears in source, output, or the committed catalog."
+failure = "Building a shell command line from configured text invites injection and makes every argument an escaping problem for the user."
 practice = "s09-l02-e1"

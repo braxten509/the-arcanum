@@ -1,6 +1,6 @@
 [[lessons]]
 id = "s12-l02"
-teaches = ["language-testing-debugging"]
+teaches = ["language-truth-boundary-test-design"]
 title = "Test the Boundaries Where False Quotes Could Escape"
 body = '''
 
@@ -38,7 +38,7 @@ required = true
 capabilities = ["language-testing-debugging"]
 cognitiveTask = "predict"
 scaffold = "guided"
-contextFamily = "verisearch-s12-testing-debugging"
+contextFamily = "verisearch-s12-truth-boundary-test-design"
 aidPolicy = "limited"
 prompt = "Which is the highest-value first production test for Verisearch?"
 choices = ["A live configured-AI call", "Terminal border color", "Download speed", "QuoteVerifier rejects text absent from Passage.Text"]
@@ -55,7 +55,7 @@ required = true
 capabilities = ["language-testing-debugging"]
 cognitiveTask = "explain"
 scaffold = "guided"
-contextFamily = "verisearch-s12-testing-debugging"
+contextFamily = "verisearch-s12-truth-boundary-test-design"
 aidPolicy = "limited"
 prompt = "Why should the unit test for inner model JSON avoid the real configured AI service?"
 choices = ["A fixed string isolates parsing and remains deterministic", "AI providers forbid tests", "HTTP cannot run under xUnit", "A search API is required too"]
@@ -72,11 +72,11 @@ required = true
 capabilities = ["language-testing-debugging"]
 cognitiveTask = "explain"
 scaffold = "guided"
-contextFamily = "verisearch-s12-testing-debugging"
+contextFamily = "verisearch-s12-truth-boundary-test-design"
 aidPolicy = "limited"
 prompt = "A test expects <code>Exact source words</code> without the final period to be rejected, although it is present inside the passage. What is wrong?"
-choices = ["Nothing", "The test invents a stricter whole-sentence rule than the ordinal-substring contract", "String.Contains requires punctuation", "xUnit ignores periods"]
-answer = 1
+choices = ["Nothing", "xUnit ignores periods", "String.Contains requires punctuation", "The test invents a stricter whole-sentence rule than the ordinal-substring contract"]
+answer = 3
 whyWrong = "String.Contains does not require punctuation and xUnit does not alter strings. The candidate is a real substring, so the expectation misstates the contract."
 explain = "Tests are executable specifications; a wrong expectation can pressure production code into the wrong behavior."
 hint = "Search for those exact characters inside the passage."
@@ -89,7 +89,7 @@ required = false
 capabilities = ["language-testing-debugging"]
 cognitiveTask = "complete"
 scaffold = "worked"
-contextFamily = "verisearch-s12-testing-debugging"
+contextFamily = "verisearch-s12-truth-boundary-test-design"
 aidPolicy = "limited"
 reps = 2
 prompt = "Retype the fabricated-proposal rejection test twice."
@@ -110,7 +110,7 @@ required = true
 capabilities = ["language-testing-debugging"]
 cognitiveTask = "test-design"
 scaffold = "independent"
-contextFamily = "verisearch-s12-testing-debugging"
+contextFamily = "verisearch-s12-truth-boundary-test-design"
 aidPolicy = "limited"
 prompt = "Run four table-driven substring cases against <code>Before. Exact words. After.</code>, compare with expected Booleans, and print the pass count."
 starter = '''string passage = "Before. Exact words. After.";
@@ -141,10 +141,10 @@ Console.WriteLine($"{passed}/{cases.Length} green");
 hint = "Count cases where ordinal Contains equals the expected Boolean."
 
 [[lessons.concepts]]
-id = "language-testing-debugging"
-purpose = "Turn a C# promise into an executable check and diagnose failures from the earliest broken boundary."
-anatomy = "Arrange controlled inputs, invoke one behavior, assert an observable result, then use compiler, test, or debugger output to localize a failing case."
-example = "The disposable examples in Test the Boundaries Where False Quotes Could Escape isolate this capability before the learner chooses how it belongs in the cumulative project. The lesson Test the Boundaries Where False Quotes Could Escape supplies the disposable observation point."
-observable = "The check passes for a valid case and fails when its load-bearing input is deliberately changed. Confirm it while practicing Test the Boundaries Where False Quotes Could Escape."
-failure = "A test that prints a prepared success receipt or requires live network state cannot distinguish a regression."
+id = "language-truth-boundary-test-design"
+purpose = "Test first where a false quotation could escape, and make each test fail under a load-bearing mutation."
+anatomy = "Table-driven cases cover exact matches, one-character fabrications, unknown ids, and attribution, stating the real contract instead of an invented one."
+example = "A theory whose rows include a candidate without its trailing period, accepted because it is still a contiguous exact substring."
+observable = "Changing the comparison or the attribution source turns the suite red at the case that names it."
+failure = "Testing decorative output first leaves the one regression that matters, altered text presented as verified, unguarded."
 practice = "s12-l02-e1"

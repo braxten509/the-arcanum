@@ -382,7 +382,12 @@ def main():
     strict_note = f", {hard} hard-gate warn(s) [--strict]" if args.strict and hard else ""
     deferred_note = (f" [{suppressed} later-phase warning(s) deferred]"
                      if suppressed else "")
+    # A --run-section scope says which section was measured, not that it was run:
+    # with --no-run nothing executes, and this line is quoted verbatim into publish
+    # reports as evidence, so it must not claim an execution that never happened.
     mode_note = (" [Phase 2 skeleton]" if args.phase_2_skeleton else
+                 f" [section {args.run_section}, not executed]" if args.run_section
+                 and not args.run else
                  f" [executed section {args.run_section}]" if args.run_section else "")
     if args.source_only:
         mode_note += " [source acceptance only; package deferred]"

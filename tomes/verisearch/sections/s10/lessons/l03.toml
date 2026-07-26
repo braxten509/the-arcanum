@@ -64,8 +64,8 @@ scaffold = "guided"
 contextFamily = "verisearch-s10-cli-packaging"
 aidPolicy = "limited"
 prompt = "Why should invalid CLI input return a nonzero exit code?"
-choices = ["To make output red", "So scripts and callers can detect failure", "Because Console.WriteLine returns an int", "To stop the configured AI"]
-answer = 1
+choices = ["To make output red", "To stop the configured AI", "Because Console.WriteLine returns an int", "So scripts and callers can detect failure"]
+answer = 3
 whyWrong = "Color and the configured AI are unrelated, and Console.WriteLine returns void. Process status is a machine-readable success signal."
 explain = "Exit 0 means successful handling; a nonzero status distinguishes an error even when output is redirected."
 hint = "Think of another program invoking Verisearch."
@@ -119,9 +119,9 @@ hint = "When the current token is --source, increment i and add the next token."
 
 [[lessons.concepts]]
 id = "language-cli-packaging"
-purpose = "Design a predictable command surface and deliver a runnable artifact from the same source and project metadata."
-anatomy = "Parse arguments without a shell, return stable exit codes, build or publish through dotnet, then launch the produced path with a real command."
-example = "The disposable examples in Parse a Small CLI Without Another Framework isolate this capability before the learner chooses how it belongs in the cumulative project. The lesson Parse a Small CLI Without Another Framework supplies the disposable observation point."
-observable = "Help, invalid input, ordinary execution, and the published binary each produce their documented outcome. Confirm it while practicing Parse a Small CLI Without Another Framework."
-failure = "Ambiguous arguments, embedded secrets, or an unlaunched publish directory leave the program unproved."
+purpose = "Give the tool a public command grammar: the whole question, explicit source choices, provider configuration, help, and clear invalid input."
+anatomy = "Arguments are read as data, the question is passed as one value, repeated options collect in order, and unknown or missing input exits with a stated code."
+example = "One documented invocation carrying a quoted whole question, two repeated source options, and a provider with its command."
+observable = "Help and invalid input are answered before any external work, and the exit code distinguishes them."
+failure = "Reconstructing the question from separate arguments, or defaulting a provider silently, changes what the seeker asked without telling them."
 practice = "s10-l03-e1"

@@ -7,6 +7,8 @@ from . import REPO, SKINS_DIR, THEME_VARS, COIN_FACES, err, global_skin_ids, loa
 
 
 SIGIL_KEYS = ("sigil-1", "sigil-2", "sigil-3", "sigil-4")
+# The same file new_tome.py renders a fresh tome's palettes from.
+PLACEHOLDER_THEMES = os.path.join(REPO, "tools", "scaffold", "placeholder-themes.toml")
 
 
 def _hex_hsl(value):
@@ -216,25 +218,46 @@ PALETTE_MIN_DIST = 8
 DEFAULT_PALETTE_MIN_DIST = 10
 
 
-def check_theme_distinctness(m, label):
-    """Every palette must be measurably distinct from the global Sepia Vellum
-    baseline AND from this tome's other palettes. The scaffold's placeholder
-    vars ARE vellum's values — a run that keeps them ships a replica renamed
-    (the hex-forge failure). These warnings hard-gate in their owning Phase 6."""
+def _scaffold_palettes():
+    """The scaffold's starting palettes, by display name, from the file it renders from.
+
+    Both of them. Measuring only against the Sepia Vellum skin covered the light
+    placeholder (the skin IS its values) and left the dark one unguarded — one tome
+    shipped that dark placeholder as its 3500-gold top-tier theme, renamed, with four
+    sigil inks changed and the other eighteen vars untouched.
+    """
+    data, _ = load_toml(PLACEHOLDER_THEMES)
+    named = {}
+    for th in ((data or {}).get("themes") or []):
+        if isinstance(th, dict) and isinstance(th.get("vars"), dict):
+            named[str(th.get("name") or th.get("id"))] = th["vars"]
     vell, _ = load_toml(os.path.join(SKINS_DIR, "vellum", "skin.toml"))
-    vell_vars = (vell or {}).get("vars", {})
+    named["the global Sepia Vellum palette"] = (vell or {}).get("vars", {})
+    return named
+
+
+def check_theme_distinctness(m, label):
+    """Every palette must be measurably distinct from the scaffold's starting palettes
+    AND from this tome's other palettes. The scaffold's placeholder vars ARE vellum's
+    values — a run that keeps them ships a replica renamed (the hex-forge failure).
+    These warnings hard-gate in their owning Phase 6."""
+    baselines = _scaffold_palettes()
     themes = [t for t in (m.get("themes") or []) if isinstance(t, dict)]
     defaults = m.get("defaults", {}) if isinstance(m.get("defaults"), dict) else {}
     default_id = defaults.get("theme")
     for i, th in enumerate(themes):
         tv = th.get("vars", {}) or {}
-        d = _palette_dist(tv, vell_vars)
         floor = DEFAULT_PALETTE_MIN_DIST if th.get("id") == default_id else PALETTE_MIN_DIST
-        if d is not None and d < floor:
+        # Nearest baseline only: a palette sitting on top of any scaffold starting point
+        # is the same defect, and reporting all of them just repeats one finding.
+        scored = [(d, name) for name, base in baselines.items()
+                  if (d := _palette_dist(tv, base)) is not None]
+        if scored and min(scored)[0] < floor:
+            d, name = min(scored)
             role = "default " if th.get("id") == default_id else ""
-            warn("content", f"[[themes]] {th.get('id')!r} is a near-copy of the global Sepia "
-                 f"Vellum palette ({role}mean channel distance {d:.1f} < {floor}) — the "
-                 "scaffold placeholder IS vellum; design this course's own palette (all 22 vars)",
+            warn("content", f"[[themes]] {th.get('id')!r} is a near-copy of {name} "
+                 f"({role}mean channel distance {d:.1f} < {floor}) — the scaffold "
+                 "placeholder is not a palette; design this course's own (all 22 vars)",
                  phase=6)
         for other in themes[i + 1:]:
             d2 = _palette_dist(tv, other.get("vars", {}) or {})

@@ -79,6 +79,56 @@ def result_schema():
     }
 
 
+def verify_prompt(packet, sid, findings):
+    """Re-check a fixed list of findings and nothing else.
+
+    Single Gate's rounds 2-4 only ever gate on the first pass's findings — anything new is
+    discarded by `ledger.restrict`. Asking for a full audit anyway buys a whole section's
+    sources and a nodeReview per source, then throws most of the answer away. This asks the
+    one question that still matters, against only the files the findings actually cite.
+    """
+    gated = "\n".join(json.dumps(
+        {key: value for key, value in (
+            {"fingerprintNode": entry.get("node"), "path": entry.get("path"),
+             **({"mechanismId": entry.get("id")} if entry.get("kind") == "mechanism"
+                else {"category": entry.get("category"),
+                      "evidenceLines": entry.get("lines")}),
+             "requiredRepair": entry.get("repair"),
+             "originalEvidence": entry.get("evidence")}).items() if value is not None},
+        ensure_ascii=False, separators=(",", ":")) for entry in findings)
+    return f"""Verify repairs for one course section. You are NOT auditing this section. A
+previous audit cited the findings below and the author has since edited the files. Decide, for
+each cited finding and for nothing else, whether it is now fixed.
+
+{NO_TOME_MEMORY_POLICY}
+
+Do not look for new defects. Anything you raise that is not in the list below is discarded by
+the harness, so reporting it costs the player a paid turn and changes nothing.
+
+For each finding, read the cited source at the cited location and judge only the defect
+described in requiredRepair:
+- Fixed -> omit it from your response entirely.
+- Still present, or you cannot confirm it was addressed -> report it again.
+
+Report a still-open finding by REPEATING ITS EXACT IDENTITY: the same path, the same node in
+fingerprintNode, and for a quality finding the same evidenceLines pair, for a mechanism finding
+the same id. The harness matches findings by those fields; invent a new citation for the same
+defect and it is recorded as resolved when it is not.
+
+Respond with JSON: outcome (PASS when every finding is fixed, otherwise FAIL), reasons (one
+short sentence per finding naming fixed or still open), qualityFindings (still-open quality
+findings, each with path, node, category, evidenceLines, evidence, requiredRepair), and
+missingMechanisms (still-open mechanism findings, each with the original id, label, kind,
+owner, detect, demands, closestExisting, semanticDelta). Omit nodeReviews — this is not an
+audit. Empty arrays with outcome PASS is the correct answer when every repair landed.
+
+{DYNAMIC_MARKER}
+SECTION: {sid}
+FINDINGS TO VERIFY: {gated}
+
+{packet}"""
+
+
 def prerequisite_prompt(packet, sid, sources, prior, start, depth=0, mastery=0):
     pairs = json.dumps([{"path": item["path"], "node": item["node"]}
                         for item in sources], ensure_ascii=False, separators=(",", ":"))

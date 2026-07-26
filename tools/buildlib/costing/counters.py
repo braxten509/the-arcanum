@@ -10,8 +10,12 @@ from __future__ import annotations
 
 import os
 
+# cacheWrite1hTokens is a subset of cacheWriteTokens, not another input bucket: it
+# rides along so the two cache-write prices can be told apart, and is deliberately
+# absent from the freshInputTokens subtraction below.
 USAGE_KEYS = ("inputTokens", "freshInputTokens", "cachedInputTokens",
-              "cacheWriteTokens", "outputTokens", "reasoningTokens", "totalTokens")
+              "cacheWriteTokens", "cacheWrite1hTokens",
+              "outputTokens", "reasoningTokens", "totalTokens")
 # Sanity ceiling for one cumulative-counter turn. Well above any real CLI decode
 # rate, so it only ever fires on a broken counter baseline, never on a fast turn.
 MAX_OUTPUT_TOKENS_PER_SECOND = float(

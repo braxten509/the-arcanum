@@ -24,7 +24,8 @@ from tome_proof import proof_fingerprint, public_section  # noqa: E402
 import tome_layout  # noqa: E402
 from new_tome import SECTION_TEMPLATE, render  # noqa: E402
 from maintenance.split_tome import migrate_section  # noqa: E402
-from proof_tests.regressions import check_clean_package_gate  # noqa: E402
+from proof_tests.regressions import (check_clean_package_gate,  # noqa: E402
+                                     check_persistent_project_lock)
 from proof_tests.learner_construction import (check_learner_author_work_order,  # noqa: E402
                                               check_sealed_map_work_order_boundary)
 
@@ -481,6 +482,7 @@ def main():
     check_ordinary_launch_and_anti_fake_gates()
     check_persisted_reconstruction_evidence()
     check_clean_package_gate(section, manifest, findings_for)
+    check_persistent_project_lock(section, manifest)
     print("future tome proof: OK (replay, teaching, assets, harness verdict, legacy isolation)")
 
 

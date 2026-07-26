@@ -1,8 +1,46 @@
 """Clean-environment package proof cases shared by the proof regression entrypoint."""
 import copy
+import fcntl
 import os
 import sys
+import tempfile
 from unittest.mock import patch
+
+
+def check_persistent_project_lock(section, manifest):
+    """A tome's persistent learner project is one path, so replays of it must serialise.
+
+    Two validators at once — the publish survey's --strict pass and the Phase 3 gate —
+    had one rmtree'ing the tree the other was mid-compile in, which surfaced as
+    "MSBUILD : error MSB1009: Project file does not exist. Switch: Verisearch.slnx"
+    and was not reproducible when either ran alone.
+    """
+    from validatelib.proof import runtime as proof_runtime
+
+    def rival_can_lock(path):
+        with open(path, "w", encoding="utf-8") as rival:
+            try:
+                fcntl.flock(rival, fcntl.LOCK_EX | fcntl.LOCK_NB)
+                return True
+            except OSError:
+                return False
+
+    with tempfile.TemporaryDirectory() as build:
+        project = os.path.join(build, "demo.learner-project")
+        os.makedirs(project)
+        held = []
+
+        class Probe:
+            def scaffold(self, _project, _name):
+                held.append(rival_can_lock(project + ".lock"))
+                raise RuntimeError("stop the replay once the lock has been observed")
+
+        with patch.object(proof_runtime, "_persistent_project", return_value=project), \
+                patch("runtimes.for_config", return_value=Probe()):
+            assert not proof_runtime.replay(build, manifest(), [section()], persist=True)
+        assert held == [False], "a concurrent replay must block on the shared project"
+        assert not os.path.isdir(project), "the stale tree must still be cleared"
+        assert rival_can_lock(project + ".lock"), "the lock must be released on the way out"
 
 
 def check_clean_package_gate(section, manifest, findings_for):

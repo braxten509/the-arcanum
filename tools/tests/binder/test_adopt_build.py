@@ -36,8 +36,11 @@ BUILD_ID = "adopt-selftest"
 
 
 @contextlib.contextmanager
-def in_memory_tome(sections, ids):
-    """Stand a fake tome and its plan in front of adoption, touching no real build."""
+def in_memory_tome(sections, ids, extra=None, plan=True):
+    """Stand a fake tome and its plan in front of adoption, touching no real build.
+
+    ``plan=False`` is the pre-plan build: the file adoption would have to write itself.
+    """
     import buildlib.course_map.adopt as module
     import tome_layout
     from buildlib import BUILD_DIR
@@ -45,19 +48,22 @@ def in_memory_tome(sections, ids):
         "meta": {"id": BUILD_ID, "description": "A tome adopted after the fact."},
         "content": {"sections": ids},
         "narrative": {"objective": "Ship one proven artifact the learner built alone."},
+        **(extra or {}),
     }
-    plan = os.path.join(BUILD_DIR, f"{BUILD_ID}.plan.md")
+    path = os.path.join(BUILD_DIR, f"{BUILD_ID}.plan.md")
     os.makedirs(BUILD_DIR, exist_ok=True)
     saved_manifest, saved_load = module._manifest, tome_layout.load_section
     module._manifest = lambda tome_path: manifest
     tome_layout.load_section = lambda path, sid: sections[sid]
-    with open(plan, "w", encoding="utf-8") as handle:
-        handle.write("# BUILD PLAN — adopt selftest\n")
+    if plan:
+        with open(path, "w", encoding="utf-8") as handle:
+            handle.write("# BUILD PLAN — adopt selftest\n")
     try:
         yield module
     finally:
         module._manifest, tome_layout.load_section = saved_manifest, saved_load
-        os.remove(plan)
+        with contextlib.suppress(OSError):
+            os.remove(path)
 
 
 def adopt(sections, ids):
@@ -110,10 +116,123 @@ def main():
         assert "1 lessons" in str(exc), exc
 
     _handoff_check()
+    _planless_check()
+    _plan_check()
     _report_check()
     _sweep_check()
     _reseal_check()
     print("ok: a pre-contract build adopts into the same sealed contract")
+
+
+def _planless_check():
+    """A build with no plan adopts nothing, says so, and is not an error.
+
+    Every contract hangs off the Phase-1 plan -- the map is sealed against its digest --
+    so adoption used to raise "cannot read the build plan". That reached the Binder as an
+    unfixable access failure naming the very tome it had been asked to mend, and writing
+    a plan here instead would certify a harness guess as an author's promise.
+    """
+    from buildlib import BUILD_DIR
+    from buildlib.continuity import handoff_path
+    from buildlib.course_map import map_path
+    from buildlib.course_map.adopt import adopt_build
+    build = "adopt-planless-selftest"
+    assert not os.path.exists(os.path.join(BUILD_DIR, f"{build}.plan.md"))
+    notes = adopt_build(build, build)
+    assert len(notes) == 1 and "no plan" in notes[0], notes
+    assert not os.path.exists(map_path(build)), "a planless build must seal no map"
+    assert not os.path.exists(os.path.dirname(handoff_path(build, "s01"))), \
+        "and must not leave handoffs no gate will ever read"
+
+
+def _plan_check():
+    """A planless tome can be given the plan that puts it under the full shipping gate.
+
+    Only the two machine-owned fields may be reconstructed, and only by copying: the
+    acceptance journey the later gate compares against `[acceptance] scenarios`, and the
+    mastery dial the manifest may not drift from. `**Section list:**` stays absent so
+    nothing can seed a fresh course map from a reconstruction, and the plan is written
+    only when a sealed map can actually be built from the tome -- a plan without one
+    would grade the tome worse than the tome validator alone.
+    """
+    from buildlib import BUILD_DIR
+    from buildlib.course_map.plan import acceptance
+    from buildlib.skeleton import SECTION_LIST_LABEL
+    from buildlib.workflow.adopted_plan import adopt_plan, adopted_plan_text
+    ids = ["s01", "s02"]
+    path = os.path.join(BUILD_DIR, f"{BUILD_ID}.plan.md")
+    sidecar = os.path.join(BUILD_DIR, f"{BUILD_ID}.result.json")
+    extra = {"acceptance": {"scenarios": ["first-run", "second-run"]}}
+    with in_memory_tome(wired(ids), ids, extra=extra, plan=False) as module:
+        try:
+            notes = adopt_plan(BUILD_ID, BUILD_ID)
+            assert len(notes) == 1 and "adopted build plan" in notes[0], notes
+            with open(path, encoding="utf-8") as handle:
+                text = handle.read()
+            assert acceptance(text) == ["first-run", "second-run"], text
+            # A reconstruction must never be mistakable for a seedable promise: the label
+            # the skeleton scaffolder keys off is absent, mentioned only inside the note.
+            assert not SECTION_LIST_LABEL.search(text), text
+            assert "RECONSTRUCTED, NOT PROMISED" in text
+            # The plan the map is digested against is the one just written.
+            assert not validate_course_map(
+                module.adopted_course_map(BUILD_ID, BUILD_ID), detailed=True)
+            # An existing plan is what the sealed map is digested against: never rewritten.
+            assert adopt_plan(BUILD_ID, BUILD_ID) == []
+            # An adopted tome is finished, and every listing that walks *.plan.md reads
+            # "abandoned build" from a missing `done` result. Without this sidecar a
+            # shipped tome sits in UNFINISHED WORKINGS and in the catalog's drafts.
+            with open(sidecar, encoding="utf-8") as handle:
+                assert json.load(handle)["status"] == "done"
+        finally:
+            for leftover in (path, sidecar):
+                with contextlib.suppress(OSError):
+                    os.remove(leftover)
+
+    # A tome no honest map can be built from keeps its old gate instead of a broken one.
+    shared = wired(ids)
+    shared["s02"]["lessons"][1]["teaches"] = list(shared["s02"]["lessons"][0]["teaches"])
+    with in_memory_tome(shared, ids, plan=False):
+        try:
+            adopt_plan(BUILD_ID, BUILD_ID)
+            raise AssertionError("a tome that cannot be photographed must not get a plan")
+        except AdoptionError as exc:
+            assert "teaching owners" in str(exc) or "re-teach" in str(exc), exc
+        assert not os.path.exists(path), "and the refused plan must not be left behind"
+        assert not os.path.exists(sidecar), "nor a result claiming a build that never ran"
+        # …and the command says so as a note. An error would abort the ordinary adoption
+        # and reach the Binder as "the tome's contracts could not be prepared", which reads
+        # like the amendment itself failed rather than a fact about an older tome.
+        import io
+        import sys as system
+        import sync_contracts
+        out = io.StringIO()
+        saved = system.argv
+        system.argv = ["sync_contracts.py", "plan", BUILD_ID]
+        try:
+            with contextlib.redirect_stdout(out):
+                code = sync_contracts.main()
+        finally:
+            system.argv = saved
+        assert code == 0, code
+        # The Binder's harness matches that note to hand the CAUSE to the agent as work, so
+        # the phrase is a contract between the two sides, not just operator prose.
+        from arcanum.authoring.amendment.gate import PLAN_REFUSED
+        assert PLAN_REFUSED in out.getvalue(), out.getvalue()
+        assert out.getvalue().split(PLAN_REFUSED, 1)[1].split(": ", 1)[1].strip(), \
+            "the note must carry the cause after the first colon"
+        assert not os.path.exists(path)
+
+    # A mastery tome with no shipped contract cannot be gated on one nobody may write.
+    with in_memory_tome(wired(ids), ids, extra={"mastery": {"level": 4}}, plan=False):
+        # The dial is copied from the manifest, never chosen: the mastery gate compares them.
+        assert "- **Mastery (1-5):** 4" in adopted_plan_text(BUILD_ID)
+        try:
+            adopt_plan(BUILD_ID, BUILD_ID)
+            raise AssertionError("a mastery tome with no evidence file must not adopt")
+        except AdoptionError as exc:
+            assert "mastery-evidence.json" in str(exc), exc
+        assert not os.path.exists(path)
 
 
 def _reseal_check():

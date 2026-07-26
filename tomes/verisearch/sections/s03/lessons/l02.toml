@@ -1,6 +1,6 @@
 [[lessons]]
 id = "s03-l02"
-teaches = ["language-classes-records"]
+teaches = ["language-object-construction-invariants"]
 title = "Properties, constructors & object initializers"
 body = '''
 
@@ -52,7 +52,7 @@ required = true
 capabilities = ["language-classes-records"]
 cognitiveTask = "explain"
 scaffold = "guided"
-contextFamily = "verisearch-s03-classes-records"
+contextFamily = "verisearch-s03-object-construction-invariants"
 aidPolicy = "learning"
 prompt = "<code>public string Label { get; init; }</code> means…"
 choices = ["Label can never be set at all", "Label is computed from other properties", "Label can be changed at any time", "Label can be set only when the object is created, then it is read-only"]
@@ -69,7 +69,7 @@ required = true
 capabilities = ["language-classes-records"]
 cognitiveTask = "explain"
 scaffold = "guided"
-contextFamily = "verisearch-s03-classes-records"
+contextFamily = "verisearch-s03-object-construction-invariants"
 aidPolicy = "learning"
 prompt = "Which is true about constructors?"
 choices = ["They have the same name as the class and no return type", "They're named Build() by convention", "They must return the new object with 'return this;'", "Each class may have at most one"]
@@ -86,7 +86,7 @@ required = true
 capabilities = ["language-classes-records"]
 cognitiveTask = "complete"
 scaffold = "guided"
-contextFamily = "verisearch-s03-classes-records"
+contextFamily = "verisearch-s03-object-construction-invariants"
 aidPolicy = "learning"
 prompt = "Fill the blank to make a computed property: HasAddress is true when Url is not empty."
 code = "public bool HasAddress ____ Url.Length > 0;"
@@ -101,7 +101,7 @@ required = false
 capabilities = ["language-classes-records"]
 cognitiveTask = "complete"
 scaffold = "worked"
-contextFamily = "verisearch-s03-classes-records"
+contextFamily = "verisearch-s03-object-construction-invariants"
 aidPolicy = "learning"
 prompt = "Properties three ways — settable, init-only, computed. Once, precisely."
 code = '''
@@ -121,7 +121,7 @@ required = true
 capabilities = ["language-classes-records"]
 cognitiveTask = "test-design"
 scaffold = "guided"
-contextFamily = "verisearch-s03-classes-records"
+contextFamily = "verisearch-s03-object-construction-invariants"
 aidPolicy = "learning"
 prompt = "Build a <code>SourceDraft</code> class with a constructor taking (string label, string url), exposing both as read-only properties, plus computed <code>bool HasAddress =&gt; Url.Length &gt; 0;</code>. Create RFC / https://example.test/rfc and print <code>&lt;Label&gt; address: &lt;HasAddress&gt;</code>."
 expect = "RFC address: True"
@@ -144,10 +144,10 @@ public class SourceDraft
 hint = "The constructor assigns both get-only properties. Print with interpolation; bool displays as True."
 
 [[lessons.concepts]]
-id = "language-classes-records"
-purpose = "Model identity, behavior, and immutable data with an appropriate C# class or record."
-anatomy = "Choose class for owned behavior or identity and record for value-like data, then define construction and accessible members deliberately."
-example = "The disposable examples in Properties, constructors & object initializers isolate this capability before the learner chooses how it belongs in the cumulative project. The lesson Properties, constructors & object initializers supplies the disposable observation point."
-observable = "Instances carry the required facts and equality or mutation follows the selected type's intended semantics. Confirm it while practicing Properties, constructors & object initializers."
-failure = "Public mutation on trusted data or duplicate competing models lets invalid state cross the artifact."
+id = "language-object-construction-invariants"
+purpose = "Set the values a type cannot live without at the moment it is created, and control what may change afterwards."
+anatomy = "Properties expose get and set accessors, init admits a value only during construction, an expression body computes on each read, and a constructor demands its arguments."
+example = "A SourceDraft written first with get and set, then with a constructor and init-only properties, and finally created through an object initializer."
+observable = "A required value cannot be omitted at creation, and an init-only property refuses assignment once the initializer closes."
+failure = "Leaving every property writable lets a half-built source drift into an invalid state that no later validation can attribute."
 practice = "s03-l02-e1"

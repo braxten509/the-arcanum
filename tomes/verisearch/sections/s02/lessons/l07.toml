@@ -55,10 +55,6 @@ answer = 0
 whyWrong = "The method name follows the return type, and locals may have many types. The return type is the contract for the value handed back to the caller."
 explain = "A non-void method must return a value compatible with the declared return type."
 hint = "Look immediately before the method name."
-reviewVariants = [
-  { prompt = "What makes a transformation independently testable?", choices = ["Typed inputs and an observable return", "Hidden globals", "Console output only", "A longer name"], answer = 0 },
-  { prompt = "Where should a temporary parse variable live?", choices = ["The narrowest scope that needs it", "A public global", "Every class", "The project file"], answer = 0 }
-]
 
 [[lessons.exercises]]
 id = "s02-l07-e2"
@@ -130,9 +126,9 @@ hint = "Assign string.Join over Split with RemoveEmptyEntries, then return wheth
 
 [[lessons.concepts]]
 id = "language-methods-scope"
-purpose = "Give one transformation a named boundary with deliberate inputs, output, and variable lifetime."
-anatomy = "Declare the return type, method name, typed parameters, body, and return path; keep locals inside the narrowest useful scope."
-example = "The disposable examples in Methods — Give One Job a Name isolate this capability before the learner chooses how it belongs in the cumulative project. The lesson Methods — Give One Job a Name supplies the disposable observation point."
-observable = "Callers can exercise the behavior from its result without depending on hidden global state. Confirm it while practicing Methods — Give One Job a Name."
-failure = "A method that reads unrelated globals or has an incomplete return path makes tests and reuse unreliable."
+purpose = "Give one job a name, state what it needs, and state what it returns, so a growing program stays readable at its boundaries."
+anatomy = "A method declares a return type, a parameter list, and a body; parameters are local to it, and out parameters hand back extra results beside a bool verdict."
+example = "A TryPrepareQuestion method returning bool with out parameters for the prepared question and the error, called from a single if that uses one or the other."
+observable = "The caller reads as one decision, and a value declared inside the method is unreachable from outside it."
+failure = "A method that reaches for outer state, or returns nothing while quietly changing everything, cannot be tested or reused where it is needed."
 practice = "s02-l07-e1"

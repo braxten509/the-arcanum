@@ -50,6 +50,7 @@ prompt = "An async method that returns a string value should have which return t
 choices = ["string", "Task<string>", "Task", "async<string>"]
 answer = 1
 whyWrong = "An async method that yields a value returns Task<string> — bare ‘string’ isn’t awaitable, ‘Task’ carries no value, and ‘async<string>’ isn’t a type."
+explain = "An async method wraps its result in a task the caller can await: <code>Task&lt;string&gt;</code> when there is a value, plain <code>Task</code> when there is none. The declared type is how a caller learns that waiting is involved."
 hint = "Task of what?"
 
 [[lessons.exercises]]
@@ -80,6 +81,7 @@ prompt = "Why is <code>var html = http.GetStringAsync(url).Result;</code> consid
 choices = ["Result is misspelled", "It returns a Task instead of a string", "It blocks the thread and can deadlock; the async chain should use await instead", "GetStringAsync doesn't exist"]
 answer = 2
 whyWrong = "It’s not a typo or wrong return type — .Result synchronously blocks the thread and can deadlock; await the call so the thread is freed."
+explain = "<code>.Result</code> blocks the current thread until the task finishes, so the thread that should resume the continuation can be the very thread stuck waiting. <code>await</code> releases it instead, which is why the async chain must stay async all the way up."
 hint = "Blocking on async is the classic deadlock recipe."
 
 [[lessons.exercises]]
@@ -126,9 +128,9 @@ hint = "Console.WriteLine(await ConnectAsync()); — method declaration goes aft
 
 [[lessons.concepts]]
 id = "language-async-cancellation"
-purpose = "Coordinate I/O-bound work without blocking threads, serializing independent work, or swallowing cancellation."
-anatomy = "Return Task or Task<T>, await asynchronous operations, pass one CancellationToken, and use Task.WhenAll when independent work may overlap."
-example = "The disposable examples in async/await — waiting without freezing isolate this capability before the learner chooses how it belongs in the cumulative project. The lesson async/await — waiting without freezing supplies the disposable observation point."
-observable = "Independent reads overlap, completion resumes with typed results, and cancellation reaches the top boundary. Confirm it while practicing async/await — waiting without freezing."
-failure = "Using Result, Wait, await-inside-loop, or catching cancellation as an ordinary error breaks responsiveness."
+purpose = "Wait for slow work without freezing the program, and keep that waiting visible in the method signature."
+anatomy = "An async method returns Task, await yields control until the awaited work completes, and keeping the chain asynchronous upward keeps the boundary honest."
+example = "A FetchTitleAsync method awaiting an HTTP read, then the same call awaited from top-level statements instead of being blocked on a result property."
+observable = "The awaited value arrives after the wait, and no thread sits blocked while the response is in flight."
+failure = "Blocking on a result property converts an asynchronous call into a deadlock risk that only appears under load."
 practice = "s04-l02-e1"

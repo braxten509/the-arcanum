@@ -1,6 +1,6 @@
 [[lessons]]
 id = "s05-l05"
-teaches = ["language-namespaces-modularity"]
+teaches = ["language-nondestructive-config-loader"]
 title = "Workshop — Build the Non-Destructive Config Loader"
 body = '''
 
@@ -31,11 +31,11 @@ required = true
 capabilities = ["language-namespaces-modularity"]
 cognitiveTask = "explain"
 scaffold = "guided"
-contextFamily = "verisearch-s05-namespaces-modularity"
+contextFamily = "verisearch-s05-nondestructive-config-loader"
 aidPolicy = "learning"
 prompt = "Why does <code>LoadOrCreate</code> write defaults only after <code>File.Exists(path)</code> returns false?"
-choices = ["JSON cannot overwrite files", "An existing file is user-owned policy and may contain the evidence needed to repair an error", "Directory.CreateDirectory deletes it", "the configured AI locks the file"]
-answer = 1
+choices = ["An existing file is user-owned policy and may contain the evidence needed to repair an error", "JSON cannot overwrite files", "Directory.CreateDirectory deletes it", "the configured AI locks the file"]
+answer = 0
 whyWrong = "JSON can overwrite files, directory creation does not protect contents, and the configured AI does not own this file. The exists check prevents destructive replacement of user policy."
 explain = "Missing state may be initialized; existing invalid state must be diagnosed and preserved."
 hint = "Distinguish absent data from bad data."
@@ -48,7 +48,7 @@ required = false
 capabilities = ["language-namespaces-modularity"]
 cognitiveTask = "complete"
 scaffold = "worked"
-contextFamily = "verisearch-s05-namespaces-modularity"
+contextFamily = "verisearch-s05-nondestructive-config-loader"
 aidPolicy = "learning"
 reps = 2
 prompt = "Retype the portable path method twice."
@@ -66,7 +66,7 @@ required = true
 capabilities = ["language-namespaces-modularity"]
 cognitiveTask = "complete"
 scaffold = "guided"
-contextFamily = "verisearch-s05-namespaces-modularity"
+contextFamily = "verisearch-s05-nondestructive-config-loader"
 aidPolicy = "learning"
 prompt = "Complete the call that creates parent directories without failing when they already exist."
 code = '''Directory.____(Path.GetDirectoryName(path)!);'''
@@ -81,7 +81,7 @@ required = true
 capabilities = ["language-namespaces-modularity"]
 cognitiveTask = "explain"
 scaffold = "guided"
-contextFamily = "verisearch-s05-namespaces-modularity"
+contextFamily = "verisearch-s05-nondestructive-config-loader"
 aidPolicy = "learning"
 prompt = "Where should a malformed JSON exception become a friendly terminal message?"
 choices = ["Inside every model property", "At the single Program.cs application boundary", "Inside SourceFetcher", "Nowhere; hide it"]
@@ -98,7 +98,7 @@ required = true
 capabilities = ["language-namespaces-modularity"]
 cognitiveTask = "build"
 scaffold = "guided"
-contextFamily = "verisearch-s05-namespaces-modularity"
+contextFamily = "verisearch-s05-nondestructive-config-loader"
 aidPolicy = "learning"
 prompt = "Implement <code>static string ConfigPath(string home)</code> with <code>Path.Combine</code>. Call it with <code>/home/ava</code> and print the resulting path."
 starter = '''string path = ConfigPath("/home/ava");
@@ -121,10 +121,10 @@ static string ConfigPath(string home)
 hint = "Path.Combine accepts more than two path segments."
 
 [[lessons.concepts]]
-id = "language-namespaces-modularity"
-purpose = "Split a growing C# program into discoverable files and namespaces with one clear owner per responsibility."
-anatomy = "Place related types under a namespace, keep the entrypoint as composition, and reference public contracts instead of copying declarations."
-example = "The disposable examples in Workshop — Build the Non-Destructive Config Loader isolate this capability before the learner chooses how it belongs in the cumulative project. The lesson Workshop — Build the Non-Destructive Config Loader supplies the disposable observation point."
-observable = "The whole solution builds with one definition for each concept and dependencies point in an understandable direction. Confirm it while practicing Workshop — Build the Non-Destructive Config Loader."
-failure = "Duplicate types, circular ownership, or business logic in Program.cs makes later integration brittle."
+id = "language-nondestructive-config-loader"
+purpose = "Own the whole policy of loading a catalog when it is absent, malformed, duplicated, or invalid, without ever destroying what is already there."
+anatomy = "One loading boundary decides the missing-file behavior, reports malformed content with its path, and never writes over content it could not read."
+example = "An existence branch choosing between a documented default and a refusal, with the malformed case proved by a fixture rather than by a live file."
+observable = "Existing malformed content survives the run, and each failure case produces its own actionable message."
+failure = "A loader that helpfully rewrites an unreadable catalog deletes the only copy of the seeker's source choices."
 practice = "s05-l05-e1"

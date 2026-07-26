@@ -55,6 +55,7 @@ prompt = "Where are your project's package dependencies recorded?"
 choices = ["Program.cs", "the Windows registry", "packages.txt", "the .csproj file"]
 answer = 3
 whyWrong = "Dependencies aren’t tracked in Program.cs, a packages.txt, or the registry — they’re PackageReference entries in the .csproj."
+explain = "A <code>PackageReference</code> entry in the .csproj is the only record the restore step reads, which is why the project file is what you commit and the package cache is what you ignore."
 hint = "The XML project file."
 
 [[lessons.exercises]]
@@ -71,6 +72,7 @@ prompt = "Which of these requires NO NuGet package because it ships with .NET?"
 choices = ["HttpClient", "CsvHelper", "AngleSharp", "Spectre.Console"]
 answer = 0
 whyWrong = "CsvHelper, AngleSharp and Spectre.Console are NuGet packages—HttpClient ships in the base class library, so no package is needed."
+explain = "<code>HttpClient</code>, <code>System.Text.Json</code>, and the File helpers ship in the base class library, so a package you add should solve a bounded problem the platform does not already solve."
 hint = "HTTP is built into the platform."
 
 [[lessons.exercises]]
@@ -91,9 +93,9 @@ dotnet add package AngleSharp
 
 [[lessons.concepts]]
 id = "language-testing-debugging"
-purpose = "Turn a C# promise into an executable check and diagnose failures from the earliest broken boundary."
-anatomy = "Arrange controlled inputs, invoke one behavior, assert an observable result, then use compiler, test, or debugger output to localize a failing case."
-example = "The disposable examples in NuGet — the .NET package bazaar isolate this capability before the learner chooses how it belongs in the cumulative project. The lesson NuGet — the .NET package bazaar supplies the disposable observation point."
-observable = "The check passes for a valid case and fails when its load-bearing input is deliberately changed. Confirm it while practicing NuGet — the .NET package bazaar."
-failure = "A test that prints a prepared success receipt or requires live network state cannot distinguish a regression."
+purpose = "Turn a promise into an executable check, and read failure output from the earliest boundary that broke."
+anatomy = "A sibling test project references the application project; a test arranges one controlled input, invokes one public behavior, and asserts one observable result."
+example = "A scratch xunit project created beside the application with a project reference added, then dotnet test run once green and once after a deliberate break."
+observable = "The check passes for the valid case and turns red when a load-bearing line is changed on purpose."
+failure = "A test that needs live network, or that cannot fail under any mutation, is ceremony that reports health it never measured."
 practice = "s04-l01-e1"

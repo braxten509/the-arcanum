@@ -1,98 +1,140 @@
 [[lessons]]
 id = "s05-l04"
-teaches = ["lora-capacity-scale"]
-title = "Separate Adapter Capacity from Adapter Scale"
+teaches = ["hyperparameter-plan"]
+title = "The Knobs: Rank, Alpha, and Learning Rate"
 body = '''
-<p>Rank and alpha both change a LoRA branch, but they own different questions. <strong>Rank</strong> (<code>r</code>) limits the degrees of freedom in each targeted delta and increases trainable parameter count linearly. <strong>Alpha</strong> (<code>lora_alpha</code>) changes the branch scale <code>α/r</code> without changing its matrix shapes. Keep those effects separate before choosing either value.</p>
+<p>Three numbers decide what the bind can learn and how hard it pulls. They are not interchangeable, and none of them can be read off a table of dataset sizes. Separate what each one owns before you set any of them.</p>
 <table><thead><tr><th>Knob</th><th>Direct effect</th><th>Must be measured</th></tr></thead><tbody>
-<tr><td><code>r</code></td><td>Capacity, parameter count, optimizer state</td><td>Instantiated targets, peak memory, held-out behavior</td></tr>
-<tr><td><code>alpha</code></td><td>Scale of the adapter contribution</td><td>Loss behavior, output gates, extraction probes</td></tr>
+<tr><td><code>r</code></td><td>Capacity, trainable count, optimizer state</td><td>Instantiated targets, peak memory, held-out behavior</td></tr>
+<tr><td><code>lora_alpha</code></td><td>Scale <code>α/r</code> of the adapter contribution</td><td>Loss behavior, output gates, extraction probes</td></tr>
+<tr><td><code>learning_rate</code></td><td>Optimizer step size</td><td>Curves at matched checkpoints, gate results</td></tr>
 </tbody></table>
-<p>For a targeted linear layer with <code>in_features</code> inputs and <code>out_features</code> outputs, LoRA adds <code>r × (in_features + out_features)</code> parameters. Sum that expression over every targeted layer; never infer a model-wide count from one projection. For the pinned Qwen3-8B graph and <code>target_modules="all-linear"</code>, rank 16 produces about 43,646,976 trainable parameters. Rank 128 scales that count to about 349,175,808.</p>
-<p>Under the course's simplified 12-bytes-per-trainable-parameter ledger, rank 128 needs about 4.19 GB for adapter weights, gradients, and Adam state before activations and framework overhead. That is a planning estimate, not a fit guarantee. The instantiated PEFT target list, <code>print_trainable_parameters()</code>, and measured dry-run peak remain authoritative.</p>
-<pre><code># Same capacity, different branch scale:
-r = 16
-alpha = 32
-branch_scale = alpha / r  # 2.0
-
-# Same branch scale, more capacity and cost:
-r = 32
-alpha = 64
-branch_scale = alpha / r  # still 2.0</code></pre>
-<p>Alpha is distinct from optimizer learning rate, but it is not gradient-neutral. Because <code>α/r</code> participates in the forward computation, the chain rule also scales gradients flowing into A and B. Changing rank can also change optimization behavior even when <code>α/r</code> is held constant. Treat both values as experiment inputs, not universal rules derived from dataset size.</p>
-<div class="field-notes"><div class="fn-head">FIELD NOTES // COUNT, SCALE, THEN MEASURE</div>
-<p>A proposed rank must survive three separate questions: what graph-wide parameter count does it create, what measured memory peak follows, and does its held-out behavior beat a smaller candidate without new critical failures? Alpha answers none of those alone. It only states how strongly the current low-rank path enters the forward computation.</p></div>
+<p><strong>Rank</strong> limits the degrees of freedom in each targeted delta and raises the trainable count linearly. This chapter's first rite gave you the per-layer expression, <code>r × (in_features + out_features)</code>, summed over every instantiated target — never inferred from one projection. Rank 16 on the pinned Qwen3-8B all-linear graph is 43,646,976 trainable parameters; rank 128 scales that to 349,175,808, roughly 4.19 GB of weights, gradients, and Adam state under the course's simplified twelve-bytes-per-trainable-parameter ledger. That is a planning estimate, not a fit guarantee. The measured dry-run peak in the next lesson stays authoritative.</p>
+<p><strong>Alpha</strong> changes the branch scale <code>α/r</code> without changing a single matrix shape:</p>
+<pre><code># Same branch scale, different capacity and cost:
+small = {"r": 16, "alpha": 32}   # branch scale 2.0
+large = {"r": 32, "alpha": 64}   # branch scale 2.0, twice the parameters</code></pre>
+<p>Alpha is not the learning rate, and it is not gradient-neutral: because <code>α/r</code> sits inside the forward computation, the chain rule scales the gradients entering A and B as well. Changing rank can shift optimization behavior even when <code>α/r</code> is held constant. <strong>Learning rate</strong> is the optimizer's configured step size and lives on <code>SFTConfig</code>. Values such as <code>5e-5</code>, <code>1e-4</code>, and <code>2e-4</code> are candidates for this project, not a settled safe range. The predeclared first run is <code>r=16</code>, <code>lora_alpha=32</code>, <code>learning_rate=1e-4</code>, one epoch.</p>
+<pre><code>args = SFTConfig(
+    output_dir="runs/bind-001",
+    learning_rate=1e-4,
+    num_train_epochs=1,
+    eval_strategy="steps",
+    save_strategy="steps",
+)</code></pre>
+<p>Choose among the candidates by controlled trial, written down before you look at any output:</p>
+<ul>
+<li>hold the curated train/evaluation split, seed, base revision, target graph, batch policy, and generation settings fixed;</li>
+<li>change one factor at a time and assign the run a new id;</li>
+<li>record trainable parameters, peak allocated and reserved memory, and both curves;</li>
+<li>run the held-out correctness, voice, privacy, and extraction gates; and</li>
+<li>promote the smallest candidate that clears every essential gate.</li>
+</ul>
+<p>A falling training loss establishes only that the optimizer can fit the supervised signal. It does not establish better held-out behavior or freedom from memorization. Compare evaluation curves at matched checkpoints, preserve the exact failures, and probe for distinctive substrings. Because alpha alters both the forward path and the gradients through it, compare learning-rate candidates only while alpha and rank stay fixed; otherwise the trial cannot attribute its result to one cause.</p>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // A SWEEP IS AN EXPERIMENT, NOT A SLOT MACHINE</div>
+<p>Run the smallest planned comparison that can answer the current question. If rank 16 already clears the gates, a larger rank must earn its extra memory against the Section III headroom rule. If one epoch clears them, a second must improve frozen evidence rather than merely lower training loss. Keep every failed candidate beside the single factor that changed it — a record that says only "it felt better" will repeat the same unsupported guess three runs later.</p></div>
 '''
 
 [[lessons.readings]]
-label = "PEFT LoRA concepts"
-url = "https://huggingface.co/docs/peft/v0.19.1/conceptual_guides/lora"
+label = "PEFT adapters concept guide (LoRA rank and alpha)"
+url = "https://huggingface.co/docs/peft/v0.19.0/conceptual_guides/adapter"
+
+[[lessons.readings]]
+label = "TRL SFT configuration"
+url = "https://huggingface.co/docs/trl/v1.8.0/sft_trainer"
 
 [[lessons.exercises]]
 id = "s05-l04-e1"
+type = "type"
+points = 12
+reps = 2
+prompt = "Retype the paired configurations from the lesson; watch which value moves when capacity doubles and the branch scale does not."
+code = '''small = {"r": 16, "alpha": 32}   # branch scale 2.0
+large = {"r": 32, "alpha": 64}   # branch scale 2.0, twice the parameters'''
+
+[[lessons.exercises]]
+id = "s05-l04-e2"
 type = "mc"
 points = 20
 prompt = "What changes when <code>lora_alpha</code> rises from 16 to 32 while rank remains 16?"
 choices = [
   "The adapter gains twice as many matrix entries",
-  "The branch scale rises from 1.0 to 2.0 without adding parameters",
-  "The optimizer learning rate doubles",
-  "The dropout rate doubles",
+  "The branch scale rises from 1.0 to 2.0 without adding a single parameter",
+  "The configured optimizer step size doubles",
+  "The adapter dropout rate doubles",
 ]
 answer = 1
-whyWrong = "Alpha does not resize A or B and does not rewrite the optimizer or dropout configuration."
-explain = "With rank fixed, alpha changes α/r, which scales the adapter contribution and the gradients through that path."
-hint = "Evaluate the ratio α/r while holding every matrix shape fixed."
-
-[[lessons.exercises]]
-id = "s05-l04-e2"
-type = "text"
-points = 15
-prompt = "What formula gives the number of LoRA parameters added to one targeted linear layer?"
-answer = "r * (in_features + out_features)"
-accept = ["r*(in_features+out_features)", "r × (in_features + out_features)", "rank * (in_features + out_features)"]
-hint = "Count the entries in A and B, then add them."
+whyWrong = "Alpha does not resize A or B, and it does not rewrite the learning rate or dropout entries in the configuration."
+explain = "With rank pinned at 16, doubling alpha doubles α/r, which scales the adapter contribution in the forward pass and the gradients flowing back through that path."
+hint = "Evaluate α/r with every matrix shape held fixed, then ask which line of the configuration actually changed."
 
 [[lessons.exercises]]
 id = "s05-l04-e3"
-type = "fill"
-points = 20
-prompt = "Complete the scale while keeping the branch ratio equal to 2.0."
-code = '''r = 32
-alpha = ____
-branch_scale = alpha / r'''
-answer = "64"
-hint = "Solve alpha divided by 32 equals 2."
+type = "text"
+points = 15
+prompt = "What expression gives the number of LoRA parameters added to one targeted linear layer?"
+answer = "r * (in_features + out_features)"
+accept = ["r*(in_features+out_features)", "r × (in_features + out_features)", "rank * (in_features + out_features)"]
+hint = "Count the entries in A, count the entries in B, then add the two counts."
 
 [[lessons.exercises]]
 id = "s05-l04-e4"
-type = "write"
-points = 35
-prompt = "Calculate the graph-wide rank-128 training-state estimate from the supplied measured rank-16 count and print exactly: R128 349175808 PARAMS 4.19 GB"
-starter = '''rank_16_params = 43_646_976
-target_rank = 128
-bytes_per_trainable_param = 12
-
-rank_128_params = 0
-training_state_gb = 0
-print(f"R128 {rank_128_params} PARAMS {training_state_gb:.2f} GB")
-'''
-solution = '''rank_16_params = 43_646_976
-target_rank = 128
-bytes_per_trainable_param = 12
-
-rank_128_params = rank_16_params * target_rank // 16
-training_state_gb = rank_128_params * bytes_per_trainable_param / 1_000_000_000
-print(f"R128 {rank_128_params} PARAMS {training_state_gb:.2f} GB")
-'''
-expect = "R128 349175808 PARAMS 4.19 GB"
-hint = "Scale the model-wide count linearly by rank before converting the byte ledger to decimal gigabytes."
+type = "fill"
+points = 20
+prompt = "Complete the field that carries the predeclared optimizer step size for the first bind."
+code = '''args = SFTConfig(
+    ____=1e-4,
+    num_train_epochs=1,
+)'''
+answer = "learning_rate"
+hint = "Name the optimizer setting from the configuration block, not the adapter's branch scale."
 
 [[lessons.exercises]]
 id = "s05-l04-e5"
-type = "type"
-points = 12
-reps = 2
-prompt = "Retype the two configurations with the same branch scale but different capacity."
-code = '''small = {"r": 16, "alpha": 32}
-large = {"r": 32, "alpha": 64}'''
+type = "write"
+points = 35
+prompt = "Four candidate binds were recorded below. Apply the predeclared gates — zero criticals, peak reserved memory under 14.0 GiB (the Section III two-GiB headroom rule on a 16 GB card), and a blinded held-out voice score of at least 3.5 — then promote the surviving candidate with the fewest trainable parameters. Print exactly: PROMOTE B"
+starter = '''trials = [
+    {"id": "A", "params": 21_823_488, "peak_reserved_gib": 12.2, "voice": 3.4, "criticals": 0},
+    {"id": "B", "params": 43_646_976, "peak_reserved_gib": 13.1, "voice": 3.7, "criticals": 0},
+    {"id": "C", "params": 87_293_952, "peak_reserved_gib": 14.3, "voice": 3.8, "criticals": 0},
+    {"id": "D", "params": 43_646_976, "peak_reserved_gib": 13.0, "voice": 3.9, "criticals": 1},
+]
+
+passing = []
+print("PROMOTE NONE")
+'''
+solution = '''trials = [
+    {"id": "A", "params": 21_823_488, "peak_reserved_gib": 12.2, "voice": 3.4, "criticals": 0},
+    {"id": "B", "params": 43_646_976, "peak_reserved_gib": 13.1, "voice": 3.7, "criticals": 0},
+    {"id": "C", "params": 87_293_952, "peak_reserved_gib": 14.3, "voice": 3.8, "criticals": 0},
+    {"id": "D", "params": 43_646_976, "peak_reserved_gib": 13.0, "voice": 3.9, "criticals": 1},
+]
+
+passing = [
+    trial for trial in trials
+    if trial["criticals"] == 0
+    and trial["peak_reserved_gib"] < 14.0
+    and trial["voice"] >= 3.5
+]
+promoted = min(passing, key=lambda trial: trial["params"])
+print(f"PROMOTE {promoted['id']}")
+'''
+expect = "PROMOTE B"
+hint = "Filter on all three hard gates first; only then take the smallest params value among the survivors."
+
+[[lessons.exercises]]
+id = "s05-l04-e6"
+type = "mc"
+points = 20
+prompt = "A second epoch lowers training loss, but held-out correctness falls and extraction probes match more of your private notes verbatim. What does that evidence support?"
+choices = [
+  "Keep the second epoch, because the lower training loss is the decisive measurement",
+  "Raise alpha until the held-out scoring agrees with the training loss",
+  "Reject the second epoch, keep the smaller passing run, and investigate both regressions",
+  "Retire the held-out suite as too noisy to block a promotion",
+]
+answer = 2
+whyWrong = "Training loss cannot outvote held-out and extraction results, and raising alpha or retiring the frozen suite alters the measurement instead of answering it."
+explain = "Promotion follows the predeclared behavior and privacy gates; on a small personal corpus, a falling training loss beside rising verbatim matches is what memorization looks like."
+hint = "Sort the three observations into promotion gates and optimization diagnostics before deciding which one may move the verdict."

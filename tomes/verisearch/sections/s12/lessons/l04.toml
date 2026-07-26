@@ -1,7 +1,7 @@
 
 [[lessons]]
 id = "s12-l04"
-teaches = ["language-control-flow"]
+teaches = ["language-execution-trace-diagnosis"]
 title = "Trace an Unknown Starter Before Editing"
 body = '''
 <p>The assigned starter is buildable and intentionally incomplete. Treat that as evidence. The compiler has already established that project metadata, syntax, and declared names can coexist. Your first task is therefore not to rewrite it; it is to trace the ordinary and failing paths with one concrete input each.</p>
@@ -30,7 +30,7 @@ required = true
 capabilities = ["language-control-flow"]
 cognitiveTask = "explain"
 scaffold = "guided"
-contextFamily = "verisearch-s12-control-flow"
+contextFamily = "verisearch-s12-execution-trace-diagnosis"
 aidPolicy = "limited"
 prompt = "The starter builds but mishandles one invalid record. Where should diagnosis begin?"
 choices = ["Rewrite every file", "The first admission or parsing branch where actual behavior diverges", "The final console color", "The hidden reference"]
@@ -47,11 +47,11 @@ required = true
 capabilities = ["language-control-flow"]
 cognitiveTask = "explain"
 scaffold = "guided"
-contextFamily = "verisearch-s12-control-flow"
+contextFamily = "verisearch-s12-execution-trace-diagnosis"
 aidPolicy = "limited"
 prompt = "Why run the public example before editing?"
-choices = ["It proves every hidden case", "It establishes a baseline observation for the incomplete starter", "It downloads the answer", "It replaces a build"]
-answer = 1
+choices = ["It proves every hidden case", "It downloads the answer", "It establishes a baseline observation for the incomplete starter", "It replaces a build"]
+answer = 2
 whyWrong = "A public example is a baseline, not complete proof or a substitute for compilation."
 hint = "You need an actual-before value to compare with your prediction."
 explain = "A baseline makes the effect of the first scoped edit observable."
@@ -64,7 +64,7 @@ required = true
 capabilities = ["language-control-flow"]
 cognitiveTask = "complete"
 scaffold = "guided"
-contextFamily = "verisearch-s12-control-flow"
+contextFamily = "verisearch-s12-execution-trace-diagnosis"
 aidPolicy = "limited"
 prompt = "Complete the diagnosis sequence: trace, predict, ____, rerun."
 code = "trace -> predict -> ____ -> rerun"
@@ -80,7 +80,7 @@ required = true
 capabilities = ["language-control-flow"]
 cognitiveTask = "debug"
 scaffold = "independent"
-contextFamily = "verisearch-s12-control-flow"
+contextFamily = "verisearch-s12-execution-trace-diagnosis"
 aidPolicy = "limited"
 prompt = "Repair a loop over <code>new[] { 3, -1, 4 }</code> so it preserves the two nonnegative values, counts one rejection, terminates, and prints exactly <code>kept=2 rejected=1</code>."
 expect = "kept=2 rejected=1"
@@ -97,10 +97,10 @@ Console.WriteLine($"kept={kept} rejected={rejected}");
 hint = "Advance with foreach and update exactly one counter on each branch."
 
 [[lessons.concepts]]
-id = "language-control-flow"
-purpose = "Trace and repair unfamiliar branches and loops from explicit state claims rather than product analogy."
-anatomy = "Predict one ordinary and one failing path, locate the earliest divergence, make a scoped edit, and rerun both."
-example = "The preserved-value loop demonstrates admission, rejection, state update, and termination without project-specific nouns."
-observable = "Distinct inputs take the intended branch, preserved state remains visible, and iteration terminates."
-failure = "A broad rewrite hides the first broken condition and can overfit the public example."
+id = "language-execution-trace-diagnosis"
+purpose = "Trace an unfamiliar starter from its entry point before editing it, and let the compiler and tests locate the gap."
+anatomy = "Read from the entry point downward, marking where external text becomes typed, where a branch admits or rejects, where state changes, and where output happens."
+example = "A trace written as a chain from one line read through parse, admit, and print, with the missing behavior named as a position in that chain."
+observable = "The first edit lands where the trace says behavior is missing, and the earliest failing diagnostic points at it."
+failure = "Rewriting a buildable starter discards the evidence that its metadata, syntax, and declared names already agree."
 practice = "s12-l04-e1"

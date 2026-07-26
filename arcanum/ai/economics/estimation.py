@@ -4,8 +4,20 @@ from .pricing import MODEL_PRICES, PRICING_SOURCE, PRICING_VERSION
 
 USAGE_KEYS = (
     "inputTokens", "freshInputTokens", "cachedInputTokens",
-    "cacheWriteTokens", "outputTokens", "reasoningTokens", "totalTokens",
+    "cacheWriteTokens", "cacheWrite1hTokens",
+    "outputTokens", "reasoningTokens", "totalTokens",
 )
+
+
+def cache_write_cost(usage, rates):
+    """Price both cache-write buckets. ``cacheWrite1hTokens`` is a subset of the total.
+
+    Clamped rather than trusted: a provider that reports a 1-hour bucket larger than
+    the write total would otherwise bill negative tokens at the 5-minute rate.
+    """
+    extended = min(usage["cacheWrite1hTokens"], usage["cacheWriteTokens"])
+    return ((usage["cacheWriteTokens"] - extended) * rates["cacheWriteInput"]
+            + extended * rates["cacheWrite1hInput"])
 
 
 def normalize_usage(value):
@@ -31,7 +43,7 @@ def usage_cost(model, usage):
     amount = (
         usage["freshInputTokens"] * rates["freshInput"]
         + usage["cachedInputTokens"] * rates["cachedInput"]
-        + usage["cacheWriteTokens"] * rates["cacheWriteInput"]
+        + cache_write_cost(usage, rates)
         + usage["outputTokens"] * rates["output"]
     ) / 1_000_000
     return round(amount, 9), rates

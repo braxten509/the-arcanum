@@ -17,6 +17,7 @@ from tools.buildlib.ai_costs import (api_equivalent_completion_cost,
 from arcanum.authoring.read_models.durable_status import load_gpt_running_cost
 from tools.buildlib.prerequisites import review as prerequisite_review
 from tools.buildlib.runtime.events import usage_from_line
+from arcanum.ai.economics.estimation import estimate_api_equivalent_cost
 
 
 def rows(path):
@@ -31,6 +32,23 @@ assert claude_usage["inputTokens"] == 110
 assert claude_usage["freshInputTokens"] == 20
 assert claude_usage["cachedInputTokens"] == 80
 assert claude_usage["cacheWriteTokens"] == 10
+
+# Claude Code writes 1-hour cache entries, which cost 2x base input rather than the
+# 5-minute default's 1.25x. Read from the provider's own split, and priced apart.
+ttl_usage = usage_from_line(json.dumps({"usage": {
+    "input_tokens": 2, "cache_read_input_tokens": 0,
+    "cache_creation_input_tokens": 1_000_000, "output_tokens": 0,
+    "cache_creation": {"ephemeral_5m_input_tokens": 400_000,
+                       "ephemeral_1h_input_tokens": 600_000}}}))
+assert ttl_usage["cacheWriteTokens"] == 1_000_000, ttl_usage
+assert ttl_usage["cacheWrite1hTokens"] == 600_000, ttl_usage
+# The 1-hour bucket rides inside the write total; it must not double-count as input.
+assert ttl_usage["inputTokens"] == 1_000_002, ttl_usage
+# Opus 5: 400k at $6.25/M + 600k at $10.00/M + 2 fresh at $5/M = $2.50 + $6.00 + $0.00001.
+assert estimate_api_equivalent_cost("claude-opus-5", ttl_usage)["usd"] == 8.50001
+# A record with no split at all still prices at the 5-minute rate, as before.
+assert estimate_api_equivalent_cost("claude-opus-5", claude_usage)["usd"] == round(
+    (20 * 5.0 + 80 * 0.5 + 10 * 6.25 + 5 * 25.0) / 1_000_000, 9)
 
 with tempfile.TemporaryDirectory() as folder:
     record_ai_turn(
@@ -205,7 +223,7 @@ with tempfile.TemporaryDirectory() as folder:
                         "outputTokens": 326_352}, ended_at=1350)
     assert resumed["usage"] == {
         "inputTokens": 326_817, "freshInputTokens": 54_945,
-        "cachedInputTokens": 271_872, "cacheWriteTokens": 0,
+        "cachedInputTokens": 271_872, "cacheWriteTokens": 0, "cacheWrite1hTokens": 0,
         "outputTokens": 1_489, "reasoningTokens": 0, "totalTokens": 328_306,
     }
     assert resumed["apiEquivalentUsd"] == 0.455331

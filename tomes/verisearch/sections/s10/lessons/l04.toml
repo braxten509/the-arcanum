@@ -1,6 +1,6 @@
 [[lessons]]
 id = "s10-l04"
-teaches = ["language-interfaces-polymorphism"]
+teaches = ["language-render-contract-design"]
 title = "Design a Report That Can Render Only Verified Quotes"
 body = '''
 <p>Formatting scattered through the pipeline makes truth rules hard to see. Create one <code>ReportRenderer</code> whose public method accepts a question, a read-only collection of <code>VerifiedQuote</code>, rejected-proposal count, source-error strings, and the two mode flags. There is deliberately no overload for <code>QuoteProposal</code>.</p>
@@ -26,7 +26,7 @@ required = true
 capabilities = ["language-interfaces-polymorphism"]
 cognitiveTask = "explain"
 scaffold = "guided"
-contextFamily = "verisearch-s10-interfaces-polymorphism"
+contextFamily = "verisearch-s10-render-contract-design"
 aidPolicy = "limited"
 prompt = "Why does ReportRenderer accept <code>VerifiedQuote</code> but not <code>QuoteProposal</code>?"
 choices = ["Spectre cannot render records", "The method signature makes bypassing verification harder", "Proposals have no strings", "It improves network speed"]
@@ -43,7 +43,7 @@ required = true
 capabilities = ["language-interfaces-polymorphism"]
 cognitiveTask = "explain"
 scaffold = "guided"
-contextFamily = "verisearch-s10-interfaces-polymorphism"
+contextFamily = "verisearch-s10-render-contract-design"
 aidPolicy = "limited"
 prompt = "There are zero verified quotes and the configured AI returned malformed JSON. What should the report show?"
 choices = ["A designed no-verified-quotes state plus the model error", "A fabricated quote", "The malformed JSON", "Nothing"]
@@ -60,11 +60,11 @@ required = true
 capabilities = ["language-interfaces-polymorphism"]
 cognitiveTask = "explain"
 scaffold = "guided"
-contextFamily = "verisearch-s10-interfaces-polymorphism"
+contextFamily = "verisearch-s10-render-contract-design"
 aidPolicy = "limited"
 prompt = "Which LINQ operator groups verified quotes under each source URL?"
-choices = ["Distinct", "GroupBy", "Zip", "Aggregate"]
-answer = 1
+choices = ["Distinct", "Aggregate", "Zip", "GroupBy"]
+answer = 3
 whyWrong = "Distinct removes duplicates, Zip pairs sequences, and Aggregate folds values. GroupBy forms one bucket per URL."
 explain = "Each grouping exposes its URL Key and all VerifiedQuote members from that source."
 hint = "Bucket by quote.Url."
@@ -77,7 +77,7 @@ required = false
 capabilities = ["language-interfaces-polymorphism"]
 cognitiveTask = "complete"
 scaffold = "worked"
-contextFamily = "verisearch-s10-interfaces-polymorphism"
+contextFamily = "verisearch-s10-render-contract-design"
 aidPolicy = "limited"
 reps = 2
 prompt = "Retype the markup-safe quote output twice."
@@ -94,7 +94,7 @@ required = true
 capabilities = ["language-interfaces-polymorphism"]
 cognitiveTask = "build"
 scaffold = "independent"
-contextFamily = "verisearch-s10-interfaces-polymorphism"
+contextFamily = "verisearch-s10-render-contract-design"
 aidPolicy = "limited"
 prompt = "Given an empty verified quote list and one source error, print the exact two-line plain-text empty state from the solution contract."
 starter = '''var quotes = new List<string>();
@@ -118,10 +118,10 @@ foreach (string error in errors)
 hint = "Print the empty line when Count is zero, then foreach the errors with the source error prefix."
 
 [[lessons.concepts]]
-id = "language-interfaces-polymorphism"
-purpose = "Name a behavioral seam so real providers and test doubles can be substituted without changing the pipeline's truth rules."
-anatomy = "Declare the smallest useful interface member, implement it in separate concrete types, and depend on the interface at the caller boundary."
-example = "The disposable examples in Design a Report That Can Render Only Verified Quotes isolate this capability before the learner chooses how it belongs in the cumulative project. The lesson Design a Report That Can Render Only Verified Quotes supplies the disposable observation point."
-observable = "Two implementations can satisfy the same caller while verification and reporting remain unchanged. Confirm it while practicing Design a Report That Can Render Only Verified Quotes."
-failure = "An interface that exposes provider details or verified output lets one implementation bypass the common contract."
+id = "language-render-contract-design"
+purpose = "Design one rendering boundary whose input shape makes an unverified quotation impossible to represent."
+anatomy = "The public method accepts the question, the verified quotations, a rejection count, source error diagnostics, and explicit mode flags, and nothing else."
+example = "A renderer contract naming verified quotations and mode state in its parameters, with proposal types deliberately absent from the signature."
+observable = "The renderer cannot be called with proposal data, and every rendered section traces to an input the caller had to supply."
+failure = "Letting the renderer accept raw model output moves the last trust boundary into formatting code, where nobody looks for it."
 practice = "s10-l04-e1"

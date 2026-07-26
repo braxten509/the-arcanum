@@ -77,10 +77,16 @@ def usage_from_line(line: str) -> dict | None:
         usage = {**output_details, **usage}
     anthropic_cache_read = usage.get("cache_read_input_tokens")
     anthropic_cache_write = usage.get("cache_creation_input_tokens")
-    if anthropic_cache_write is None and isinstance(usage.get("cache_creation"), dict):
+    creation = usage.get("cache_creation")
+    creation = creation if isinstance(creation, dict) else {}
+    if anthropic_cache_write is None and creation:
         anthropic_cache_write = sum(
-            int(value or 0) for value in usage["cache_creation"].values()
+            int(value or 0) for value in creation.values()
             if isinstance(value, (int, float)))
+    # Reported apart because they are priced apart: the extended TTL costs 2x base
+    # input against the 5-minute default's 1.25x. A subset of cacheWriteTokens, so
+    # every existing total that sums the input side stays correct.
+    cache_write_1h = creation.get("ephemeral_1h_input_tokens")
     aliases = {
         "inputTokens": ("input_tokens", "inputTokens"),
         "cachedInputTokens": ("cached_input_tokens", "cachedInputTokens",
@@ -107,6 +113,8 @@ def usage_from_line(line: str) -> dict | None:
         normalized["freshInputTokens"] = fresh
         normalized["inputTokens"] = (fresh + normalized["cachedInputTokens"]
                                      + normalized["cacheWriteTokens"])
+    if isinstance(cache_write_1h, (int, float)):
+        normalized["cacheWrite1hTokens"] = int(cache_write_1h)
     elif "inputTokens" in normalized:
         normalized["freshInputTokens"] = max(
             0, normalized["inputTokens"] - normalized.get("cachedInputTokens", 0)

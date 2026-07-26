@@ -152,6 +152,12 @@ Phase-0 `TOOLING` value literally.
   `tome-authoring/10-mastery-evidence.md`, then run the assigned mastery-review, strict, and smoke
   commands until clean and mark the phase `validating`. The harness independently repeats them. A clean
   validator is necessary but does not replace the complete semantic review.
+- Publication: after Phase 8 clears, the thorough full-tome reviewer runs, and once every
+  mechanical gate is clean a separate read-only survey measures the finished tome against
+  `publisher.md` — the publication bar — and writes a verdict to `reviews/`. A tome ships only
+  when that survey says `READY` and the gates agree. Anything the survey calls blocking goes
+  back to the reviewer for repair, up to three rounds, then the build stops for a person. This
+  stage is the build's, not the author's: never run it, imitate it, or write its report.
 
 Phase-focused validators may defer later-phase warnings. Do not edit future-phase banks to
 silence deferred counts. Never weaken an earlier proof or remove content merely to make a gate

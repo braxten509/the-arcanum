@@ -338,8 +338,13 @@ function showForgeModal(resume) {
     if (savedValidator?.effort && [...validatorEffort.options].some((option) =>
       option.value === savedValidator.effort)) validatorEffort.value = savedValidator.effort;
     const savedReviewer = resume?.reviewer && resume.reviewer.model
-      ? resume.reviewer : JSON.parse(localStorage.getItem("binderyReviewer") || "null");
-    reviewEnabled.checked = !!(resume?.reviewer && resume.reviewer.model);
+      ? resume.reviewer
+      : JSON.parse(localStorage.getItem("binderyReviewer") || "null")
+        || savedAuthors?.phase8 || legacySaved;
+    // Publication is part of making a tome, not an extra step afterwards: this stage is
+    // where the publisher.md survey runs, so a fresh build starts with it on. A resume
+    // honours whatever the run being resumed actually used.
+    reviewEnabled.checked = resume ? !!(resume.reviewer && resume.reviewer.model) : true;
     const reviewMatch = findProvider(savedReviewer, reviewerProviders);
     if (reviewMatch) reviewProv.value = reviewMatch.id;
     fillReviewModels();

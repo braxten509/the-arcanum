@@ -1,6 +1,6 @@
 [[lessons]]
 id = "s08-l05"
-teaches = ["language-collections-generics"]
+teaches = ["language-concurrent-batch-assembly"]
 title = "Workshop — Assemble SourceBatch"
 body = '''
 
@@ -30,11 +30,11 @@ required = true
 capabilities = ["language-collections-generics"]
 cognitiveTask = "explain"
 scaffold = "guided"
-contextFamily = "verisearch-s08-collections-generics"
+contextFamily = "verisearch-s08-concurrent-batch-assembly"
 aidPolicy = "limited"
 prompt = "Why is the LINQ task sequence immediately materialized with <code>ToList</code>?"
-choices = ["Tasks cannot live in IEnumerable", "It starts and stores every per-source task before the single await", "It catches every exception", "It sorts by duration"]
-answer = 1
+choices = ["Tasks cannot live in IEnumerable", "It sorts by duration", "It catches every exception", "It starts and stores every per-source task before the single await"]
+answer = 3
 whyWrong = "Tasks can be enumerable, and ToList neither catches nor sorts. Materialization enumerates Select now so all calls begin before WhenAll is awaited."
 explain = "Start-all then await-all is the concurrency pattern this boundary preserves."
 hint = "Recall deferred execution from Chapter VII."
@@ -47,7 +47,7 @@ required = false
 capabilities = ["language-collections-generics"]
 cognitiveTask = "complete"
 scaffold = "worked"
-contextFamily = "verisearch-s08-collections-generics"
+contextFamily = "verisearch-s08-concurrent-batch-assembly"
 aidPolicy = "limited"
 reps = 2
 prompt = "Retype the fan-out and join twice."
@@ -64,7 +64,7 @@ required = true
 capabilities = ["language-collections-generics"]
 cognitiveTask = "complete"
 scaffold = "guided"
-contextFamily = "verisearch-s08-collections-generics"
+contextFamily = "verisearch-s08-concurrent-batch-assembly"
 aidPolicy = "limited"
 prompt = "Complete the cancellation filter that distinguishes requested cancellation from an ordinary source failure."
 code = '''catch (OperationCanceledException) when (ct.____)'''
@@ -79,7 +79,7 @@ required = true
 capabilities = ["language-collections-generics"]
 cognitiveTask = "explain"
 scaffold = "guided"
-contextFamily = "verisearch-s08-collections-generics"
+contextFamily = "verisearch-s08-concurrent-batch-assembly"
 aidPolicy = "limited"
 prompt = "Where should the temporary per-source status report be written?"
 choices = ["Inside FetchOneAsync", "Inside the FetchOutcome constructor", "In Program.cs, using returned outcomes", "Inside SourceFetcher"]
@@ -96,7 +96,7 @@ required = true
 capabilities = ["language-collections-generics"]
 cognitiveTask = "build"
 scaffold = "independent"
-contextFamily = "verisearch-s08-collections-generics"
+contextFamily = "verisearch-s08-concurrent-batch-assembly"
 aidPolicy = "limited"
 prompt = "Start three delayed methods together, await them with <code>Task.WhenAll</code>, and print their integer results in input order."
 starter = '''Task<int> first = Work(30, 1);
@@ -128,10 +128,10 @@ static async Task<int> Work(int milliseconds, int value)
 hint = "Task.WhenAll returns results in the same order as its input tasks."
 
 [[lessons.concepts]]
-id = "language-collections-generics"
-purpose = "Store ordered and keyed values with type-safe collection contracts."
-anatomy = "Choose List<T>, an array, or Dictionary<TKey,TValue>, supply its type arguments, add values, then retrieve them through a safe operation."
-example = "The disposable examples in Workshop — Assemble SourceBatch isolate this capability before the learner chooses how it belongs in the cumulative project. The lesson Workshop — Assemble SourceBatch supplies the disposable observation point."
-observable = "The collection preserves the promised order or key relationship and rejects the wrong element type at compile time. Confirm it while practicing Workshop — Assemble SourceBatch."
-failure = "A bare missing-key index or accidental multiple enumeration can turn ordinary input into a crash or inconsistent result."
+id = "language-concurrent-batch-assembly"
+purpose = "Coordinate independent source reads as one operation with observable overlap, partial failure, and cancellation."
+anatomy = "The batch starts every read before awaiting, preserves source order in its results, records each failure as data, and lets cancellation pass through."
+example = "Reads projected and materialized, then awaited together, with each of the three behaviors given its own controlled test."
+observable = "Timed tests show overlap, a one-success-one-failure run keeps both outcomes, and a cancelled run is distinguishable from a failed one."
+failure = "A batch that reports only successes hides which source went dark, so the seeker cannot tell a partial answer from a complete one."
 practice = "s08-l05-e1"

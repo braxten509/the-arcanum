@@ -1,118 +1,119 @@
 [[lessons]]
 id = "s05-l05"
-teaches = ["hyperparameter-plan"]
-title = "Choose Optimizer Settings by Controlled Trials"
+teaches = ["rocm-training"]
+title = "Dry-Step, Measure, Then Bind"
 body = '''
-<p>Learning rate and epoch count govern an optimization process; neither can be selected from a universal “records per parameter” rule. Values such as <code>5e-5</code>, <code>1e-4</code>, and <code>2e-4</code> are candidates for this project, not a settled safe range. The first measured run uses <code>r=16</code>, <code>lora_alpha=32</code>, <code>learning_rate=1e-4</code>, and one epoch as a starting point.</p>
-<p>Predeclare the trial before looking at its output:</p>
-<ul>
-<li>hold the curated train/evaluation split, seed, base revision, target graph, batch policy, and generation settings fixed;</li>
-<li>change one factor at a time and assign a new run id;</li>
-<li>record trainable parameters, peak allocated/reserved memory, and train/evaluation curves;</li>
-<li>run held-out correctness, voice, privacy, and extraction gates; and</li>
-<li>select the smallest candidate that clears every essential gate.</li>
-</ul>
-<p>A falling training loss establishes only that the optimizer can fit the supervised signal. It does not establish better held-out behavior or freedom from memorization. Compare evaluation curves at matched checkpoints, preserve exact failures, and probe for distinctive substrings or source reconstruction. A second epoch is accepted only when the frozen evidence improves without a critical regression.</p>
-<pre><code>args = SFTConfig(
-    output_dir="runs/bind-001",
-    learning_rate=1e-4,
-    num_train_epochs=1,
-    eval_strategy="steps",
-    save_strategy="steps",
-)</code></pre>
-<p>Learning rate is the optimizer's configured step size. Alpha remains the branch scale described in the previous lesson; because alpha changes the forward path and back-propagated gradients, compare learning-rate candidates only while alpha and rank remain fixed. Otherwise the trial cannot attribute a result to one cause.</p>
-<p>The decision record lists every candidate, the single changed factor, peak memory, curve summaries, blinded held-out scores, critical failures, and extraction results. “It felt better” and “the loss was lower” are observations to investigate, not promotion permits.</p>
-<div class="field-notes"><div class="fn-head">FIELD NOTES // A SWEEP IS AN EXPERIMENT, NOT A SLOT MACHINE</div>
-<p>Run the smallest planned comparison that can answer the current question. If rank 16 already clears the gates, a larger rank must earn its extra memory. If one epoch clears the gates, a second must improve frozen evidence rather than merely reduce training loss. Preserve failed candidates so the same unsupported guess is not repeated later.</p></div>
+<p>Finish <code>train.py</code> with a CLI that makes the one-step proof and the full run the same code path:</p>
+<pre><code>def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--run-id", required=True)
+    parser.add_argument("--max-steps", type=int, default=-1)
+    cli = parser.parse_args()
+    trainer, tokenizer = build_trainer(cli.run_id, cli.max_steps)
+    trainer.model.print_trainable_parameters()
+    torch.cuda.reset_peak_memory_stats()
+    result = trainer.train()
+    torch.cuda.synchronize()
+    adapter_dir = Path("artifacts/adapters") / cli.run_id
+    trainer.save_model(adapter_dir)
+    tokenizer.save_pretrained(adapter_dir)
+    metrics = dict(result.metrics)
+    metrics["max_memory_allocated_gib"] = torch.cuda.max_memory_allocated() / 1024**3
+    metrics["max_memory_reserved_gib"] = torch.cuda.max_memory_reserved() / 1024**3
+    metrics["gpu"] = torch.cuda.get_device_name(0)
+    metrics["architecture"] = torch.cuda.get_device_properties(0).gcnArchName
+    run_dir = Path("runs") / cli.run_id
+    run_dir.mkdir(parents=True, exist_ok=True)
+    (run_dir / "training-metrics.json").write_text(
+        json.dumps(metrics, indent=2, default=str) + "\n", encoding="utf-8")
+
+if __name__ == "__main__":
+    main()</code></pre>
+<p>Inside the tested ROCm container, run <code>python -m homunculus.doctor training</code>, then <code>python -m homunculus.train --run-id dry-001 --max-steps 1</code>. Inspect the report rather than guessing from fan noise. It must name <code>gfx1201</code>, report a finite training loss, save a reloadable adapter, and leave at least two GiB between physical VRAM and peak reserved memory. A one-step adapter is disposable evidence, not the product.</p>
+<p>If the dry step fails, preserve the traceback. An out-of-memory error calls for the Section III recovery order: reduce <code>max_length</code>, confirm gradient checkpointing and batch size one, then reconsider the base. An import or missing-kernel error calls for the doctor and pinned-environment checks. A NaN loss calls for inspecting the data boundary and compute dtype. Do not change five knobs together.</p>
+<p>After the dry step passes, run <code>python -m homunculus.train --run-id bind-001</code>. There is no universal “correct starting loss” or guaranteed runtime. Judge the run by finite loss, completed evaluation, measured peaks, saved artifacts, and later held-out behavior. Hardware speed, corpus length, sequence distribution, and library kernels all affect elapsed time.</p>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // ONE STEP CROSSES MANY BOUNDARIES</div>
+<p>A real dry step proves far more than an import test: the model quantizes, adapters attach, rows tokenize, labels contain supervised tokens, forward and backward kernels execute, the optimizer updates, peak memory is measured, and an adapter checkpoint is written. Preserve its report and traceback because it is the smallest reproducible version of the full bind.</p></div>
 '''
 
 [[lessons.readings]]
-label = "TRL SFT configuration"
-url = "https://huggingface.co/docs/trl/v1.8.0/sft_trainer"
+label = "AMD PyTorch verification"
+url = "https://rocm.docs.amd.com/projects/radeon-ryzen/en/latest/docs/install/installrad/native_linux/install-pytorch.html"
 
-[[lessons.exercises]]
-id = "s05-l05-e2"
-type = "text"
-points = 15
-prompt = "Which SFTConfig field controls the optimizer's configured step size?"
-answer = "learning_rate"
-accept = ["learning_rate"]
-hint = "Name the optimizer setting, not the adapter branch scale."
+[[lessons.readings]]
+label = "PyTorch CUDA memory APIs used by ROCm"
+url = "https://docs.pytorch.org/docs/stable/cuda.html#memory-management"
 
 [[lessons.exercises]]
 id = "s05-l05-e1"
 type = "mc"
 points = 20
-prompt = "Which trial can isolate the effect of changing learning rate?"
+prompt = "Why must the dry step use the same train.py path as the full bind?"
 choices = [
-  "Change rank, alpha, learning rate, and epoch count together",
-  "Reuse a different evaluation split for each rate",
-  "Hold data, rank, alpha, seed, and batch policy fixed while changing only learning rate",
-  "Select the run with the lowest training loss before evaluation",
+  "So the one-step adapter becomes the final model",
+  "So evaluation data enters training",
+  "So Ollama can merge during the step",
+  "So its compatibility and memory proof covers the code that will actually train",
 ]
-answer = 2
-whyWrong = "Changing multiple factors, changing the measurement set, or choosing from training loss alone destroys causal and held-out evidence."
-explain = "A controlled comparison changes one factor while identities and evaluation remain fixed."
-hint = "Ask which comparison leaves exactly one intended explanatory variable."
+answer = 3
+whyWrong = "The dry artifact is disposable; evaluation leakage and Ollama merging would break stage boundaries."
+explain = "A separate toy smoke script can pass while the real trainer still fails."
+hint = "The proof is valuable only if it exercises the production path."
+
+[[lessons.exercises]]
+id = "s05-l05-e2"
+type = "text"
+points = 15
+prompt = "Which metric is compared with physical VRAM for the conservative headroom gate?"
+answer = "max_memory_reserved_gib"
+accept = ["peak reserved memory", "torch.cuda.max_memory_reserved", "max_memory_reserved_gib"]
+hint = "Reserved includes memory held by the allocator."
 
 [[lessons.exercises]]
 id = "s05-l05-e3"
 type = "fill"
 points = 20
-prompt = "Complete the predeclared starting optimizer setting."
-code = '''args = SFTConfig(
-    ____=1e-4,
-    num_train_epochs=1,
-)'''
-answer = "learning_rate"
-hint = "Use the field named in the lesson's configuration block."
+prompt = "Complete the CLI option that limits the smoke run to one optimizer step."
+code = "python -m homunculus.train --run-id dry-001 ____ 1"
+answer = "--max-steps"
+hint = "It maps to SFTConfig.max_steps."
 
 [[lessons.exercises]]
 id = "s05-l05-e4"
-type = "write"
-points = 35
-prompt = "Apply the hard gates, then select the passing trial with the fewest parameters and print exactly: SELECT B"
-starter = '''trials = [
-    {"id": "A", "params": 21_823_488, "peak_gib": 12.2, "eval": 1.5, "criticals": 0},
-    {"id": "B", "params": 43_646_976, "peak_gib": 13.1, "eval": 1.7, "criticals": 0},
-    {"id": "C", "params": 87_293_952, "peak_gib": 14.3, "eval": 1.8, "criticals": 0},
-    {"id": "D", "params": 43_646_976, "peak_gib": 13.0, "eval": 1.9, "criticals": 1},
+type = "mc"
+points = 20
+prompt = "The dry step hits OOM at max_length 1024. What is the first narrow change?"
+choices = [
+  "Reduce max_length and rerun the identical measurement",
+  "Set a false HSA architecture override",
+  "Move evaluation rows into training",
+  "Switch to an unrelated base without recording it",
 ]
-
-passing = []
-print("SELECT NONE")
-'''
-solution = '''trials = [
-    {"id": "A", "params": 21_823_488, "peak_gib": 12.2, "eval": 1.5, "criticals": 0},
-    {"id": "B", "params": 43_646_976, "peak_gib": 13.1, "eval": 1.7, "criticals": 0},
-    {"id": "C", "params": 87_293_952, "peak_gib": 14.3, "eval": 1.8, "criticals": 0},
-    {"id": "D", "params": 43_646_976, "peak_gib": 13.0, "eval": 1.9, "criticals": 1},
-]
-
-passing = [
-    trial for trial in trials
-    if trial["criticals"] == 0
-    and trial["peak_gib"] < 14
-    and trial["eval"] >= 1.6
-]
-selected = min(passing, key=lambda trial: trial["params"])
-print(f"SELECT {selected['id']}")
-'''
-expect = "SELECT B"
-hint = "Filter every hard gate before optimizing among the survivors."
+answer = 0
+whyWrong = "Overrides, leakage, and silent base changes do not address the measured activation budget honestly."
+explain = "Sequence length is the first configured activation lever in the recovery order."
+hint = "Change the term most directly tied to retained activations."
 
 [[lessons.exercises]]
 id = "s05-l05-e5"
-type = "mc"
-points = 20
-prompt = "A second epoch lowers training loss but worsens held-out correctness and increases extraction matches. What does the evidence support?"
-choices = [
-  "Keep the second epoch because lower training loss is decisive",
-  "Increase alpha until held-out scoring agrees",
-  "Discard the held-out suite as noisy",
-  "Reject the second epoch and retain the smaller passing run while investigating the regressions",
-]
-answer = 3
-whyWrong = "Training loss cannot override held-out and privacy regressions, and changing alpha or discarding frozen evidence would evade the test."
-explain = "Promotion follows predeclared behavior and privacy gates, not the lowest training loss."
-hint = "Identify which observations belong to promotion gates and which are only optimization diagnostics."
+type = "write"
+points = 35
+prompt = "Compute measured headroom and print exactly: DRY PASS headroom=2.4"
+starter = '''physical = 16.0
+reserved = 13.6
+required = 2.0
+
+headroom = 0
+status = "FAIL"
+print(f"DRY {status} headroom={headroom:.1f}")
+'''
+solution = '''physical = 16.0
+reserved = 13.6
+required = 2.0
+
+headroom = physical - reserved
+status = "PASS" if headroom >= required else "FAIL"
+print(f"DRY {status} headroom={headroom:.1f}")
+'''
+expect = "DRY PASS headroom=2.4"
+hint = "Subtract peak reserved from physical, then apply the required threshold."

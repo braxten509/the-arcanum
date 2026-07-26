@@ -1,6 +1,6 @@
 [[lessons]]
 id = "s10-l02"
-teaches = ["language-classes-records"]
+teaches = ["language-report-widget-composition"]
 title = "Widgets — tables, panels, rules"
 body = '''
 
@@ -60,12 +60,13 @@ required = true
 capabilities = ["language-classes-records"]
 cognitiveTask = "explain"
 scaffold = "guided"
-contextFamily = "verisearch-s10-classes-records"
+contextFamily = "verisearch-s10-report-widget-composition"
 aidPolicy = "limited"
 prompt = "Which widget draws the <code>─── SOURCE 1 ───</code> section divider?"
 choices = ["Panel", "Table", "Rule", "Divider"]
 answer = 2
 whyWrong = "Panel boxes content and Table makes grids; ‘Divider’ isn’t the widget — Rule draws the titled horizontal divider."
+explain = "<code>Rule</code> is the titled horizontal divider, which is what separates one source's block from the next in the report layout."
 hint = "Also a good name for how THORNE grades."
 
 [[lessons.exercises]]
@@ -76,12 +77,13 @@ required = true
 capabilities = ["language-classes-records"]
 cognitiveTask = "explain"
 scaffold = "guided"
-contextFamily = "verisearch-s10-classes-records"
+contextFamily = "verisearch-s10-report-widget-composition"
 aidPolicy = "limited"
 prompt = "Best widget for displaying a verbatim quote with a small header?"
 choices = ["Table with one cell", "Rule", "MarkupLine with dashes", "Panel with a PanelHeader"]
 answer = 3
 whyWrong = "A one-cell Table, a Rule, or dashed text all read poorly — a Panel with a PanelHeader frames a quote with its small heading."
+explain = "A <code>Panel</code> with a header frames the quotation as its own object and carries the attribution in the header, while the exact quoted text stays unmodified inside the frame."
 hint = "It's literally a box with an optional title."
 
 [[lessons.exercises]]
@@ -92,12 +94,13 @@ required = true
 capabilities = ["language-classes-records"]
 cognitiveTask = "explain"
 scaffold = "guided"
-contextFamily = "verisearch-s10-classes-records"
+contextFamily = "verisearch-s10-report-widget-composition"
 aidPolicy = "limited"
 prompt = "Numeric columns in a table should be…"
 choices = ["right-aligned so magnitudes line up", "centered for symmetry", "left-aligned like text", "hidden unless verbose"]
 answer = 0
 whyWrong = "Numbers read best right-aligned so digits line up by magnitude — centering or left-aligning them like text makes columns hard to scan."
+explain = "Right alignment lines the digits up by magnitude, so a reader can compare counts and scores down the column without reading each number individually."
 hint = "9.5 over 10.0 over 2.0 — the decimal points should stack."
 
 [[lessons.exercises]]
@@ -108,7 +111,7 @@ required = false
 capabilities = ["language-classes-records"]
 cognitiveTask = "complete"
 scaffold = "worked"
-contextFamily = "verisearch-s10-classes-records"
+contextFamily = "verisearch-s10-report-widget-composition"
 aidPolicy = "limited"
 reps = 2
 prompt = "Build-a-table — columns, aligned numbers, a row, render. Twice."
@@ -120,10 +123,10 @@ table.AddRow("ietf.org", "9.5");
 AnsiConsole.Write(table);'''
 
 [[lessons.concepts]]
-id = "language-classes-records"
-purpose = "Model identity, behavior, and immutable data with an appropriate C# class or record."
-anatomy = "Choose class for owned behavior or identity and record for value-like data, then define construction and accessible members deliberately."
-example = "The disposable examples in Widgets — tables, panels, rules isolate this capability before the learner chooses how it belongs in the cumulative project. The lesson Widgets — tables, panels, rules supplies the disposable observation point."
-observable = "Instances carry the required facts and equality or mutation follows the selected type's intended semantics. Confirm it while practicing Widgets — tables, panels, rules."
-failure = "Public mutation on trusted data or duplicate competing models lets invalid state cross the artifact."
+id = "language-report-widget-composition"
+purpose = "Compose a report from a few reusable display parts instead of scattering formatting through the pipeline."
+anatomy = "A widget object is built, configured, and then written to the console; rules divide sections, panels frame quoted text, and tables carry aligned rows."
+example = "A rule announcing one source, a panel holding one escaped quotation, and a table with declared columns for numbered results."
+observable = "The report keeps a stable visual order, and the same data renders identically across runs."
+failure = "Building widget text inline at every call site makes a truth rule impossible to see and impossible to test in one place."
 practice = "s10-l02-e1"

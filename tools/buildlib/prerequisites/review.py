@@ -5,7 +5,6 @@ import hashlib
 import json
 import os
 import re
-import subprocess
 import time
 
 from .. import BUILD_DIR, REPO, VALIDATOR_FAILURE_DIR, brief_exception
@@ -13,14 +12,14 @@ from ..status_log import emit_status_line
 from arcanum.platform.agent_commands import scoped_runner_command
 from arcanum.jobs.stall import StalledProcess, run_watched
 from ..runtime.events import assistant_text, session_id_from_line, usage_from_line
-from arcanum.ai.events import step_tokens_from_line
 from arcanum.authoring.adapters import validator_live
 from ..course.alignment import actual_lesson_id
 from ..course_map import load_course_map
 from ..section_quality_contract import pacing_contract, section_quality_settings
 from ..validator_policy import (ValidatorOutput, extract_json, readable_guidance,
                                 readable_outcome, readable_reasons)
-from .prompt import DYNAMIC_MARKER, prerequisite_prompt as _prompt
+from .prompt import DYNAMIC_MARKER, prerequisite_prompt as _prompt, verify_prompt as _verify_prompt
+from .provider_io import _cli_failure_detail, _live_tick, _transient_cli_failure
 from . import records as _records
 from . import ledger as _ledger
 from .result import validate_detailed as _validate_detailed
@@ -99,12 +98,19 @@ def _node_file(tid, node):
     return os.path.join(root, "lessons", lesson + ".toml")
 
 
-def section_evidence_packet(build_id, section):
-    """Build the bounded, citable packet for one mandatory section audit."""
+def section_evidence_packet(build_id, section, only_nodes=None):
+    """Build the bounded, citable packet for one mandatory section audit.
+
+    `only_nodes` limits the numbered source dumps to those node ids. A verify pass judges a
+    fixed list of findings, so it pays for the few lessons those findings cite instead of
+    every lesson in the section — the source blocks are most of the packet.
+    """
     tid = _context(build_id)
     course = load_course_map(build_id)
     sources, source_blocks = [], []
     for node in section.get("nodes") or []:
+        if only_nodes is not None and node["id"] not in only_nodes:
+            continue
         path = _node_file(tid, node)
         relative = os.path.relpath(path, REPO).replace(os.sep, "/")
         try:
@@ -120,7 +126,8 @@ def section_evidence_packet(build_id, section):
         source_blocks.append(
             f"===== CITABLE SOURCE {node['id']} | {relative} =====\n{numbered}")
     working = next((node for node in section.get("nodes") or []
-                    if node.get("kind") == "working"), None)
+                    if node.get("kind") == "working"
+                    and (only_nodes is None or node["id"] in only_nodes)), None)
     if working:
         section_root = os.path.join(REPO, "tomes", tid, "sections", section["id"])
         for name, label in (
@@ -169,89 +176,6 @@ def section_evidence_packet(build_id, section):
             f"validator evidence for {section.get('id')} is {len(packet)} characters; "
             f"the deterministic section budget is {MAX_SECTION_PACKET_CHARS}")
     return packet, sources
-
-
-# The pane rebuilds its whole conversation whenever any row's text changes, which drops
-# a live text selection. Sampling stays per-second for an honest CPU average; only the
-# published row is throttled, so the operator keeps a usable pane during a long gate.
-LIVE_PUBLISH_SECONDS = 5.0
-
-
-def _live_tick(build_id, label, started):
-    """Publish CPU and tokens-so-far for the call in flight, a few seconds apart."""
-    seen, totals, samples, published = 0, {}, [], 0.0
-
-    def tick(cpu, output):
-        nonlocal seen, totals, samples, published
-        cut = output.rfind("\n", seen) + 1  # never parse a half-written line
-        for line in output[seen:cut].splitlines():
-            step = step_tokens_from_line(line)
-            if step:
-                totals = {key: totals.get(key, 0) + value
-                          for key, value in step.items()}
-        seen = max(seen, cut)
-        samples.append(max(0.0, float(cpu)))
-        if time.time() - published < LIVE_PUBLISH_SECONDS:
-            return
-        published = time.time()
-        validator_live.publish(BUILD_DIR, build_id, label=label, started=started,
-                               cpu=sum(samples) / len(samples), tokens=totals)
-        samples.clear()
-    return tick
-
-
-def _cli_failure_detail(output):
-    """Recover the provider's useful failure text from a structured CLI stream."""
-    messages = []
-    for line in str(output or "").splitlines():
-        try:
-            row = json.loads(line)
-        except (TypeError, ValueError):
-            continue
-        if not isinstance(row, dict):
-            continue
-        values = []
-        if row.get("type") == "error":
-            values.append(row.get("message"))
-        error = row.get("error")
-        if isinstance(error, dict):
-            values.append(error.get("message"))
-        elif isinstance(error, str):
-            values.append(error)
-        payload = row.get("payload")
-        if isinstance(payload, dict):
-            error = payload.get("error")
-            if isinstance(error, dict):
-                values.append(error.get("message"))
-            elif isinstance(error, str):
-                values.append(error)
-        for value in values:
-            text = re.sub(r"\s+", " ", str(value or "")).strip()
-            if text and text not in messages:
-                messages.append(text)
-    if messages:
-        return messages[-1][:1200]
-    # Some CLIs still fail with plain stderr. Preserve a bounded tail instead of
-    # collapsing every provider/auth/quota error to an unactionable exit code.
-    tail = [re.sub(r"\s+", " ", line).strip()
-            for line in str(output or "").splitlines() if line.strip()]
-    return " | ".join(tail[-4:])[-1200:]
-
-
-def _transient_cli_failure(detail):
-    """Distinguish short provider throttles from quotas that require operator action."""
-    normalized = re.sub(r"\s+", " ", str(detail or "")).strip().lower()
-    if not normalized:
-        return False
-    if any(marker in normalized for marker in (
-            "usage limit", "session limit", "weekly limit", "monthly limit",
-            "billing limit", "credit balance", "resets at", "resets ")):
-        return False
-    return any(marker in normalized for marker in (
-        "rate_limit", "rate limit", "too many requests", "http 429", "status 429",
-        "resource_exhausted", "resource exhausted", "temporarily unavailable",
-        "server overloaded", "overloaded_error", "capacity temporarily",
-    ))
 
 
 def validator_access(build_id, phase, section=""):
@@ -425,7 +349,8 @@ def _classify_output(raw, sources, sid, known_mechanisms):
     return parsed, errors, output
 
 
-def review_prerequisites(build_id, sid, *, adapter=None):
+def review_prerequisites(build_id, sid, *, adapter=None, verify=None):
+    """Audit one section, or — when `verify` carries open ledger findings — only re-check those."""
     start, validator, prior, depth, mastery = _configuration(build_id)
     if start < 1:
         raise RuntimeError("section-quality audit cannot read the sealed starting level")
@@ -436,7 +361,13 @@ def review_prerequisites(build_id, sid, *, adapter=None):
         item.get("id") for item in (course.get("mechanismContract") or {}).get(
             "mechanisms", []) if isinstance(item, dict) and item.get("id")}
     section = next(item for item in course["sections"] if item["id"] == sid)
-    packet, sources = section_evidence_packet(build_id, section)
+    cited = {str(entry.get("node") or "") for entry in (verify or {}).values()}
+    # A ledger written before findings carried their node yields a useless citation set, and
+    # narrowing the packet to it would hand the model an empty evidence list — every finding
+    # then reads as unverifiable. Pay for the full packet rather than judge on nothing.
+    if not verify or not all(cited):
+        cited = None
+    packet, sources = section_evidence_packet(build_id, section, cited)
     packet += "\n\n===== OPTIONAL PRIOR-KNOWLEDGE DETAILS =====\n" + (prior or "Not specified")
     pacing_title, pacing_summary = pacing_contract(start)
     packet += (f"\n\n===== LESSON PACING =====\nStart {start}/10 — "
@@ -447,12 +378,16 @@ def review_prerequisites(build_id, sid, *, adapter=None):
         "contract": AUDIT_CONTRACT_VERSION, "packet": packet,
         "policyFingerprint": section_policy_fingerprint(start, prior, depth, mastery),
         "validator": {key: validator.get(key) for key in ("kind", "model", "effort")},
+        # A verify pass asks a different question of the same files, so it must not read the
+        # full audit's cached verdict — nor overwrite it with a narrower one under its key.
+        "verify": sorted(verify) if verify else None,
     }, ensure_ascii=False, sort_keys=True)
     fingerprint = hashlib.sha256(fingerprint_input.encode("utf-8")).hexdigest()
     cached = _read(result_path(build_id, sid), {}) or {}
     if cached.get("fingerprint") == fingerprint and isinstance(cached.get("result"), dict):
         return {**cached["result"], "cached": True}
-    prompt = _prompt(packet, sid, sources, prior, start, depth, mastery)
+    prompt = (_verify_prompt(packet, sid, list(verify.values())) if verify
+              else _prompt(packet, sid, sources, prior, start, depth, mastery))
 
     def run(active, escalated_from=""):
         audit_label = (f"section quality {sid} › "

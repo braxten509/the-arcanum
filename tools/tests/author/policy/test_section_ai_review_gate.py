@@ -12,6 +12,7 @@ sys.path[:0] = [str(ROOT), str(ROOT / "tools")]
 
 from tools.buildlib.single_author import section_review
 from tools.buildlib.prerequisites.ledger import finding_fingerprints
+from tools.buildlib.prerequisites.prompt import prerequisite_prompt, verify_prompt
 
 
 def _quality(node, lines, evid):
@@ -115,7 +116,77 @@ def test_gate_verify_pass():
             section_review.BUILD_DIR = original
 
 
+def test_verify_pass_asks_only_about_open_findings():
+    """Rounds 2-4 must send the verify prompt, not a full audit whose answer is then discarded.
+
+    The saving is entirely in what gets asked: a full audit buys every source in the section
+    plus a nodeReview per source. If the `verify` kwarg ever stops being passed the gate still
+    works and nothing fails — it just quietly costs four full audits again.
+    """
+    prior = _quality("l07", [117, 123], "wrong const")
+    prior_fp = next(iter(finding_fingerprints({"qualityFindings": [prior]})))
+    entry = {"status": "open", "kind": "quality", "node": "s01.l07",
+             "path": prior["path"], "category": "technical-correctness",
+             "lines": [117, 123], "repair": "fix l07", "evidence": "wrong const"}
+    with tempfile.TemporaryDirectory() as tmp:
+        original = section_review.BUILD_DIR
+        section_review.BUILD_DIR = tmp
+        try:
+            _setup(tmp, launch={"sectionAiReviewMode": "gate"})
+            folder = os.path.join(tmp, "t.section-findings")
+            os.makedirs(folder, exist_ok=True)
+            with open(os.path.join(folder, "s01.json"), "w", encoding="utf-8") as f:
+                json.dump({"pass": 1, "findings": {prior_fp: entry}}, f)
+            seen = {}
+
+            def capture(build_id, sid, **kwargs):
+                seen.update(kwargs)
+                return {"status": "PASS"}
+
+            with patch.object(section_review, "review_prerequisites", capture):
+                section_review.review_section("t", {"section": "s01"})
+            assert set(seen.get("verify") or {}) == {prior_fp}, seen
+
+            # The discovery pass is a real audit and must NOT be narrowed to a finding list.
+            with open(os.path.join(folder, "s01.json"), "w", encoding="utf-8") as f:
+                json.dump({"pass": 0, "findings": {}}, f)
+            seen.clear()
+            with patch.object(section_review, "review_prerequisites", capture):
+                section_review.review_section("t", {"section": "s01"})
+            assert seen.get("verify") is None, seen
+        finally:
+            section_review.BUILD_DIR = original
+
+    # A pre-change ledger has findings with no node. Narrowing the packet to that citation set
+    # would leave the model judging an empty evidence list, so it must fall back to the full one.
+    from tools.buildlib.prerequisites import review as prerequisite_review
+    seen_nodes = {}
+    scratch = tempfile.TemporaryDirectory()
+    with scratch, patch.object(prerequisite_review, "BUILD_DIR", scratch.name), \
+            patch.object(prerequisite_review, "_configuration",
+                      return_value=(5, {"kind": "k", "model": "m"}, "", 5, 3)), \
+            patch.object(prerequisite_review, "load_course_map",
+                         return_value={"sections": [{"id": "s01", "nodes": []}]}), \
+            patch.object(prerequisite_review, "section_evidence_packet",
+                         side_effect=lambda _b, _s, only=None: (
+                             seen_nodes.setdefault("only", only), ("packet", []))[1]), \
+            patch.object(prerequisite_review, "_invoke", return_value=("PASS", {})):
+        prerequisite_review.review_prerequisites(
+            "t", "s01", verify={"fp": {"kind": "quality", "repair": "r"}})
+    assert seen_nodes["only"] is None, seen_nodes
+
+    # The prompt must hand back the exact identity fields, or a still-open finding gets a
+    # fresh fingerprint on re-report, reads as absent to `reconcile`, and is recorded resolved.
+    text = verify_prompt("PACKET", "s01", [entry])
+    assert "s01.l07" in text and "[117,123]" in text and "fix l07" in text
+    assert "nodeReviews" not in text.split("Omit nodeReviews")[0], \
+        "a verify pass that still asks for nodeReviews saves nothing on output"
+    full = prerequisite_prompt("PACKET", "s01", [{"path": "p", "node": "n"}], "", 5, 5, 3)
+    assert len(text) < len(full) / 3, (len(text), len(full))
+
+
 if __name__ == "__main__":
     test_mode_budgets()
     test_gate_verify_pass()
+    test_verify_pass_asks_only_about_open_findings()
     print("ok")

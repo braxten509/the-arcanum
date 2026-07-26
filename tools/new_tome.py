@@ -28,6 +28,7 @@ except ModuleNotFoundError:
 
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 TOMES_DIR = os.path.join(REPO, "tomes")
+PLACEHOLDER_THEMES_PATH = os.path.join(REPO, "tools", "scaffold", "placeholder-themes.toml")
 ID_RE = re.compile(r"[A-Za-z0-9_-]+")
 ROMAN = ["", "I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX", "X",
          "XI", "XII", "XIII", "XIV", "XV", "XVI", "XVII", "XVIII", "XIX", "XX"]
@@ -188,62 +189,7 @@ desc = "TODO: awarded when every chapter's Great Working is passed."
 # Contract: bg0 = table wood · bg1 = parchment · bg2/bg3 = panels · line* = ink
 # hairlines · tx* = inks · ac = accent ink · slab/slab-tx = the speaking stone
 # (grey mineral, never wood browns) · candle = "r, g, b" of the light.
-[[themes]]
-id = "signature"
-name = "TODO Signature Palette"
-light = true                       # light parchment palette; omit for a dark one
-
-[themes.vars]
-bg0 = "#241609"
-bg1 = "#e7d9b5"
-bg2 = "#ddcda4"
-bg3 = "#d3c092"
-line = "#b9a67c"
-line-hi = "#97815a"
-tx = "#3d2b17"
-tx-dim = "#6b5638"
-tx-faint = "#8d7854"
-ac = "#275d4d"
-ac-dim = "#3e7a67"
-ac-bg = "rgba(39, 93, 77, .10)"
-warn = "#8a5d14"
-bad = "#8e2f23"
-info = "#3d4d78"
-slab = "#27272b"
-slab-tx = "#e3d3ac"
-candle = "255, 172, 66"
-sigil-1 = "#f7ffff"               # four casting inks, all visible along each bolt
-sigil-2 = "#62d9dc"
-sigil-3 = "#168db4"
-sigil-4 = "#3d4d78"
-
-[[themes]]
-id = "alt"
-name = "TODO Alternate Palette"
-
-[themes.vars]
-bg0 = "#0b0910"
-bg1 = "#1e1b2a"
-bg2 = "#262238"
-bg3 = "#2e2a44"
-line = "#3a3552"
-line-hi = "#4d4870"
-tx = "#d6d2c4"
-tx-dim = "#9a95a8"
-tx-faint = "#6d687f"
-ac = "#7ba88f"
-ac-dim = "#547a64"
-ac-bg = "rgba(123, 168, 143, .10)"
-warn = "#c9a45e"
-bad = "#c96a54"
-info = "#7a9aca"
-slab = "#0e0c14"
-slab-tx = "#cfc9b8"
-candle = "255, 172, 66"
-sigil-1 = "#ffffff"
-sigil-2 = "#9beec0"
-sigil-3 = "#4fb481"
-sigil-4 = "#547a64"
+@@PLACEHOLDER_THEMES@@
 """
 
 
@@ -255,6 +201,23 @@ def render(template, subs):
     for k, v in subs.items():
         out = out.replace("@@" + k + "@@", v)
     return out
+
+
+def _placeholder_themes():
+    """The scaffold's two starting palettes, read from the file validatelib measures against.
+
+    They used to be inline here, which meant the distinctness check could only guard the
+    light one (it recognised it as the Sepia Vellum skin). The dark one had no such twin,
+    so a tome could rename it, recolor four sigils, and ship the scaffold as its
+    top-tier purchasable theme. One file, both readers.
+    """
+    with open(PLACEHOLDER_THEMES_PATH, encoding="utf-8") as handle:
+        return handle.read().rstrip("\n")
+
+
+# Spliced in here rather than in main()'s subs: phase_reset._fresh_tome renders this same
+# template with its own substitution dict, and left the token unreplaced in the manifest.
+TOME_TEMPLATE = TOME_TEMPLATE.replace("@@PLACEHOLDER_THEMES@@", _placeholder_themes())
 
 
 def main():

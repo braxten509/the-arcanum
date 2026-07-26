@@ -30,6 +30,14 @@ def activity_summary(job_manager, job_id, fallback=""):
     return (messages[-1] if messages else fallback).strip()
 
 
+def note(job_manager, job_id, text):
+    """Say one harness-side thing in both places the operator reads."""
+    job_manager.append(job_id, "log", f"── {text} ──", limit=400)
+    job_manager.append(
+        job_id, "activity",
+        {"kind": "harness", "at": time.time(), "text": text}, limit=200)
+
+
 def failure_summary(logtail):
     errors = [error_text(line).strip() for line in logtail]
     return next(

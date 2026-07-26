@@ -20,7 +20,7 @@ from ..course.amend import amend_course_map
 from ..course.state import record_section_failure
 from ..course_map import CourseMapError, load_course_map
 from ..mechanism_contract import candidate_with_findings
-from ..prerequisites.ledger import load_ledger, open_fingerprints, restrict
+from ..prerequisites.ledger import load_ledger, open_findings, restrict
 from ..prerequisites.review import review_prerequisites
 
 # review_prerequisites calls per mode: "off" never runs, "pass" runs once, "gate" runs the
@@ -60,15 +60,16 @@ def review_section(build_id, unit):
     ledger = load_ledger(BUILD_DIR, build_id, sid)
     # Single Gate's second run is a verification pass: only the still-open first-pass findings
     # gate the section, and new issues are dropped rather than starting a fresh audit loop.
-    verify_open = (open_fingerprints(ledger)
-                   if _mode(build_id) == "gate" and ledger.get("pass", 0) >= 1 else None)
-    if verify_open == set():
+    verify = (open_findings(ledger)
+              if _mode(build_id) == "gate" and ledger.get("pass", 0) >= 1 else None)
+    if verify == {}:
         return True, ""  # the discovery pass cited nothing to re-verify
-    prerequisite = review_prerequisites(build_id, sid)
-    if verify_open is not None:
-        # ponytail: the model still audits fully; we gate only on the gated fingerprints and
-        # discard anything new. Add a verify-only prompt to save tokens if cost matters.
-        prerequisite = restrict(prerequisite, verify_open)
+    # Rounds 2-4 ask only whether those findings are fixed, against only the sources they cite.
+    # A full re-audit here would buy the whole section and every nodeReview, then `restrict`
+    # would throw all of it away except these same fingerprints.
+    prerequisite = review_prerequisites(build_id, sid, verify=verify)
+    if verify is not None:
+        prerequisite = restrict(prerequisite, set(verify))
     if prerequisite.get("status") in ("PASS", "not-required"):
         return True, ""
     findings = prerequisite.get("missingMechanisms") or []

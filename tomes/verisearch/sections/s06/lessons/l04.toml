@@ -1,6 +1,6 @@
 [[lessons]]
 id = "s06-l04"
-teaches = ["language-exceptions-resources"]
+teaches = ["language-polite-fetch-policy"]
 title = "Scraping etiquette — robots.txt, rate limits, honest headers"
 body = '''
 
@@ -42,7 +42,7 @@ required = true
 capabilities = ["language-exceptions-resources"]
 cognitiveTask = "recall"
 scaffold = "guided"
-contextFamily = "verisearch-s06-exceptions-resources"
+contextFamily = "verisearch-s06-polite-fetch-policy"
 aidPolicy = "learning"
 prompt = "At what conventional root path should you first look for a site's crawler rules?"
 answer = "/robots.txt"
@@ -57,17 +57,14 @@ required = true
 capabilities = ["language-exceptions-resources"]
 cognitiveTask = "explain"
 scaffold = "guided"
-contextFamily = "verisearch-s06-exceptions-resources"
+contextFamily = "verisearch-s06-polite-fetch-policy"
 aidPolicy = "learning"
 prompt = "One selected source times out while another succeeds. Verisearch should…"
 choices = ["record the named failure and continue with the successful selected source", "retry forever", "hide every result", "substitute an unchosen website"]
 answer = 0
 whyWrong = "A bounded source failure should remain visible without erasing unrelated successes; infinite retry and source substitution violate the run's contract."
+explain = "A named failure beside the healthy documents keeps the answer honest and visibly partial; substituting an unchosen site would move source authority from the seeker to the tool."
 hint = "Contain the failure without changing the evidence set."
-reviewVariants = [
-  { prompt = "One source read fails while another succeeds. What boundary can add useful meaning?", choices = ["The per-source owner", "A silent catch everywhere", "The quote renderer", "The compiler"], answer = 0 },
-  { prompt = "How should cancellation differ from an ordinary source error?", choices = ["Propagate it as coordinated shutdown", "Store it as a quote", "Ignore it", "Retry forever"], answer = 0 }
-]
 
 [[lessons.exercises]]
 id = "s06-l04-e3"
@@ -77,12 +74,13 @@ required = true
 capabilities = ["language-exceptions-resources"]
 cognitiveTask = "explain"
 scaffold = "guided"
-contextFamily = "verisearch-s06-exceptions-resources"
+contextFamily = "verisearch-s06-polite-fetch-policy"
 aidPolicy = "learning"
 prompt = "Why set a custom User-Agent like \"Verisearch/1.0\"?"
-choices = ["It makes requests faster", "It's honest identification — anonymous scrapers look hostile and get blocked", "It's required by HTTP", "It bypasses paywalls"]
-answer = 1
+choices = ["It makes requests faster", "It bypasses paywalls", "It's required by HTTP", "It's honest identification — anonymous scrapers look hostile and get blocked"]
+answer = 3
 whyWrong = "A User-Agent doesn’t speed requests, bypass paywalls, or satisfy a protocol requirement — it honestly identifies your client so servers don’t treat it as a hostile anonymous scraper."
+explain = "One honest user agent lets a publisher see which tool is reading, reach whoever runs it, and rate-limit rather than block outright — it is what makes the polite-fetch promise checkable from the other side."
 hint = "Etiquette, transparency, and fewer 403s."
 
 [[lessons.exercises]]
@@ -93,7 +91,7 @@ required = false
 capabilities = ["language-exceptions-resources"]
 cognitiveTask = "complete"
 scaffold = "worked"
-contextFamily = "verisearch-s06-exceptions-resources"
+contextFamily = "verisearch-s06-polite-fetch-policy"
 aidPolicy = "learning"
 reps = 2
 prompt = "Identify + bound — the two request-lifecycle lines. Twice."
@@ -109,7 +107,7 @@ required = true
 capabilities = ["language-exceptions-resources"]
 cognitiveTask = "build"
 scaffold = "guided"
-contextFamily = "verisearch-s06-exceptions-resources"
+contextFamily = "verisearch-s06-polite-fetch-policy"
 aidPolicy = "learning"
 prompt = "Status-handling lab: read one HTTP status number. Print <code>success</code> for 200–299, <code>back off</code> for 429, and <code>record failure</code> otherwise."
 stdin = "429"
@@ -127,10 +125,10 @@ Console.WriteLine(action);
 hint = "Use a switch expression with the 200–299 range before the exact 429 arm."
 
 [[lessons.concepts]]
-id = "language-exceptions-resources"
-purpose = "Preserve useful failures while releasing files, HTTP responses, processes, and cancellation resources deterministically."
-anatomy = "Catch only at the boundary that can add meaning, let cancellation propagate, and use using or disposal for owned resources."
-example = "The disposable examples in Scraping etiquette — robots.txt, rate limits, honest headers isolate this capability before the learner chooses how it belongs in the cumulative project. The lesson Scraping etiquette — robots.txt, rate limits, honest headers supplies the disposable observation point."
-observable = "Ordinary failures become actionable outcomes, cancellation stays cancellation, and owned resources close on every path. Confirm it while practicing Scraping etiquette — robots.txt, rate limits, honest headers."
-failure = "A broad silent catch or forgotten disposal converts evidence into hidden failure and leaks operating-system resources."
+id = "language-polite-fetch-policy"
+purpose = "Read only the pages the seeker chose, at a rate and with an identity a publisher can recognize."
+anatomy = "A published crawler policy becomes part of the source decision, one honest user agent identifies the tool, a timeout bounds each request, and a delay separates them."
+example = "A robots policy excerpt read as terms, then a descriptive user agent and a fifteen-second timeout set once on the shared client."
+observable = "One run touches only the configured addresses, identifies itself in every request, and gives up on a stalled host."
+failure = "An anonymous fetcher with no delay becomes someone the publisher has to block, and the seeker loses that source entirely."
 practice = "s06-l04-e1"

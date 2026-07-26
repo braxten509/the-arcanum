@@ -1,6 +1,6 @@
 [[lessons]]
 id = "s11-l05"
-teaches = ["language-cli-packaging"]
+teaches = ["language-composition-root-entrypoint"]
 title = "Workshop — Replace the Demos with the Real Entrypoint"
 body = '''
 
@@ -33,18 +33,14 @@ required = true
 capabilities = ["language-cli-packaging"]
 cognitiveTask = "explain"
 scaffold = "guided"
-contextFamily = "verisearch-s11-cli-packaging"
+contextFamily = "verisearch-s11-composition-root-entrypoint"
 aidPolicy = "limited"
 prompt = "Why does MockQuoteSelector still return QuoteProposal rather than VerifiedQuote?"
-choices = ["Mock output skips verification", "Every selector remains untrusted and must cross the same verifier", "VerifiedQuote cannot contain fixture text", "Task.FromResult forbids it"]
-answer = 1
+choices = ["Mock output skips verification", "Task.FromResult forbids it", "VerifiedQuote cannot contain fixture text", "Every selector remains untrusted and must cross the same verifier"]
+answer = 3
 whyWrong = "Mock must not bypass the product gate, and neither the record nor Task.FromResult prevents a different type. Shared verification proves the plumbing honestly."
 explain = "Explicit mode changes selection implementation, not the proof rule."
 hint = "Which contract does both selector classes implement?"
-reviewVariants = [
-  { prompt = "What makes a published directory delivery evidence?", choices = ["Launching the produced executable from a clean process", "Listing files", "A successful editor run", "A screenshot"], answer = 0 },
-  { prompt = "Where should an API secret live for a CLI adapter?", choices = ["An environment or secret store", "The source catalog", "A committed argument", "The report"], answer = 0 }
-]
 
 [[lessons.exercises]]
 id = "s11-l05-d1"
@@ -54,7 +50,7 @@ required = false
 capabilities = ["language-cli-packaging"]
 cognitiveTask = "complete"
 scaffold = "worked"
-contextFamily = "verisearch-s11-cli-packaging"
+contextFamily = "verisearch-s11-composition-root-entrypoint"
 aidPolicy = "limited"
 reps = 2
 prompt = "Retype the one explicit mode branch twice."
@@ -70,7 +66,7 @@ required = true
 capabilities = ["language-cli-packaging"]
 cognitiveTask = "complete"
 scaffold = "guided"
-contextFamily = "verisearch-s11-cli-packaging"
+contextFamily = "verisearch-s11-composition-root-entrypoint"
 aidPolicy = "limited"
 prompt = "Complete the conventional cancellation exit code."
 code = '''catch (OperationCanceledException)
@@ -89,7 +85,7 @@ required = true
 capabilities = ["language-cli-packaging"]
 cognitiveTask = "explain"
 scaffold = "guided"
-contextFamily = "verisearch-s11-cli-packaging"
+contextFamily = "verisearch-s11-composition-root-entrypoint"
 aidPolicy = "limited"
 prompt = "A duplicate-type compiler error appears after replacing Program.cs. What is the beginner-safe response?"
 choices = ["Rename the canonical model", "Search the exact type name and remove the obsolete demo declaration", "Disable compiler errors", "Create another project"]
@@ -106,7 +102,7 @@ required = true
 capabilities = ["language-cli-packaging"]
 cognitiveTask = "debug"
 scaffold = "independent"
-contextFamily = "verisearch-s11-cli-packaging"
+contextFamily = "verisearch-s11-composition-root-entrypoint"
 aidPolicy = "limited"
 prompt = "Choose LiveSelector when mock is false and MockSelector when true, then print each selected Name with a <code>selected: </code> prefix."
 starter = '''Console.WriteLine("NOT WIRED");
@@ -132,10 +128,10 @@ public sealed class MockSelector : ISelector { public string Name => "MOCK"; }
 hint = "Return mock ? new MockSelector() : new LiveSelector(), then interpolate Name after the prefix."
 
 [[lessons.concepts]]
-id = "language-cli-packaging"
-purpose = "Design a predictable command surface and deliver a runnable artifact from the same source and project metadata."
-anatomy = "Parse arguments without a shell, return stable exit codes, build or publish through dotnet, then launch the produced path with a real command."
-example = "The disposable examples in Workshop — Replace the Demos with the Real Entrypoint isolate this capability before the learner chooses how it belongs in the cumulative project. The lesson Workshop — Replace the Demos with the Real Entrypoint supplies the disposable observation point."
-observable = "Help, invalid input, ordinary execution, and the published binary each produce their documented outcome. Confirm it while practicing Workshop — Replace the Demos with the Real Entrypoint."
-failure = "Ambiguous arguments, embedded secrets, or an unlaunched publish directory leave the program unproved."
+id = "language-composition-root-entrypoint"
+purpose = "Retire the demonstrations and build the real entry point that turns parsed intent into one end-to-end run."
+anatomy = "The entry point parses input, answers help and invalid input first, loads the catalog, creates infrastructure with deliberate lifetimes, runs the sequence, and returns a stable exit code."
+example = "A provider selected from parsed options at startup, with construction and disposal owned by the entry point rather than by the stages."
+observable = "One command produces the whole journey, and every earlier regression still passes afterwards."
+failure = "Leaving lesson demonstrations wired into the entry point ships scaffolding as product and hides which path a run actually took."
 practice = "s11-l05-e1"

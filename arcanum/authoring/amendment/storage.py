@@ -70,6 +70,43 @@ def save_amend_record(build_dir, tome, record):
             pass
 
 
+def forget_amend_record(build_dir, tome, job_id):
+    """Drop one run from the ledger; return whether a row was actually removed.
+
+    Only a run that never finished can be dropped. A finished run is the record of an edit
+    that is on disk right now -- deleting that leaves the tome changed with nothing saying
+    who changed it, which is the opposite of what a ledger is for.
+    """
+    if not re.fullmatch(r"[A-Za-z0-9_-]+", str(tome or "")):
+        raise ValueError("invalid tome id")
+    path = amend_log_path(build_dir, tome)
+    try:
+        with open(path, encoding="utf-8") as handle:
+            rows = json.load(handle)
+    except (OSError, ValueError):
+        return False
+    if not isinstance(rows, list):
+        return False
+    kept = [row for row in rows
+            if not (isinstance(row, dict) and str(row.get("jobId") or "") == str(job_id)
+                    and row.get("status") != "done")]
+    if len(kept) == len(rows):
+        return False
+    temporary = path + ".tmp"
+    try:
+        with open(temporary, "w", encoding="utf-8") as handle:
+            json.dump(kept, handle, ensure_ascii=False, indent=1)
+            handle.write("\n")
+        os.replace(temporary, path)
+    except OSError:
+        try:
+            os.remove(temporary)
+        except OSError:
+            pass
+        return False
+    return True
+
+
 def review_metadata_path(root, report_rel):
     name = os.path.basename(str(report_rel or ""))
     if not re.fullmatch(r"[A-Za-z0-9_-]+-\d{8}-\d{6}\.md", name):
@@ -103,6 +140,54 @@ def review_verdict(report):
         return text[:6000]
     next_section = text.find("\n## ", start + len(heading))
     return text[start:next_section if next_section >= 0 else None].strip()[:12000]
+
+
+def amend_history(build_dir, tome):
+    """Finished Binder builds for this tome, newest first.
+
+    The job store is in memory, so the panel that shows a run's cost is empty the moment
+    the page is reloaded -- which is when someone actually goes looking for it. This reads
+    the same fact back off disk. ``validator`` rides along only on a failed run, because
+    that is the only time it is worth the payload.
+    """
+    if not re.fullmatch(r"[A-Za-z0-9_-]+", str(tome or "")):
+        return []
+    try:
+        with open(amend_log_path(build_dir, tome), encoding="utf-8") as handle:
+            rows = json.load(handle)
+    except (OSError, ValueError):
+        return []
+    if not isinstance(rows, list):
+        return []
+    out = []
+    for row in rows[-20:]:
+        if not isinstance(row, dict):
+            continue
+        ok = row.get("status") == "done" and row.get("validatorOk") is not False
+        # A run that never finished is still an offer: the bench can take its request and
+        # mode up again with any hand, and show the feed it reached before it stopped.
+        unfinished = row.get("status") != "done"
+        setup = row.get("setup") if isinstance(row.get("setup"), dict) else None
+        out.append({
+            "jobId": str(row.get("jobId") or ""),
+            "finishedAt": row.get("finishedAt"),
+            "mode": str(row.get("mode") or ""),
+            "status": str(row.get("status") or "unknown"),
+            "continuations": int(row.get("continuations") or 0),
+            "summary": str(row.get("summary") or ""),
+            "error": str(row.get("error") or ""),
+            "validatorOk": row.get("validatorOk"),
+            "validator": "" if ok else str(row.get("validator") or ""),
+            "apiCostEstimate": (
+                row.get("apiCostEstimate")
+                if isinstance(row.get("apiCostEstimate"), dict) else None),
+            "unfinished": unfinished,
+            "setup": setup if unfinished else None,
+            "activity": ([item for item in (row.get("activity") or [])
+                          if isinstance(item, dict)] if unfinished else []),
+        })
+    out.reverse()
+    return out
 
 
 def review_history(root, tome, report_path=""):

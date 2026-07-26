@@ -1,6 +1,6 @@
 [[lessons]]
 id = "s07-l05"
-teaches = ["language-types-nullability"]
+teaches = ["language-uri-admission-parsing"]
 title = "Reading Web Addresses — Safe URI Admission"
 body = '''
 
@@ -53,7 +53,7 @@ required = false
 capabilities = ["language-types-nullability"]
 cognitiveTask = "complete"
 scaffold = "worked"
-contextFamily = "verisearch-s07-types-nullability"
+contextFamily = "verisearch-s07-uri-admission-parsing"
 aidPolicy = "learning"
 reps = 2
 prompt = "Copy the safe web-host gate twice. SourcePolicy uses this shape before any network call."
@@ -72,7 +72,7 @@ required = true
 capabilities = ["language-types-nullability"]
 cognitiveTask = "complete"
 scaffold = "guided"
-contextFamily = "verisearch-s07-types-nullability"
+contextFamily = "verisearch-s07-uri-admission-parsing"
 aidPolicy = "learning"
 prompt = "Fill the blank with the non-throwing parser used to test a complete configured URL."
 code = '''
@@ -91,7 +91,7 @@ required = true
 capabilities = ["language-types-nullability"]
 cognitiveTask = "explain"
 scaffold = "guided"
-contextFamily = "verisearch-s07-types-nullability"
+contextFamily = "verisearch-s07-uri-admission-parsing"
 aidPolicy = "learning"
 prompt = "A configured URL is <code>https://nist.gov/pubs?id=7#summary</code>. Which value does <code>uri.Host</code> return?"
 choices = ["/pubs", "nist.gov", "id=7", "https"]
@@ -108,7 +108,7 @@ required = true
 capabilities = ["language-types-nullability"]
 cognitiveTask = "recall"
 scaffold = "guided"
-contextFamily = "verisearch-s07-types-nullability"
+contextFamily = "verisearch-s07-uri-admission-parsing"
 aidPolicy = "learning"
 prompt = "After <code>var uri = new Uri(\"https://ietf.org/rfc/8446\");</code>, which property yields the server name? Give only the property name."
 answer = "Host"
@@ -124,7 +124,7 @@ required = true
 capabilities = ["language-types-nullability"]
 cognitiveTask = "build"
 scaffold = "guided"
-contextFamily = "verisearch-s07-types-nullability"
+contextFamily = "verisearch-s07-uri-admission-parsing"
 aidPolicy = "learning"
 prompt = "Given the starter's three candidate strings, print the lowercase host of each absolute HTTP/HTTPS URL in input order. Reject <code>not a url</code> without throwing. The exact output must be <code>ietf.org</code> then <code>nist.gov</code>, one per line."
 starter = '''
@@ -160,10 +160,10 @@ foreach (string raw in urls)
 hint = "Inside the foreach, combine Uri.TryCreate with an HTTP-or-HTTPS scheme check; print uri.Host.ToLowerInvariant() only when both gates pass."
 
 [[lessons.concepts]]
-id = "language-types-nullability"
-purpose = "Represent facts with C# types and make the possibility of missing data explicit."
-anatomy = "Choose a type, declare a name, initialize it, and handle nullable values before member access or conversion."
-example = "The disposable examples in Reading Web Addresses — Safe URI Admission isolate this capability before the learner chooses how it belongs in the cumulative project. The lesson Reading Web Addresses — Safe URI Admission supplies the disposable observation point."
-observable = "The compiler accepts the assignments and every missing-value path has an intentional outcome. Confirm it while practicing Reading Web Addresses — Safe URI Admission."
-failure = "A nullable warning or invalid conversion shows that the value contract and the code disagree."
+id = "language-uri-admission-parsing"
+purpose = "Admit a configured web address only after the language has confirmed it is absolute and uses a supported scheme."
+anatomy = "Uri.TryCreate with the absolute kind either yields a parsed address or fails without throwing, and the scheme, host, and path answer different admission questions."
+example = "A full address parsed into its scheme, host, and path, then a small helper that admits only the two web schemes and reports the host."
+observable = "A relative or unsupported address is refused locally with a reason, and an admitted address reports the host the request will reach."
+failure = "Splitting an address on slashes admits values no client can reach, and an unchecked scheme can turn a search into a local file read."
 practice = "s07-l05-d1"

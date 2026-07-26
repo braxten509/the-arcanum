@@ -1,6 +1,6 @@
 [[lessons]]
 id = "s01-l04"
-teaches = ["language-methods-scope"]
+teaches = ["language-console-text-boundary", "language-helper-method-extraction"]
 title = "Speaking through the stone — console I/O"
 body = '''
 
@@ -15,6 +15,16 @@ Console.Write(<span class="s">"no new line — "</span>);          <span class="
 <pre><code data-kind="replacement">Console.Write(<span class="s">"&gt; "</span>);                  <span class="c">// show the prompt, no new line</span>
 <span class="k">string</span> line = Console.ReadLine() ?? <span class="s">""</span>;
 Console.WriteLine(<span class="s">$"You asked: \"{line}\""</span>);</code></pre>
+<p>The moment that prompt-and-ward pair appears twice, give it a name. A small <em>helper</em> receives what it needs as a parameter and hands back one value — the caller keeps the decision, the helper keeps the mechanics:</p>
+<pre><code data-kind="replacement"><span class="k">static string</span> Ask(<span class="k">string</span> prompt)   <span class="c">// one job, one name, one returned value</span>
+{
+    Console.Write(prompt);
+    <span class="k">return</span> Console.ReadLine() ?? <span class="s">""</span>;
+}
+
+<span class="k">string</span> question = Ask(<span class="s">"question&gt; "</span>);   <span class="c">// each call site now reads as intent</span>
+<span class="k">string</span> label = Ask(<span class="s">"source&gt; "</span>);</code></pre>
+<p>Read what that bought you: the ward against silence lives in exactly <em>one</em> place. Change the fallback inside <code>Ask</code> and every caller changes with it; copy the pair a third time instead and you have three places to remember. Chapter II names this boundary properly — return types, parameters, and scope — but this chapter's Great Working already asks for one helper of your own, so forge it here.</p>
 <p>Two escape marks worth knowing inside strings: <code>\"</code> sets a literal quote within a string, <code>\n</code> is a new line.</p>
 <div class="callout">On the desk's speaking stone, your working cannot wait for live typing — set your test lines in the WHISPER box (separate lines with \n). Example: <code>what is TLS?\nquit</code></div>
 <div class="callout csharp-transfer"><p><strong>C#/.NET transfer:</strong> <code>Console.ReadLine()</code> returns <code>string?</code> because redirected input can end, so end-of-stream belongs in the type contract. <code>Console.In</code> and <code>Console.Out</code> are replaceable <code>TextReader</code>/<code>TextWriter</code> objects, which is useful when the console boundary later needs deterministic tests.</p></div>
@@ -37,7 +47,7 @@ required = true
 capabilities = ["language-methods-scope"]
 cognitiveTask = "recall"
 scaffold = "guided"
-contextFamily = "verisearch-s01-methods-scope"
+contextFamily = "verisearch-s01-console-text-boundary"
 aidPolicy = "learning"
 prompt = "Which calling hears one line of the seeker's voice from the console? (just the method name, no parentheses needed)"
 answer = "Console.ReadLine"
@@ -52,7 +62,7 @@ required = true
 capabilities = ["language-methods-scope"]
 cognitiveTask = "explain"
 scaffold = "guided"
-contextFamily = "verisearch-s01-methods-scope"
+contextFamily = "verisearch-s01-console-text-boundary"
 aidPolicy = "learning"
 prompt = "What divides <code>Console.Write</code> from <code>Console.WriteLine</code>?"
 choices = ["Write is for numbers, WriteLine for text", "Write is asynchronous", "WriteLine adds a newline at the end; Write doesn't", "WriteLine can only print string literals"]
@@ -69,12 +79,32 @@ required = true
 capabilities = ["language-methods-scope"]
 cognitiveTask = "complete"
 scaffold = "guided"
-contextFamily = "verisearch-s01-methods-scope"
+contextFamily = "verisearch-s01-console-text-boundary"
 aidPolicy = "learning"
 prompt = "Complete the rune: if ReadLine returns null, fall back to an empty string."
 code = "string query = Console.ReadLine() ____ \"\";"
 answer = "??"
 hint = "The null-coalescing operator. Two characters."
+
+[[lessons.exercises]]
+id = "s01-l04-e4"
+type = "fill"
+points = 25
+required = true
+capabilities = ["language-methods-scope"]
+cognitiveTask = "complete"
+scaffold = "completion"
+contextFamily = "verisearch-s01-helper-method-extraction"
+aidPolicy = "learning"
+prompt = "The helper prints the prompt, then hands one warded line back to its caller. Complete the line that returns it."
+code = '''
+static string Ask(string prompt)
+{
+    Console.Write(prompt);
+    ____ Console.ReadLine() ?? "";
+}'''
+answer = "return"
+hint = "One keyword. It is how a method hands a value back to whoever called it."
 
 [[lessons.exercises]]
 id = "s01-l04-d1"
@@ -84,7 +114,7 @@ required = false
 capabilities = ["language-methods-scope"]
 cognitiveTask = "complete"
 scaffold = "worked"
-contextFamily = "verisearch-s01-methods-scope"
+contextFamily = "verisearch-s01-console-text-boundary"
 aidPolicy = "learning"
 reps = 2
 prompt = "The prompt-hear-ward line. Twice. You will inscribe this shape a thousand times."
@@ -100,7 +130,7 @@ required = true
 capabilities = ["language-methods-scope"]
 cognitiveTask = "build"
 scaffold = "guided"
-contextFamily = "verisearch-s01-methods-scope"
+contextFamily = "verisearch-s01-console-text-boundary"
 aidPolicy = "learning"
 prompt = "Your working receives one line by whisper: a visitor's name. Hear it (utter no prompt!) and speak exactly two lines: <code>WHO KNOCKS: &lt;name&gt;</code> then <code>the door opens</code>."
 stdin = "THORNE"
@@ -115,10 +145,19 @@ Console.WriteLine("the door opens");
 hint = "string name = Console.ReadLine() ?? \"\"; then two WriteLines (or one with \\n)."
 
 [[lessons.concepts]]
-id = "language-methods-scope"
-purpose = "Give one transformation a named boundary with deliberate inputs, output, and variable lifetime."
-anatomy = "Declare the return type, method name, typed parameters, body, and return path; keep locals inside the narrowest useful scope."
-example = "The disposable examples in Speaking through the stone — console I/O isolate this capability before the learner chooses how it belongs in the cumulative project. The lesson Speaking through the stone — console I/O supplies the disposable observation point."
-observable = "Callers can exercise the behavior from its result without depending on hidden global state. Confirm it while practicing Speaking through the stone — console I/O."
-failure = "A method that reads unrelated globals or has an incomplete return path makes tests and reuse unreliable."
+id = "language-console-text-boundary"
+purpose = "Move text across the terminal boundary: prompt without a newline, read one entered line, and treat the end of input as a real outcome."
+anatomy = "Console.Write prints without advancing, Console.WriteLine ends the line, and Console.ReadLine returns a nullable string because a closed input stream yields null rather than text."
+example = "A prompt written with Console.Write, the reply captured with a null-coalescing default, and the same reply echoed back through interpolation."
+observable = "The prompt and the caret stay on one line, typed text is echoed exactly, and Ctrl+D ends the exchange without an unhandled exception."
+failure = "Treating the read value as a plain string crashes the moment input closes, and trimming or reflowing the reply silently changes the seeker's question."
 practice = "s01-l04-e1"
+
+[[lessons.concepts]]
+id = "language-helper-method-extraction"
+purpose = "Lift one repeated console step into a named helper so the entry file states what happens instead of how it is spelled."
+anatomy = "The helper names its input as a parameter, returns one value, and is called by name; the caller keeps the decision while the helper keeps the mechanics."
+example = "The prompt-and-ward pair extracted into a static Ask method taking the prompt text, then called twice for two different questions."
+observable = "Both call sites read as one line of intent, and changing the fallback inside the helper changes every caller at once."
+failure = "Copying the prompt-and-ward pair a third time leaves three places to repair, and the entry file grows faster than the behavior does."
+practice = "s01-l04-e4"

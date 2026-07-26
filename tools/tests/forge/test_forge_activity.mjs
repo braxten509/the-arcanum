@@ -8,13 +8,23 @@ function readCssBundle(filename) {
     readCssBundle(path.resolve(path.dirname(filename), relative)));
 }
 
-const setup = fs.readFileSync("web/app/forge/forge.js", "utf8");
-const session = fs.readFileSync("web/app/forge/bindery.js", "utf8");
+// forge.js, bindery.js and binder.js each grew a sibling folder of extracted modules.
+// These assertions care that a string exists somewhere in the feature, not which file
+// of it holds the string, so each name below reads its entry point plus that folder.
+function readModule(entry, folder) {
+  const dir = path.resolve(path.dirname(entry), folder);
+  return fs.readFileSync(entry, "utf8") + (fs.existsSync(dir)
+    ? fs.readdirSync(dir).sort()
+      .map((name) => fs.readFileSync(path.join(dir, name), "utf8")).join("\n") : "");
+}
+
+const setup = readModule("web/app/forge/forge.js", "modal");
+const session = readModule("web/app/forge/bindery.js", "bindery");
 const phases = fs.readFileSync("web/app/forge/phases.js", "utf8");
 const workings = fs.readFileSync("web/app/forge/workings.js", "utf8");
 const menu = fs.readFileSync("web/app/ui/menu.js", "utf8");
 const traceLines = fs.readFileSync("web/app/forge/trace-lines.js", "utf8");
-const binder = fs.readFileSync("web/app/forge/binder.js", "utf8");
+const binder = readModule("web/app/forge/binder.js", "binder");
 const baseCss = fs.readFileSync("web/css/overlay/bindery/base.css", "utf8");
 const binderyCss = fs.readFileSync("web/css/overlay/bindery.css", "utf8");
 const priorKnowledgeCss = fs.readFileSync("web/css/overlay/bindery/prior-knowledge.css", "utf8");
@@ -53,25 +63,29 @@ assert.match(setup, /aria-label="Author model"/);
 assert.match(setup, /aria-label="Author effort"/);
 assert.match(setup, /aria-label="Phases 3 through 7 author agent CLI"/);
 assert.match(setup, /aria-label="Phases 3 through 7 author model"/);
-assert.match(setup, /VALIDATOR AI[\s\S]*MANDATORY · PHASES 1–2 \+ EVERY SECTION/);
+assert.match(setup, /VALIDATOR AI[\s\S]*PHASES 1–2 MANDATORY · SECTIONS: ONE PASS/);
 assert.match(setup, /aria-label="Validator AI provider"/);
 assert.match(setup, /aria-label="Validator AI model"/);
-assert.match(setup, /About Validator AI[\s\S]*prerequisite completeness/);
+assert.match(setup, /About Validator AI[\s\S]*after the Phase 1 and Phase 2 mechanical gates/);
 assert.match(setup, /recommendedValidator[\s\S]*gpt-5\.6-sol[\s\S]*effort: "high"/);
-assert.match(setup, /legacyLunaDefault[\s\S]*gpt-5\.6-luna/);
-assert.match(setup, /Responses API/);
 assert.doesNotMatch(setup, /service_tier[\s\S]*flex/i);
 assert.match(setup, /aria-label="Phase 8 author agent CLI"/);
 assert.match(setup, /aria-label="Phase 8 author model"/);
-assert.match(setup, /THOROUGH REVIEWER AI/);
+assert.match(setup, /REVIEW &amp; PUBLICATION AI/);
 assert.match(setup, /reads every authored[\s\S]*no sampling/i);
-assert.match(setup, /aria-label="About thorough reviewer AI"/);
+// The stage now ends in the publication survey, so the tooltip has to name the bar it
+// judges against; an operator who cannot see that reads the toggle as optional polish.
+assert.match(setup, /publisher\.md[\s\S]*sign it off/);
+assert.match(setup, /aria-label="About the review and publication AI"/);
 assert.doesNotMatch(setup, /class="forge-reviewer-copy"/);
-assert.match(setup, /forge-reviewer-field[\s\S]*forge-reviewer-head[\s\S]*THOROUGH REVIEWER AI[\s\S]*About thorough reviewer AI[\s\S]*forge-reviewer-toggle[\s\S]*fg-review-enabled[\s\S]*ENABLE \(OPTIONAL\)/);
+assert.match(setup, /forge-reviewer-field[\s\S]*forge-reviewer-head[\s\S]*REVIEW &amp; PUBLICATION AI[\s\S]*About the review and publication AI[\s\S]*forge-reviewer-toggle[\s\S]*fg-review-enabled[\s\S]*<span>ENABLE<\/span>/);
+// Publication is part of building a tome, not an extra afterwards: a fresh build starts
+// with the stage on, and only a resume inherits what the run being resumed actually used.
+assert.match(setup, /reviewEnabled\.checked = resume \? !!\(resume\.reviewer && resume\.reviewer\.model\) : true/);
 assert.doesNotMatch(setup, /SECTION SEMANTIC REVIEW|semanticReview|fg-sem-|binderySemanticReview/);
 assert.equal(fs.existsSync("tools/buildlib/semantic_review.py"), false);
 assert.match(setup, /aria-label="Reviewer agent CLI"/);
-assert.match(setup, /sectionCostLimitUsd, author, authors, validator, reviewer/);
+assert.match(setup, /sectionCostLimitUsd, sectionAiReviewMode, author, authors, validator, reviewer/);
 assert.match(setup, /id="fg-section-cost-limit"[^>]*min="1"[^>]*max="10\.5"[^>]*step="0\.5"/);
 assert.match(setup, /Rightmost is no limit/);
 assert.match(setup, /sectionCostLimitUsd = Number\(sectionCostLimit\.value\) >= Number\(sectionCostLimit\.max\)[\s\S]*\? null/);
@@ -174,6 +188,10 @@ assert.match(baseCss, /#fp-phase\[data-state="pausing"\]/);
 assert.match(baseCss, /#fp-phase\[data-state="validating"\]/);
 assert.match(baseCss, /\.tome-row\.forging\[data-state="validating"\] \.jr-desc/);
 assert.match(baseCss, /\.forge-depth input\[type="range"\]\s*\{[^}]*min-width:\s*0/s);
+// A closed help tip must leave the layout entirely. `visibility: hidden` keeps its box,
+// and an absolutely positioned box still counts toward the scrollable overflow of the
+// modal around it — which padded the forge modal with dead scroll below its buttons.
+assert.match(baseCss, /\.forge-tip\s*\{[^}]*display:\s*none/s);
 assert.match(binderyCss, /base\.css"\);\s*@import url\("\.\/bindery\/prior-knowledge\.css"\);/s);
 assert.match(sessionCssEntry,
   /setup\.css"\);\s*@import url\("\.\/session\/status\.css"\);[\s\S]*workbench\.css"\);[\s\S]*controls\.css"\);/);

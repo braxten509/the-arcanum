@@ -1,6 +1,6 @@
 [[lessons]]
 id = "s07-l06"
-teaches = ["language-collections-generics"]
+teaches = ["language-source-selection-resolution"]
 title = "Workshop — Make Source Choice Explicit"
 body = '''
 
@@ -29,7 +29,7 @@ required = true
 capabilities = ["language-collections-generics"]
 cognitiveTask = "explain"
 scaffold = "guided"
-contextFamily = "verisearch-s07-collections-generics"
+contextFamily = "verisearch-s07-source-selection-resolution"
 aidPolicy = "learning"
 prompt = "What is the only valid origin of a SourceSpec returned by <code>SourcePolicy.Select</code>?"
 choices = ["An AI suggestion", "A public search result", "The validated AppConfig supplied by the user", "A hardcoded domain list"]
@@ -37,10 +37,6 @@ answer = 2
 whyWrong = "The AI, public discovery, and compiled domain lists do not own source choice. The method narrows the user's validated configuration."
 explain = "Configured-only admission makes every consulted source intentional and inspectable."
 hint = "Trace the initial candidates variable."
-reviewVariants = [
-  { prompt = "You need user-selected labels in their supplied order. Which property is load-bearing?", choices = ["Ordered typed collection", "Random enumeration", "Global string", "Unkeyed exceptions"], answer = 0 },
-  { prompt = "A missing dictionary key is ordinary input. Which operation avoids a blind index failure?", choices = ["TryGetValue", "GetHashCode", "ToString", "Reverse"], answer = 0 }
-]
 
 [[lessons.exercises]]
 id = "s07-l06-d1"
@@ -50,7 +46,7 @@ required = false
 capabilities = ["language-collections-generics"]
 cognitiveTask = "complete"
 scaffold = "worked"
-contextFamily = "verisearch-s07-collections-generics"
+contextFamily = "verisearch-s07-source-selection-resolution"
 aidPolicy = "learning"
 reps = 2
 prompt = "Retype the web-scheme guard twice."
@@ -65,7 +61,7 @@ required = true
 capabilities = ["language-collections-generics"]
 cognitiveTask = "complete"
 scaffold = "guided"
-contextFamily = "verisearch-s07-collections-generics"
+contextFamily = "verisearch-s07-source-selection-resolution"
 aidPolicy = "learning"
 prompt = "Complete the case-insensitive URL deduplication call."
 code = '''.DistinctBy(source => source.Url, StringComparer.____)'''
@@ -80,7 +76,7 @@ required = true
 capabilities = ["language-collections-generics"]
 cognitiveTask = "explain"
 scaffold = "guided"
-contextFamily = "verisearch-s07-collections-generics"
+contextFamily = "verisearch-s07-source-selection-resolution"
 aidPolicy = "learning"
 prompt = "A requested label is not present in configuration. Which behavior preserves user intent?"
 choices = ["Search for something similar", "Use the first configured source", "Ask the model to choose", "Stop and name the missing label"]
@@ -97,7 +93,7 @@ required = true
 capabilities = ["language-collections-generics"]
 cognitiveTask = "build"
 scaffold = "guided"
-contextFamily = "verisearch-s07-collections-generics"
+contextFamily = "verisearch-s07-source-selection-resolution"
 aidPolicy = "learning"
 prompt = "From the starter's configured labels, select the requested labels case-insensitively, remove duplicates, and print one summary line in request order."
 starter = '''var configured = new List<string> { "RFC", "NIST", "RFC" };
@@ -118,10 +114,10 @@ Console.WriteLine($"selected={string.Join(",", selected)}");
 hint = "Map each request with First plus Equals(...OrdinalIgnoreCase), Distinct, then string.Join the selected values."
 
 [[lessons.concepts]]
-id = "language-collections-generics"
-purpose = "Store ordered and keyed values with type-safe collection contracts."
-anatomy = "Choose List<T>, an array, or Dictionary<TKey,TValue>, supply its type arguments, add values, then retrieve them through a safe operation."
-example = "The disposable examples in Workshop — Make Source Choice Explicit isolate this capability before the learner chooses how it belongs in the cumulative project. The lesson Workshop — Make Source Choice Explicit supplies the disposable observation point."
-observable = "The collection preserves the promised order or key relationship and rejects the wrong element type at compile time. Confirm it while practicing Workshop — Make Source Choice Explicit."
-failure = "A bare missing-key index or accidental multiple enumeration can turn ordinary input into a crash or inconsistent result."
+id = "language-source-selection-resolution"
+purpose = "Resolve the source labels the seeker asked for against the catalog, before any network work begins."
+anatomy = "Requested labels are matched under one documented comparison, first-request order is preserved, unknown labels are rejected, and repeats collapse deliberately."
+example = "A requested label list reduced under an explicit case-insensitive comparer so the first spelling wins and the duplicate is dropped."
+observable = "A spy proves an unknown label causes zero reads, and rewording the question does not change which sources are selected."
+failure = "Letting question words influence source choice hands relevance policy to the tool and takes it away from the seeker."
 practice = "s07-l06-e1"

@@ -1,6 +1,6 @@
 [[lessons]]
 id = "s08-l03"
-teaches = ["language-async-cancellation"]
+teaches = ["language-cooperative-cancellation"]
 title = "CancellationToken — pulling the plug politely"
 body = '''
 
@@ -47,12 +47,13 @@ required = true
 capabilities = ["language-async-cancellation"]
 cognitiveTask = "explain"
 scaffold = "guided"
-contextFamily = "verisearch-s08-async-cancellation"
+contextFamily = "verisearch-s08-cooperative-cancellation"
 aidPolicy = "limited"
 prompt = "Which object actually TRIGGERS cancellation?"
 choices = ["CancellationToken", "CancellationTokenSource", "TaskCanceledException", "Task.Cancel()"]
 answer = 1
 whyWrong = "The token only OBSERVES cancellation and the exception/‘Task.Cancel’ aren’t the trigger — CancellationTokenSource.Cancel() fires it."
+explain = "The source owns the plug and the token is the wire: you keep the <code>CancellationTokenSource</code>, hand its token down, and cancel from the one place that knows the run should stop."
 hint = "The token is read-only; the ____ has .Cancel()."
 
 [[lessons.exercises]]
@@ -63,7 +64,7 @@ required = true
 capabilities = ["language-async-cancellation"]
 cognitiveTask = "complete"
 scaffold = "guided"
-contextFamily = "verisearch-s08-async-cancellation"
+contextFamily = "verisearch-s08-cooperative-cancellation"
 aidPolicy = "limited"
 prompt = "Fill the blank to auto-cancel the whole batch after 15 seconds."
 code = '''
@@ -81,12 +82,13 @@ required = true
 capabilities = ["language-async-cancellation"]
 cognitiveTask = "explain"
 scaffold = "guided"
-contextFamily = "verisearch-s08-async-cancellation"
+contextFamily = "verisearch-s08-cooperative-cancellation"
 aidPolicy = "limited"
 prompt = "A canceled operation surfaces as…"
 choices = ["a null return value", "a bool return of false", "an OperationCanceledException at the await", "silent completion with partial data"]
 answer = 2
 whyWrong = "Cancellation isn’t a null/false return or a silent finish — it surfaces as an OperationCanceledException thrown at the await."
+explain = "Cancellation surfaces as an exception at the await so it cannot be mistaken for a result — catch it apart from ordinary failure and report a stopped run rather than a failed source."
 hint = "Cancellation travels the same rails as errors."
 
 [[lessons.exercises]]
@@ -97,7 +99,7 @@ required = false
 capabilities = ["language-async-cancellation"]
 cognitiveTask = "complete"
 scaffold = "worked"
-contextFamily = "verisearch-s08-async-cancellation"
+contextFamily = "verisearch-s08-cooperative-cancellation"
 aidPolicy = "limited"
 reps = 2
 prompt = "Deadline + pass-down + catch — the full cancellation shape. Twice."
@@ -121,7 +123,7 @@ required = true
 capabilities = ["language-async-cancellation"]
 cognitiveTask = "build"
 scaffold = "independent"
-contextFamily = "verisearch-s08-async-cancellation"
+contextFamily = "verisearch-s08-cooperative-cancellation"
 aidPolicy = "limited"
 prompt = "Set a 50ms deadline with CancelAfter, then await <code>Task.Delay(5000, cts.Token)</code> inside try/catch. When the cancellation lands, print <code>timed out cleanly</code>."
 expect = "timed out cleanly"
@@ -140,10 +142,10 @@ catch (OperationCanceledException)
 hint = "catch (TaskCanceledException) — or its base OperationCanceledException. Either works."
 
 [[lessons.concepts]]
-id = "language-async-cancellation"
-purpose = "Coordinate I/O-bound work without blocking threads, serializing independent work, or swallowing cancellation."
-anatomy = "Return Task or Task<T>, await asynchronous operations, pass one CancellationToken, and use Task.WhenAll when independent work may overlap."
-example = "The disposable examples in CancellationToken — pulling the plug politely isolate this capability before the learner chooses how it belongs in the cumulative project. The lesson CancellationToken — pulling the plug politely supplies the disposable observation point."
-observable = "Independent reads overlap, completion resumes with typed results, and cancellation reaches the top boundary. Confirm it while practicing CancellationToken — pulling the plug politely."
-failure = "Using Result, Wait, await-inside-loop, or catching cancellation as an ordinary error breaks responsiveness."
+id = "language-cooperative-cancellation"
+purpose = "Let a long operation be stopped on request, and treat that stop as its own outcome."
+anatomy = "A cancellation source holds the plug, its token travels into every awaited call, and cancellation surfaces as a cancellation exception at those awaits."
+example = "A cancellation source given a deadline, its token passed down through the read, and the cancellation exception caught apart from ordinary failure."
+observable = "A cancelled run stops promptly and reports cancellation, while an uncancelled run completes normally."
+failure = "Dropping the token at one call makes that step uncancellable, and catching cancellation as an ordinary error reports a failure the seeker caused on purpose."
 practice = "s08-l03-e1"

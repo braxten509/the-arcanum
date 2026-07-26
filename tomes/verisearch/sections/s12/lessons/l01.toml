@@ -1,6 +1,6 @@
 [[lessons]]
 id = "s12-l01"
-teaches = ["language-testing-debugging"]
+teaches = ["language-unit-test-project-suite"]
 title = "xUnit — Turn the Promise into Executable Proof"
 body = '''
 <p>A unit test calls project code with known values and asserts what must remain true. Create the test project beside—not inside—the application folder so the main project does not compile test files:</p>
@@ -54,7 +54,7 @@ required = true
 capabilities = ["language-testing-debugging"]
 cognitiveTask = "explain"
 scaffold = "guided"
-contextFamily = "verisearch-s12-testing-debugging"
+contextFamily = "verisearch-s12-unit-test-project-suite"
 aidPolicy = "limited"
 prompt = "How do <code>[Fact]</code> and <code>[Theory]</code> differ?"
 choices = ["Fact is deprecated", "Fact is one fixed case; Theory runs one body with multiple supplied inputs", "Theory is never run by dotnet test", "Fact cannot use Assert"]
@@ -71,7 +71,7 @@ required = true
 capabilities = ["language-testing-debugging"]
 cognitiveTask = "recall"
 scaffold = "guided"
-contextFamily = "verisearch-s12-testing-debugging"
+contextFamily = "verisearch-s12-unit-test-project-suite"
 aidPolicy = "limited"
 prompt = "Which two-word command builds and runs the test project?"
 answer = "dotnet test"
@@ -86,7 +86,7 @@ required = true
 capabilities = ["language-testing-debugging"]
 cognitiveTask = "explain"
 scaffold = "guided"
-contextFamily = "verisearch-s12-testing-debugging"
+contextFamily = "verisearch-s12-unit-test-project-suite"
 aidPolicy = "limited"
 prompt = "How should a test assert that invalid inner JSON throws <code>JsonException</code>?"
 choices = ["Assert.True(json)", "Assert.Equal(JsonException, json)", "Assert.Throws<JsonException>(() => Parse(json))", "Exceptions cannot be tested"]
@@ -103,7 +103,7 @@ required = false
 capabilities = ["language-testing-debugging"]
 cognitiveTask = "complete"
 scaffold = "worked"
-contextFamily = "verisearch-s12-testing-debugging"
+contextFamily = "verisearch-s12-unit-test-project-suite"
 aidPolicy = "limited"
 reps = 2
 prompt = "Retype the exact-substring assertion core twice."
@@ -121,7 +121,7 @@ required = true
 capabilities = ["language-testing-debugging"]
 cognitiveTask = "test-design"
 scaffold = "independent"
-contextFamily = "verisearch-s12-testing-debugging"
+contextFamily = "verisearch-s12-unit-test-project-suite"
 aidPolicy = "limited"
 prompt = "Implement a tiny <code>AssertEqual</code> helper, run two passing integer assertions, then print <code>2 passed</code>."
 starter = '''Console.WriteLine("NOT TESTED");
@@ -142,10 +142,10 @@ static void AssertEqual(int expected, int actual)
 hint = "Throw only when expected != actual; two calls that do not throw precede the WriteLine."
 
 [[lessons.concepts]]
-id = "language-testing-debugging"
-purpose = "Turn a C# promise into an executable check and diagnose failures from the earliest broken boundary."
-anatomy = "Arrange controlled inputs, invoke one behavior, assert an observable result, then use compiler, test, or debugger output to localize a failing case."
-example = "The disposable examples in xUnit — Turn the Promise into Executable Proof isolate this capability before the learner chooses how it belongs in the cumulative project. The lesson xUnit — Turn the Promise into Executable Proof supplies the disposable observation point."
-observable = "The check passes for a valid case and fails when its load-bearing input is deliberately changed. Confirm it while practicing xUnit — Turn the Promise into Executable Proof."
-failure = "A test that prints a prepared success receipt or requires live network state cannot distinguish a regression."
+id = "language-unit-test-project-suite"
+purpose = "Grow one maintained test project that calls the application through its public boundaries."
+anatomy = "The test project sits beside the application and references it, test classes group by boundary, and each fact or theory arranges, acts, and asserts once."
+example = "A Verisearch.Tests project created with dotnet new xunit, referenced to the application, with a first verifier test class replacing the template file."
+observable = "dotnet test discovers and runs the suite from the solution root, and each test names the boundary it protects."
+failure = "Test files inside the application project ship test code as product and drag test packages into production metadata."
 practice = "s12-l01-e1"

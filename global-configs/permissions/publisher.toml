@@ -1,0 +1,56 @@
+# Read/write policy for the publication SURVEY that ends every build.
+#
+# The survey judges; it never repairs. That is the whole point of it being a separate
+# process from the reviewer turn that follows: a pass that can fix what it is grading
+# grades its own homework. So `write` is empty here, and the harness overlays exactly
+# one path at launch — the pre-created report file for this pass, whose name changes
+# every run and therefore cannot be a static row in this profile.
+#
+# Usable placeholders:
+#   {build_id} — current build; the plan and sealed map are written under it.
+#   {tome_id} — current tome; the authored files and continuity handoffs live under it.
+#   {phase} — always 8 for this profile.
+#   {runtime_id} — selected runtime ID; available only when the tome declares one.
+
+[system]
+read = ["/usr", "/bin", "/lib", "/lib64", "/usr/local", "/etc", "/opt", "/proc"]
+write = []
+both = ["/tmp/arcanum/{build_id}", "/dev"]
+execute = []
+
+[permissions]
+read = [
+  "AGENTS.md",
+  # The publication bar itself, and the field map the survey needs to name a defect by
+  # file and field rather than by vibe. Without these two mounted the survey's first
+  # instruction fails and it invents a bar of its own.
+  "publisher.md",
+  "course-configuration-guide.md",
+  "tomes/{tome_id}",
+  ".tome-build/{build_id}.plan.md",
+  ".tome-build/{build_id}.course-map.json",
+  ".tome-build/{tome_id}.handoffs",
+  # Enough of the repository to actually RUN the gates below rather than take the
+  # harness's word for them. The validators import and read across all of these; the
+  # sealed bytecode mounts still hide tools/validatelib's source from inside.
+  "tools",
+  "arcanum",
+  "arcanum_core",
+  "runtimes",
+  "global-configs",
+  "skins",
+  "web",
+  "tome_layout.py",
+  "tome_proof.py",
+]
+write = []
+both = []
+execute = [
+  ["python3", "tools/validate_tome.py", "tomes/{tome_id}", "--strict"],
+  ["python3", "tools/validate_phase3.py", "tomes/{tome_id}",
+   "--plan", ".tome-build/{build_id}.plan.md", "--strict"],
+  # Per section, because the whole-tome pass pools every question bank together and
+  # averages one section's answer-position clustering away. "<section>" is the sNN.
+  ["python3", "tools/validate_section.py", "tomes/{tome_id}", "<section>",
+   "--plan", ".tome-build/{build_id}.plan.md", "--source-only"],
+]

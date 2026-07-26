@@ -1,6 +1,6 @@
 """Verified vendor prices shared by runtime estimates and build accounting."""
 
-PRICING_VERSION = "openai-anthropic-standard-2026-07-24"
+PRICING_VERSION = "openai-anthropic-standard-2026-07-25"
 PRICING_SOURCE = ("https://developers.openai.com/api/docs/pricing ; "
                   "https://platform.claude.com/docs/en/about-claude/pricing")
 
@@ -27,6 +27,14 @@ MODEL_PRICES = {
     "claude-fable-5": {"freshInput": 10.0, "cachedInput": 1.0,
                        "cacheWriteInput": 12.5, "output": 50.0},
 }
+
+# A cache write is not one price. The 5-minute default costs 1.25x base input; the
+# extended 1-hour TTL costs 2x, and Claude Code writes 1-hour entries -- a run whose
+# bill is 29% cache writes is materially under-reported at the 5-minute rate. The
+# provider reports the two buckets separately, so this is read, never assumed.
+for _rates in MODEL_PRICES.values():
+    _rates["cacheWrite1hInput"] = _rates["freshInput"] * 2
+
 GPT_MODELS = frozenset(model for model in MODEL_PRICES
                        if model.startswith("gpt-"))
 PRICED_MODELS = frozenset(MODEL_PRICES)

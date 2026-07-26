@@ -8,6 +8,7 @@ import time
 from datetime import datetime, timezone
 from decimal import Decimal, ROUND_HALF_UP
 
+from arcanum.ai.economics.estimation import cache_write_cost
 from .costing import (GPT_MODELS, MODEL_PRICES, PRICED_MODELS, PRICING_SOURCE,
                       PRICING_VERSION)
 from .costing.counters import (
@@ -53,7 +54,7 @@ def _cost(model, usage):
     amount = (
         usage["freshInputTokens"] * rates["freshInput"]
         + usage["cachedInputTokens"] * rates["cachedInput"]
-        + usage["cacheWriteTokens"] * rates["cacheWriteInput"]
+        + cache_write_cost(usage, rates)
         + usage["outputTokens"] * rates["output"]
     ) / 1_000_000
     return round(amount, 9), rates
